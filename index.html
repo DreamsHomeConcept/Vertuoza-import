@@ -222,6 +222,13 @@ td.total .somme{font-weight:700;white-space:nowrap}
 tr.r-chapitre td.total .somme{color:#fff;font-size:14px}
 tr.r-sous td.total .somme{color:var(--nuit)}
 tr.r-option td.total .somme,tr.r-refuse td.total .somme{opacity:.6;text-decoration:line-through}
+.etat-sync{margin:8px 0 12px;font-size:13px;line-height:1.45}
+.etat-sync:empty{display:none}
+.etat-sync.ok,.etat-sync.err,.etat-sync.avertit,.etat-sync.attente{padding:9px 12px;border-radius:3px;border-left:4px solid}
+.etat-sync.ok{background:#EEF6EF;border-color:var(--valide);color:#1F5A2A;font-weight:600}
+.etat-sync.err{background:#FBEDEC;border-color:var(--alerte);color:#8A2A22;font-weight:600}
+.etat-sync.avertit{background:#FCF4E6;border-color:#C98A2B;color:#7A5212;font-weight:600}
+.etat-sync.attente{background:var(--taupe-voile);border-color:var(--taupe);color:var(--encre-faible)}
 .barre-tab{display:flex;gap:6px;justify-content:flex-end;margin-bottom:6px}
 td.num .plie{border:none;background:transparent;padding:0 4px 0 0;font-size:12px;line-height:1;cursor:pointer;color:inherit;opacity:.8}
 td.num .plie:hover{opacity:1;background:transparent}
@@ -699,11 +706,12 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <div><label class="champ" for="cleConsult">Clé de consultation</label><input type="password" id="cleConsult" autocomplete="new-password" data-lpignore="true" data-1p-ignore spellcheck="false"></div>
     </div>
     <div class="rangee-boutons"><button class="fant" id="btnVerifSync">Vérifier la connexion</button></div>
+    <p class="etat-sync" id="syncEtat"></p>
     <label class="case" style="margin-top:4px"><input type="checkbox" id="biblioSeule">
       <span>Ce poste gère uniquement la bibliothèque
         <small>Avec la clé d'édition, seuls les modèles sont publiés, jamais les chantiers de ce poste. Ils arrivent automatiquement chez les autres postes comme <b>modèles de référence</b>, utilisables mais non modifiables. Renseignez aussi la clé de consultation pour suivre les chantiers en lecture seule.</small>
       </span></label>
-    <p class="note" id="syncEtat"></p>
+
 
     <hr class="separateur">
 
@@ -780,9 +788,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.46';
+var VERSION = '2.47';
 var DATE_VERSION = '21/09/2026';
-var NOTES = 'Réponse de l\'IA reçue en continu (plus de coupure sur les longs devis) ; somme affichée sur chaque chapitre et sous-chapitre.';
+var NOTES = 'Anti-doublons renforcé : un devis est reconnu par son émetteur et son numéro, quel que soit le poste ; archive remplaçable. Message de vérification des clés bien visible.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1538,7 +1546,12 @@ function messageErreurSync(e,quoi){
 }
 function majEtatSync(txt){
   etatSync=txt||'';
-  if($('syncEtat')) $('syncEtat').textContent=etatSync;
+  var el=$('syncEtat'); if(!el) return;
+  el.textContent=etatSync;
+  el.className='etat-sync '+(!etatSync ? '' :
+    /vérification|en cours/i.test(etatSync) ? 'attente' :
+    /(refus|invalide|échec|impossible|introuvable|renseignez|erreur|incorrect)/i.test(etatSync) ? 'err' :
+    /(migration|non copiée)/i.test(etatSync) ? 'avertit' : 'ok');
 }
 function planifieSync(){
   if(!peutPublier()) return;
@@ -2707,6 +2720,11 @@ function surCle(){
 }
 /* Teste réellement la clé auprès de la base, même quand rien n'est à envoyer. */
 async function verifieCles(){
+  var bt=$('btnVerifSync'); bt.disabled=true;
+  majEtatSync('Vérification en cours…');
+  try{ await verifieClesCorps(); } finally{ bt.disabled=false; }
+}
+async function verifieClesCorps(){
   if(cleRemplie(params.cleEdition) && params.sbUrl && params.sbCle){
     majEtatSync('Vérification de la clé d\'édition…');
     try{
@@ -3448,6 +3466,8 @@ function ajouteIntervenant(d,res,nomFichier){
   d.lots[nom]=lot;
   if(!d.natures) d.natures={};
   d.natures[nom]=(e.nature==='fournisseur'||e.nature==='dhc')?e.nature:'sous-traitant';
+  if(!d.refs) d.refs={};
+  d.refs[nom]={reference:String(e.reference||'').trim(), date:String(e.date||'').trim()};
 
   var vs=(res.variantes||[]).filter(function(v){ return v && (v.lignes||[]).length; });
   if(!vs.length && !convertitLignes(res.lignes||[]).length) return;   /* rien à intégrer */
@@ -3748,7 +3768,19 @@ function lignesArchivables(d,lot){
   return out;
 }
 
-async function archive(silencieux){
+/* Empreinte d'un devis : l'émetteur (sans forme juridique) et son numéro ; à défaut
+   de numéro, sa date et son total. Le même devis archivé depuis deux postes ou deux
+   dossiers donne la même empreinte, que la base refuse en double. */
+function normEmpreinte(t){
+  return sansAccent(t||'').replace(/\((\d+)\)\s*$/,'').replace(/\b(sas|sasu|sarl|eurl|sa|sci|snc|scop)\b/g,'').replace(/[^a-z0-9]/g,'');
+}
+function empreinteArchive(d,lot,totalDeb){
+  var r = d.mode==='st' ? ((d.refs||{})[lot.emetteur]||{}) : {reference:d.entete.reference, date:d.entete.date};
+  var ref=normEmpreinte(r.reference), dt=dateIso(r.date);
+  return {cle:'v2|'+normEmpreinte(lot.emetteur)+'|'+(ref?'ref:'+ref:'date:'+(dt||'?')+'|tot:'+Math.round(totalDeb)),
+          reference:(r.reference||'').trim()||null, date:dt};
+}
+async function archive(silencieux,seules){
   var url=(params.sbUrl||'').replace(/\/+$/,''), cle=params.sbCle;
   if(/^sb_secret_/.test(cle||'')){
     info('Archivage refusé : la clé renseignée est la clé secrète. Remplacez-la par la clé publishable dans les paramètres.',0,'err');
@@ -3761,7 +3793,7 @@ async function archive(silencieux){
   var d=D();
   if(!d.lignes.length){ if(!silencieux) info('Rien à archiver dans ce devis.',0,'err'); return; }
 
-  var lots=lotsArchivables(d), ok=0, doublons=0, erreurs=[];
+  var lots=lotsArchivables(d), ok=0, doublons=0, erreurs=[], dejaLa=[];
   for(var i=0;i<lots.length;i++){
     var lot=lots[i];
     var lignes=lignesArchivables(d,lot);
@@ -3769,14 +3801,14 @@ async function archive(silencieux){
     info('Archivage… '+(i+1)+'/'+lots.length+(lot.emetteur?' — '+lot.emetteur:''),
          Math.round(100*(i+1)/lots.length));
     var totalDeb=lignes.reduce(function(s,l){return s+(l.total_ht||0);},0);
-    var empreinte=await empreinteDe([lot.origine,lot.sens,lot.emetteur,d.entete.reference,d.entete.chantier,
-                                     lignes.length,totalDeb.toFixed(2)].join('|'));
+    var emp=empreinteArchive(d,lot,totalDeb), empreinte=emp.cle;
+    if(seules && !seules[empreinte]) continue;
     var devis={
       origine:lot.origine, sens_prix:lot.sens, retenu:lot.retenu,
       surface_m2:nombreFr(d.surface)||null, type_projet:d.typeProjet||null,
       emetteur:lot.emetteur||null, lot:lot.lot||null,
       client:d.entete.client||null, chantier:d.entete.chantier||null,
-      reference:d.entete.reference||null, date_devis:dateIso(d.entete.date),
+      reference:emp.reference, date_devis:emp.date,
       total_ht:Math.round(totalDeb*100)/100, nb_lignes:lignes.length,
       fichier:d.feuille||null, texte_brut:d.texteBrut||null, empreinte:empreinte
     };
@@ -3792,7 +3824,11 @@ async function archive(silencieux){
       for(var j=0;j<lignes.length;j+=200){ await sbPost(url,cle,'lignes_devis',lignes.slice(j,j+200),false); }
       ok++;
     }catch(e){
-      if(/duplicate key|23505/i.test(e.message)) doublons++;
+      if(/duplicate key|23505/i.test(e.message)){
+        doublons++;
+        var quand=null; try{ quand=await sbRpc('devis_archive_existe',{p_empreinte:empreinte}); }catch(e3){}
+        dejaLa.push({emetteur:lot.emetteur, empreinte:empreinte, quand:quand});
+      }
       else erreurs.push((lot.emetteur||'devis')+' : '+e.message);
     }
   }
@@ -3800,9 +3836,35 @@ async function archive(silencieux){
   $('btnArchive').textContent = d.archive?'Archivé ✓ — archiver à nouveau':'Archiver dans la base de prix';
   var msg=[];
   if(ok) msg.push(ok+(ok>1?' devis archivés':' devis archivé'));
-  if(doublons) msg.push(doublons+(doublons>1?' déjà présents':' déjà présent'));
+  if(doublons) msg.push(dejaLa.map(function(x){
+      var t=Date.parse(x.quand||''); return x.emetteur+' déjà archivé'+(isFinite(t)?' le '+new Date(t).toLocaleDateString('fr-FR'):'');
+    }).join(', ')+' : non archivé à nouveau');
   if(erreurs.length) msg.push('échec — '+erreurs[0]);
   info(msg.join(' · ')||'Rien à archiver.',100, erreurs.length?'err':(doublons&&!ok?'avertit':'ok'));
+  if(dejaLa.length && !silencieux){
+    if(cleRemplie(params.cleEdition)){
+      var br=document.createElement('button'); br.className='mini';
+      br.textContent=dejaLa.length>1?'Remplacer les archives existantes':'Remplacer l\'archive existante';
+      br.onclick=async function(){
+        if(!confirm('Remplacer l\'archive de '+dejaLa.map(function(x){return x.emetteur;}).join(', ')
+          +' par la version de ce dossier ?\n\nÀ faire seulement pour un devis corrigé ou révisé : l\'ancienne version et ses lignes seront supprimées de la base.')) return;
+        var cibles={};
+        try{
+          for(var k=0;k<dejaLa.length;k++){
+            await sbRpc('remplacer_devis_archive',{p_cle:params.cleEdition, p_empreinte:dejaLa[k].empreinte});
+            cibles[dejaLa[k].empreinte]=1;
+          }
+        }catch(e4){
+          info('Remplacement impossible : '+(/fonction|function|PGRST202|404/i.test(e4.message||'')?'exécutez la migration 07 dans Supabase':messageErreurSync(e4,'d\'édition'))+'.',100,'err');
+          return;
+        }
+        archive(false,cibles);
+      };
+      $('etatTexte').appendChild(document.createTextNode(' ')); $('etatTexte').appendChild(br);
+    } else {
+      $('etatTexte').appendChild(document.createTextNode('. Pour remplacer une archive par sa version corrigée, la clé d\'édition est nécessaire.'));
+    }
+  }
 }
 
 function nouvelId(){
