@@ -197,6 +197,47 @@ body.lecture tr.r-chapitre td.des textarea:disabled{color:#fff;-webkit-text-fill
 .ch .v small{display:block;font-size:10.5px;color:var(--encre-faible);text-transform:uppercase;letter-spacing:.05em}
 .ch .a{display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap}
 @media (max-width:760px){ .ch{grid-template-columns:1fr 1fr} .ch .t,.ch .a{grid-column:1/-1} .ch .a{justify-content:flex-start} .ch .v{text-align:left} }
+.tab-inter-cadre{overflow-x:auto;border:1px solid var(--trait);border-radius:3px;background:#fff}
+.tab-inter{width:100%;min-width:900px;border-collapse:collapse;font-size:13px}
+.tab-inter th{background:var(--taupe-voile);color:var(--encre-faible);font-weight:600;font-size:11px;text-transform:uppercase;
+  letter-spacing:.05em;text-align:left;padding:8px;border-bottom:1px solid var(--trait);white-space:nowrap;position:static}
+.tab-inter td{padding:6px 8px;border-bottom:1px solid #EFEBE4;vertical-align:middle}
+.tab-inter .num{text-align:right;white-space:nowrap}
+.tab-inter .fort{font-weight:600;color:var(--nuit)}
+.tab-inter .c-ret{width:38px;text-align:center}
+.tab-inter .c-act{width:36px;text-align:right}
+.tab-inter .c-nom b{display:block;font-weight:600;color:var(--nuit)}
+.tab-inter .ecart{display:block;font-size:11.5px;color:var(--encre-faible)}
+.tab-inter .ecart.ok{color:var(--valide);font-weight:600}
+.tab-inter input.lot{width:130px;padding:4px 6px;font-size:12.5px}
+.tab-inter select.nat{width:auto;padding:4px 6px;font-size:12.5px}
+.tab-inter .mg-boite{display:inline-flex;align-items:center;gap:3px;color:var(--encre-faible)}
+.tab-inter input.mg{width:54px;text-align:right;padding:4px 6px;font-size:12.5px}
+.tab-inter tr.grp td{background:var(--taupe-pale);border-top:2px solid var(--trait);padding:7px 8px}
+.tab-inter tr.grp b{color:var(--nuit);font-size:13px}
+.tab-inter .grp-n{margin-left:8px;font-size:12px;color:var(--taupe-fonce);font-weight:600}
+.tab-inter .grp-alerte{margin-left:10px;font-size:12px;color:var(--alerte);font-weight:600}
+.tab-inter tr.refuse td{opacity:.5}
+.tab-inter tr.refuse .c-nom b{text-decoration:line-through}
+.tab-inter tr.refuse td.c-ret{opacity:1}
+.tab-inter tr.sim td{font-size:12px;color:var(--encre-faible);background:#FBFAF7;padding-top:3px;padding-bottom:7px}
+.tab-inter tr.sim b{color:var(--valide)}
+.tab-inter tr.sim button{margin-left:8px}
+.tab-inter tfoot td{border-top:2px solid var(--nuit);border-bottom:none;font-weight:600;color:var(--nuit);padding-top:9px}
+.tab-inter .vide{color:var(--trait)}
+/* Téléphone : une fiche par intervenant */
+@media (max-width:760px){
+  .tab-inter{min-width:0}
+  .tab-inter thead{display:none}
+  .tab-inter,.tab-inter tbody,.tab-inter tfoot,.tab-inter tr,.tab-inter td{display:block;width:auto}
+  .tab-inter tr.it{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;padding:10px;border-bottom:1px solid var(--trait)}
+  .tab-inter tr.it td{border:none;padding:2px 0;text-align:left}
+  .tab-inter tr.it td[data-l]::before{content:attr(data-l);display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--encre-faible)}
+  .tab-inter tr.it .c-nom{grid-column:1/-1}
+  .tab-inter tr.it .c-ret,.tab-inter tr.it .c-act{width:auto}
+  .tab-inter tfoot tr{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px}
+  .tab-inter tfoot td{border:none;padding:0}
+}
 .cmp{border:1px solid var(--trait);border-left:4px solid var(--taupe);border-radius:2px;padding:10px 12px;margin-bottom:10px;background:#fff}
 .cmp-t{font-weight:600;font-size:13px;color:var(--nuit);margin-bottom:6px}
 .cmp-alerte{margin:0 0 8px;font-size:12.5px;color:var(--alerte);font-weight:500}
@@ -626,9 +667,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.33';
+var VERSION = '2.34';
 var DATE_VERSION = '21/09/2026';
-var NOTES = 'Clés de partage : affichage en clair à la demande, remplissage automatique du navigateur bloqué, diagnostic en cas de refus.';
+var NOTES = 'Intervenants présentés en tableau regroupé par lot, mise en concurrence intégrée, ligne de total.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -932,7 +973,7 @@ function cleLot(l){ return sansAccent(l).replace(/[^a-z]/g,''); }
 function margeCible(deb,p){
   if(!(deb>0)||!(p>0)) return null;
   var m = params.margeMode==='vente' ? (1-deb/p)*100 : (p/deb-1)*100;
-  return Math.round(m*10)/10;
+  return Math.round(m*10000)/10000;
 }
 function prixClientInter(d,nom){
   return d.lignes.reduce(function(s,r){ return s+((r.intervenant===nom)?totalLigne(d,r):0); },0);
@@ -940,90 +981,108 @@ function prixClientInter(d,nom){
 function natureDe(d,nom){
   return (d.natures && d.natures[nom]==='fournisseur') ? 'fournisseur' : 'sous-traitant';
 }
-function renduComparatif(){
-  var d=D(), z=$('comparatif');
-  $('listeLots').innerHTML=Object.keys(LOTS_MOTS).map(function(l){return '<option value="'+echappe(l)+'">';}).join('');
-  if(d.mode!=='st'){ z.innerHTML=''; return; }
-  var groupes={}, ordre=[];
-  intervenants(d).forEach(function(x){
-    var l=lotDe(d,x.nom); if(!l) return;
-    var k=cleLot(l);
-    if(!groupes[k]){ groupes[k]={lot:l, liste:[]}; ordre.push(k); }
-    groupes[k].liste.push(x);
-  });
-  var html=ordre.filter(function(k){ return groupes[k].liste.length>1; }).map(function(k){
-    var g=groupes[k];
-    var liste=g.liste.slice().sort(function(a,b){ return a.deb-b.deb; });
-    var retenus=liste.filter(function(x){ return !(d.retenus&&d.retenus[x.nom]===false); });
-    var moinsCher=liste[0].deb;
+function renduComparatif(){ /* intégrée au tableau des intervenants depuis la 2.34 */ $('comparatif').innerHTML=''; }
 
-    /* Prix client de référence : celui de l'intervenant retenu, sinon du plus cher. */
-    var ref = retenus.length===1 ? retenus[0] : liste[liste.length-1];
-    var p = prixClientInter(d,ref.nom);
-
-    var alerte = retenus.length>1
-      ? '<p class="cmp-alerte">Les '+retenus.length+' devis sont comptés dans le total. Retenez-en un seul pour ce lot.</p>'
-      : (retenus.length===0 ? '<p class="cmp-alerte">Aucun devis retenu pour ce lot.</p>' : '');
-
-    var lignes=liste.map(function(x){
-      var estRef=(x.nom===ref.nom), estRetenu=retenus.indexOf(x)>-1;
-      var ecart = x.deb>moinsCher ? '+'+eur(x.deb-moinsCher)+' ('+((x.deb/moinsCher-1)*100).toLocaleString('fr-FR',{maximumFractionDigits:1})+' %)' : 'le moins cher';
-      var sim='';
-      if(!estRef && d.margeActive){
-        var m=margeCible(x.deb,p);
-        if(m!=null) sim='<span class="cmp-sim">à prix client identique ('+eur(p)+') : marge <b>'
-          +m.toLocaleString('fr-FR',{maximumFractionDigits:1})+' %</b> contre '
-          +String(margeDe(d,{intervenant:ref.nom})).replace('.',',')+' %</span>'
-          +'<button class="mini" data-retient="'+echappe(x.nom)+'" data-prix="'+p+'">Retenir à prix identique</button>';
-      }
-      return '<div class="cmp-l'+(estRetenu?' ret':'')+'">'
-        +'<span class="cmp-n">'+echappe(x.nom)+(estRetenu?' <em>retenu</em>':'')+'</span>'
-        +'<span class="cmp-m">'+eur(x.deb)+'</span>'
-        +(nombreFr(d.surface)>0?'<span class="cmp-e">'+eur(x.deb/nombreFr(d.surface))+'/m²</span>':'')
-        +'<span class="cmp-e">'+ecart+'</span>'
-        +sim
-      +'</div>';
-    }).join('');
-    return '<div class="cmp"><div class="cmp-t">'+echappe(g.lot)+' — mise en concurrence</div>'
-      +alerte+lignes
-      +(d.margeActive?'':'<p class="note" style="margin:6px 0 0">Activez la marge pour simuler le prix client.</p>')
-      +'</div>';
-  }).join('');
-  z.innerHTML=html;
-}
+/* Tableau des intervenants : colonnes fixes, regroupement par lot,
+   mise en concurrence dans chaque groupe, total des devis retenus. */
 function renduRecapSt(){
   var d=D(), st=(d.mode==='st');
   $('recapSt').hidden=!st;
-  renduComparatif();
+  $('listeLots').innerHTML=Object.keys(LOTS_MOTS).map(function(l){return '<option value="'+echappe(l)+'">';}).join('');
+  $('comparatif').innerHTML='';
   if(!st) return;
   var l=intervenants(d);
   $('recapNb').textContent = l.length ? l.length+(l.length>1?' devis intégrés':' devis intégré') : '';
-  $('listeSt').innerHTML = l.length ? l.map(function(x){
-    var perso = d.marges && d.marges[x.nom]!=null;
-    var ret = !(d.retenus && d.retenus[x.nom]===false);
-    return '<div class="inter'+(ret?'':' refuse')+'">'
-      +'<label class="ret" title="Décochez si ce devis a été consulté mais écarté">'
-        +'<input type="checkbox" data-retenu="'+echappe(x.nom)+'"'+(ret?' checked':'')+'>'
-        +'<span>'+(ret?'retenu':'refusé')+'</span></label>'
-      +'<span class="n"><b>'+echappe(x.nom)+'</b></span>'
-      +'<input class="lot" type="text" list="listeLots" data-lot="'+echappe(x.nom)+'" value="'+echappe(lotDe(d,x.nom))+'" placeholder="lot" title="Corps d\'état : deux devis du même lot sont mis en concurrence">'
-      +'<select class="nat" data-nature="'+echappe(x.nom)+'" title="Nature de ce devis">'
-        +'<option value="sous-traitant"'+(natureDe(d,x.nom)==='sous-traitant'?' selected':'')+'>prestation posée</option>'
-        +'<option value="fournisseur"'+(natureDe(d,x.nom)==='fournisseur'?' selected':'')+'>matériaux</option>'
-      +'</select>'
-      +'<span class="l">'+x.lignes+' lignes</span>'
-      +(nombreFr(d.surface)>0?'<span class="m2" title="Déboursé rapporté à la surface de construction">'+eur(x.deb/nombreFr(d.surface))+'/m²</span>':'')
-      +controleInter(d,x)
-      +(d.margeActive
-        ? '<span class="l">déboursé '+eur(x.deb)+'</span>'
-          +'<input class="mg" type="text" inputmode="decimal" data-marge="'+echappe(x.nom)+'" '
-          +'value="'+(perso?String(d.marges[x.nom]).replace('.',','):'')+'" '
-          +'placeholder="'+String(d.marge).replace('.',',')+'" title="Marge propre à cet intervenant, vide = marge du devis">'
-          +'<span class="u">%</span>'
-        : '')
-      +'<span class="m">'+eur(x.ht)+'</span>'
-      +'<button class="mini" data-retire="'+echappe(x.nom)+'" title="Retirer ce sous-traitant">×</button></div>';
-  }).join('') : '<p class="note" style="margin:0">Aucun devis de sous-traitant pour l\'instant. Déposez celui de l\'électricien, du plâtrier, du serrurier… ils s\'ajouteront les uns sous les autres.</p>';
+  if(!l.length){
+    $('listeSt').innerHTML='<p class="note" style="margin:0">Aucun devis pour l\'instant. Déposez celui de l\'électricien, du plâtrier, du serrurier… ils s\'ajouteront les uns sous les autres.</p>';
+    return;
+  }
+  var sf=nombreFr(d.surface), mg=!!d.margeActive;
+  var nbCol = 9 + (sf>0?1:0) + (mg?1:0);
+  var estRetenu=function(x){ return !(d.retenus && d.retenus[x.nom]===false); };
+  var pc=function(v){ return v.toLocaleString('fr-FR',{maximumFractionDigits:1})+' %'; };
+
+  /* groupes par lot, classés par ordre alphabétique, « Sans lot » en dernier */
+  var groupes={}, ordre=[];
+  l.forEach(function(x){
+    var lot=lotDe(d,x.nom)||'Sans lot', k=cleLot(lot)||'sanslot';
+    if(!groupes[k]){ groupes[k]={lot:lot, liste:[]}; ordre.push(k); }
+    groupes[k].liste.push(x);
+  });
+  ordre.sort(function(a,b){
+    if(a==='sanslot') return 1; if(b==='sanslot') return -1;
+    return groupes[a].lot.localeCompare(groupes[b].lot,'fr');
+  });
+
+  var tete='<thead><tr>'
+    +'<th class="c-ret" title="Devis retenu">Ret.</th><th>Intervenant</th><th>Lot</th><th>Nature</th>'
+    +'<th class="num">Lignes</th><th class="num">Déboursé</th>'
+    +(sf>0?'<th class="num">€/m²</th>':'')
+    +'<th>Contrôle</th>'
+    +(mg?'<th class="num">Marge</th>':'')
+    +'<th class="num">Prix client HT</th><th></th></tr></thead>';
+
+  var totDeb=0, totHt=0;
+  var corps=ordre.map(function(k){
+    var g=groupes[k];
+    var liste=g.liste.slice().sort(function(a,b){ return a.deb-b.deb; });
+    var retenus=liste.filter(estRetenu);
+    var plusieurs=liste.length>1;
+    var ref = retenus.length===1 ? retenus[0] : liste[liste.length-1];
+    var p = prixClientInter(d,ref.nom);
+    var moinsCher=liste[0].deb;
+
+    var alerte='';
+    if(plusieurs && retenus.length>1) alerte='<span class="grp-alerte">'+retenus.length+' devis comptés — n\'en retenez qu\'un</span>';
+    else if(retenus.length===0) alerte='<span class="grp-alerte">aucun devis retenu</span>';
+
+    var html='<tr class="grp"><td colspan="'+nbCol+'"><b>'+echappe(g.lot)+'</b>'
+      +(plusieurs?' <span class="grp-n">'+liste.length+' devis en concurrence</span>':'')+alerte+'</td></tr>';
+
+    liste.forEach(function(x){
+      var ret=estRetenu(x), perso=d.marges && d.marges[x.nom]!=null;
+      if(ret){ totDeb+=x.deb; totHt+=x.ht; }
+      var ecart = !plusieurs ? '' : (x.deb>moinsCher
+        ? '<small class="ecart">+'+eur(x.deb-moinsCher)+' ('+pc((x.deb/moinsCher-1)*100)+')</small>'
+        : '<small class="ecart ok">le moins cher</small>');
+      html+='<tr class="it'+(ret?'':' refuse')+'">'
+        +'<td class="c-ret" data-l="Retenu"><input type="checkbox" data-retenu="'+echappe(x.nom)+'"'+(ret?' checked':'')+' title="Décochez si ce devis a été consulté mais écarté"></td>'
+        +'<td class="c-nom" data-l="Intervenant"><b>'+echappe(x.nom)+'</b>'+ecart+'</td>'
+        +'<td data-l="Lot"><input class="lot" type="text" list="listeLots" data-lot="'+echappe(x.nom)+'" value="'+echappe(lotDe(d,x.nom))+'" placeholder="lot"></td>'
+        +'<td data-l="Nature"><select class="nat" data-nature="'+echappe(x.nom)+'">'
+          +'<option value="sous-traitant"'+(natureDe(d,x.nom)==='sous-traitant'?' selected':'')+'>posée</option>'
+          +'<option value="fournisseur"'+(natureDe(d,x.nom)==='fournisseur'?' selected':'')+'>matériaux</option>'
+        +'</select></td>'
+        +'<td class="num" data-l="Lignes">'+x.lignes+'</td>'
+        +'<td class="num" data-l="Déboursé">'+eur(x.deb)+'</td>'
+        +(sf>0?'<td class="num" data-l="€/m²">'+eur(x.deb/sf)+'</td>':'')
+        +'<td data-l="Contrôle">'+(controleInter(d,x)||'<span class="vide">—</span>')+'</td>'
+        +(mg?'<td class="num" data-l="Marge"><span class="mg-boite"><input class="mg" type="text" inputmode="decimal" data-marge="'+echappe(x.nom)+'" value="'+(perso?Number(d.marges[x.nom]).toLocaleString('fr-FR',{maximumFractionDigits:2,useGrouping:false}):'')+'" placeholder="'+String(d.marge).replace('.',',')+'" title="Marge propre à cet intervenant, vide = marge du devis">%</span></td>':'')
+        +'<td class="num fort" data-l="Prix client HT">'+eur(x.ht)+'</td>'
+        +'<td class="c-act"><button class="mini" data-retire="'+echappe(x.nom)+'" title="Retirer cet intervenant et ses lignes">×</button></td>'
+      +'</tr>';
+
+      /* dans un lot en concurrence : ce que donnerait ce devis à prix client inchangé */
+      if(plusieurs && mg && x.nom!==ref.nom){
+        var m=margeCible(x.deb,p);
+        if(m!=null) html+='<tr class="sim"><td class="c-ret"></td><td colspan="'+(nbCol-1)+'">'
+          +'À prix client identique ('+eur(p)+') : marge de <b>'+pc(m)+'</b> contre '
+          +pc(parseFloat(margeDe(d,{intervenant:ref.nom}))||0)+' avec '+echappe(ref.nom)+'. '
+          +'<button class="mini" data-retient="'+echappe(x.nom)+'" data-prix="'+p+'">Retenir à prix identique</button></td></tr>';
+      }
+    });
+    return html;
+  }).join('');
+
+  var pied='<tfoot><tr><td class="c-ret"></td><td colspan="4"><b>Total des devis retenus</b></td>'
+    +'<td class="num">'+eur(totDeb)+'</td>'
+    +(sf>0?'<td class="num">'+eur(totDeb/sf)+'</td>':'')
+    +'<td></td>'
+    +(mg?'<td class="num">'+(totDeb>0?pc((totHt-totDeb)/totDeb*100):'')+'</td>':'')
+    +'<td class="num">'+eur(totHt)+'</td><td></td></tr></tfoot>';
+
+  $('listeSt').innerHTML='<div class="tab-inter-cadre"><table class="tab-inter">'+tete+'<tbody>'+corps+'</tbody>'+pied+'</table></div>'
+    +(mg?'':'<p class="note" style="margin:6px 0 0">Activez la marge pour voir le prix client et simuler la mise en concurrence.</p>');
 }
 function margeVisible(d){ return !!(d && d.margeActive); }
 function renduTeteTable(){
@@ -1407,6 +1466,8 @@ $('onglets').addEventListener('click',function(e){
 });
 
 $('listeSt').addEventListener('click',function(e){
+  var bt=e.target.closest('button[data-retient]');
+  if(bt){ retenirAPrixIdentique(bt.getAttribute('data-retient'), parseFloat(bt.getAttribute('data-prix'))); return; }
   var b=e.target.closest('button[data-retire]'); if(!b) return;
   var nom=b.getAttribute('data-retire');
   if(!confirm('Retirer « '+nom+' » et toutes ses lignes de ce devis ?')) return;
@@ -1584,9 +1645,8 @@ $('variantes').addEventListener('change',function(e){
   rendu();
 });
 
-$('comparatif').addEventListener('click',function(e){
-  var b=e.target.closest('button[data-retient]'); if(!b) return;
-  var d=D(), nom=b.getAttribute('data-retient'), p=parseFloat(b.getAttribute('data-prix'));
+function retenirAPrixIdentique(nom,p){
+  var d=D();
   var x=intervenants(d).find(function(i){return i.nom===nom;}); if(!x) return;
   var m=margeCible(x.deb,p); if(m==null) return;
   var k=cleLot(lotDe(d,nom));
@@ -1598,16 +1658,18 @@ $('comparatif').addEventListener('click',function(e){
   });
   d.marges[nom]=m;
   rendu();
-  info(nom+' retenu à prix client identique ('+eur(p)+') : marge portée à '+String(m).replace('.',',')+' %.',100,'ok');
-});
+  info(nom+' retenu à prix client identique ('+eur(p)+') : marge portée à '+m.toLocaleString('fr-FR',{maximumFractionDigits:2})+' %.',100,'ok');
+}
 
 $('listeSt').addEventListener('change',function(e){
   var nat=e.target.getAttribute('data-nature');
   if(nat!=null){
     var dd=D(); if(!dd.natures) dd.natures={};
     dd.natures[nat]=e.target.value;
-    return;
+    diffuse(); return;
   }
+  /* lot ou marge validés : on regroupe et on recalcule le tableau */
+  if(e.target.getAttribute('data-lot')!=null || e.target.getAttribute('data-marge')!=null){ renduRecapSt(); return; }
   var nom=e.target.getAttribute('data-retenu'); if(nom==null) return;
   var d=D(); if(!d.retenus) d.retenus={};
   if(e.target.checked) delete d.retenus[nom]; else d.retenus[nom]=false;
@@ -1617,7 +1679,7 @@ $('listeSt').addEventListener('input',function(e){
   var lotNom=e.target.getAttribute('data-lot');
   if(lotNom!=null){
     var dl=D(); if(!dl.lots) dl.lots={};
-    dl.lots[lotNom]=e.target.value; renduComparatif(); return;
+    dl.lots[lotNom]=e.target.value; diffuse(); return;
   }
   var nom=e.target.getAttribute('data-marge'); if(nom==null) return;
   var d=D(); if(!d.marges) d.marges={};
