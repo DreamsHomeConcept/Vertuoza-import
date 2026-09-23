@@ -230,6 +230,10 @@ tr.r-option td.total .somme,tr.r-refuse td.total .somme{opacity:.6;text-decorati
 .etat-sync.avertit{background:#FCF4E6;border-color:#C98A2B;color:#7A5212;font-weight:600}
 .etat-sync.attente{background:var(--taupe-voile);border-color:var(--taupe);color:var(--encre-faible)}
 tr.r-chapitre td.des textarea{text-transform:uppercase}
+.raccourcis{display:inline-flex;gap:4px;flex-wrap:wrap;margin-left:4px}
+.racc{border:1px solid var(--trait);background:#fff;border-radius:2px;padding:4px 8px;font:inherit;font-size:12px;cursor:pointer;color:var(--encre-faible)}
+.racc:hover{border-color:var(--taupe);color:var(--nuit)}
+.racc.actif{background:var(--nuit);border-color:var(--nuit);color:#fff;font-weight:600}
 .menu-ins{position:absolute;z-index:70;background:#fff;border:1px solid var(--trait);border-radius:3px;
   box-shadow:0 8px 24px rgba(15,22,38,.22);padding:4px;min-width:178px}
 .menu-ins button{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;font:inherit;font-size:13px;cursor:pointer;color:var(--encre)}
@@ -504,6 +508,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
           <span class="pc">%</span>
         </div>
         <button class="pas" id="margePlus" title="Augmenter d\'un point" aria-label="Augmenter la marge">+</button>
+        <span class="raccourcis" id="margeRacc"></span>
         <button class="mini" id="margeRaz" title="Revenir à la valeur par défaut">Réinitialiser</button>
         <span class="coef" id="margeCoef"></span>
       </div>
@@ -797,9 +802,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.61';
+var VERSION = '2.62';
 var DATE_VERSION = '23/09/2026';
-var NOTES = 'L\'ancien modèle d\'export est retiré : seul le nouveau format Vertuoza subsiste.';
+var NOTES = 'Marge plus simple à changer : le champ se sélectionne au clic, raccourcis de marges usuelles, pas de 5 avec Maj.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1080,6 +1085,9 @@ function renduMarge(){
   $('margeActive').checked=!!d.margeActive;
   $('reglageMarge').hidden=!d.margeActive;
   $('margeVal').value=String(d.marge).replace('.',',');
+  Array.prototype.forEach.call($('margeRacc').children,function(b){
+    b.classList.toggle('actif', nombreFr(b.textContent)===nombreFr(d.marge));
+  });
   var c=coefficient(d,null);
   $('margeCoef').innerHTML = 'soit <b>×'+c.toLocaleString('fr-FR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</b>'
     + (params.margeMode==='vente'?' — marge sur prix de vente':' — majoration du déboursé');
@@ -2524,8 +2532,19 @@ $('margeActive').onchange=function(){
   rendu();
   if(this.checked) setTimeout(function(){ $('margeVal').select(); },40);
 };
-$('margeMoins').onclick=function(){ poseMarge(D().marge-1); $('margeVal').focus(); };
-$('margePlus').onclick =function(){ poseMarge(D().marge+1); $('margeVal').focus(); };
+/* clic ou tabulation dans le champ : tout est sélectionné, la frappe remplace la valeur */
+$('margeVal').addEventListener('focus',function(){ var c=this; c.select(); setTimeout(function(){ c.select(); },0); });
+$('margeVal').addEventListener('mouseup',function(e){ e.preventDefault(); });
+/* pas de 1 point, ou de 5 avec la touche Maj */
+$('margeMoins').onclick=function(e){ poseMarge(D().marge-(e.shiftKey?5:1)); $('margeVal').focus(); };
+$('margePlus').onclick =function(e){ poseMarge(D().marge+(e.shiftKey?5:1)); $('margeVal').focus(); };
+/* marges usuelles, un clic suffit */
+[10,15,20,25,30,35,40].forEach(function(v){
+  var b=document.createElement('button'); b.className='racc'; b.textContent=v+' %';
+  b.title='Appliquer une marge de '+v+' %';
+  b.onclick=function(){ poseMarge(v); };
+  $('margeRacc').appendChild(b);
+});
 $('margeRaz').onclick  =function(){ poseMarge(params.margeDefaut); };
 $('margeVal').addEventListener('input',function(){
   var brut=this.value.trim();
