@@ -177,7 +177,7 @@ tr.r-chapitre td.des .prefixe{color:var(--taupe)}
 .bandeau-marge .pc{padding:0 8px 0 2px;color:var(--encre-faible);font-size:13px}
 .bandeau-marge .coef{font-size:12.5px;color:var(--encre-faible)}
 .bandeau-marge .coef b{color:var(--nuit);font-weight:600}
-.inter input.mg{width:56px;text-align:right;padding:4px 6px;font-size:12.5px}
+.inter input.mg{width:74px;text-align:right;padding:5px 7px;font-size:13px}
 .inter .u{color:var(--encre-faible);font-size:12px}
 .inter .ctl{font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:2px;white-space:nowrap}
 .inter .ctl.ok{color:#2D5540;background:#E8F1EA}
@@ -291,7 +291,8 @@ body.lecture tr.r-chapitre td.des textarea:disabled{color:#fff;-webkit-text-fill
 .tab-inter input.lot{width:130px;padding:4px 6px;font-size:12.5px}
 .tab-inter select.nat{width:auto;padding:4px 6px;font-size:12.5px}
 .tab-inter .mg-boite{display:inline-flex;align-items:center;gap:3px;color:var(--encre-faible)}
-.tab-inter input.mg{width:54px;text-align:right;padding:4px 6px;font-size:12.5px}
+.tab-inter input.mg{width:74px;text-align:right;padding:5px 7px;font-size:13px}
+.tab-inter td[data-l="Marge"]{white-space:nowrap;cursor:text}
 .tab-inter tr.grp td{background:var(--taupe-pale);border-top:2px solid var(--trait);padding:7px 8px}
 .tab-inter tr.grp b{color:var(--nuit);font-size:13px}
 .tab-inter .grp-n{margin-left:8px;font-size:12px;color:var(--taupe-fonce);font-weight:600}
@@ -809,9 +810,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.63';
+var VERSION = '2.64';
 var DATE_VERSION = '23/09/2026';
-var NOTES = 'Marge par intervenant plus lisible et plus simple à modifier : valeur sélectionnée au clic, flèches du clavier, bouton pour revenir à la marge du devis.';
+var NOTES = 'Champ de marge élargi (plus de chiffre tronqué) et rappel explicite quand un chantier est ouvert en lecture seule.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2426,6 +2427,13 @@ $('corpsTable').addEventListener('drop',function(e){
   rendu();
 });
 
+/* en lecture seule, les champs sont désactivés : on explique pourquoi au premier clic */
+$('pageDevis').addEventListener('click',function(e){
+  if(!(D() && D()._lecture)) return;
+  if(e.target.closest('.onglets') || e.target.closest('#bandeauLecture')) return;
+  info('Ce chantier est ouvert en consultation, en lecture seule : il appartient au poste qui le gère. '
+      +'Pour modifier une marge, travaillez sur un dossier de ce poste.',100,'avertit');
+},true);
 $('corpsTable').addEventListener('keydown',function(e){
   if(e.key==='Enter' && e.target.tagName==='TEXTAREA'){ e.preventDefault(); e.target.blur(); }
 });
@@ -2619,6 +2627,11 @@ $('listeSt').addEventListener('change',function(e){
   var d=D(); if(!d.retenus) d.retenus={};
   if(e.target.checked) delete d.retenus[nom]; else d.retenus[nom]=false;
   rendu();
+});
+/* cliquer n'importe où dans la cellule Marge place le curseur dans le champ */
+$('listeSt').addEventListener('click',function(e){
+  var td=e.target.closest('td[data-l="Marge"]'); if(!td || e.target.tagName==='INPUT' || e.target.tagName==='BUTTON') return;
+  var c=td.querySelector('input.mg'); if(c && !c.disabled) c.focus();
 });
 $('listeSt').addEventListener('focusin',function(e){
   if(e.target.getAttribute('data-marge')==null) return;
