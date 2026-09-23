@@ -230,6 +230,13 @@ tr.r-option td.total .somme,tr.r-refuse td.total .somme{opacity:.6;text-decorati
 .etat-sync.avertit{background:#FCF4E6;border-color:#C98A2B;color:#7A5212;font-weight:600}
 .etat-sync.attente{background:var(--taupe-voile);border-color:var(--taupe);color:var(--encre-faible)}
 tr.r-chapitre td.des textarea{text-transform:uppercase}
+.mg-boite{display:inline-flex;align-items:center;gap:2px}
+.tab-inter input.mg,.inter input.mg{border:1px solid var(--trait);background:#fff}
+.tab-inter input.mg:hover,.inter input.mg:hover{border-color:var(--taupe)}
+.tab-inter input.mg::placeholder,.inter input.mg::placeholder{color:var(--encre-faible);font-style:italic}
+.mg-boite.perso input.mg{border-color:var(--taupe);background:var(--taupe-voile);font-weight:600}
+.mg-raz{border:none;background:none;cursor:pointer;font-size:12px;padding:0 2px;color:var(--taupe-fonce);line-height:1}
+.mg-raz:hover{color:var(--nuit);background:none}
 .raccourcis{display:inline-flex;gap:4px;flex-wrap:wrap;margin-left:4px}
 .racc{border:1px solid var(--trait);background:#fff;border-radius:2px;padding:4px 8px;font:inherit;font-size:12px;cursor:pointer;color:var(--encre-faible)}
 .racc:hover{border-color:var(--taupe);color:var(--nuit)}
@@ -802,9 +809,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.62';
+var VERSION = '2.63';
 var DATE_VERSION = '23/09/2026';
-var NOTES = 'Marge plus simple à changer : le champ se sélectionne au clic, raccourcis de marges usuelles, pas de 5 avec Maj.';
+var NOTES = 'Marge par intervenant plus lisible et plus simple à modifier : valeur sélectionnée au clic, flèches du clavier, bouton pour revenir à la marge du devis.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1223,7 +1230,10 @@ function renduRecapSt(){
         +'<td class="num" data-l="Déboursé">'+eur(x.deb)+'</td>'
         +(sf>0?'<td class="num" data-l="€/m²">'+eur(x.deb/sf)+'</td>':'')
         +'<td data-l="Contrôle">'+(controleInter(d,x)||'<span class="vide">—</span>')+'</td>'
-        +(mg?'<td class="num" data-l="Marge"><span class="mg-boite"><input class="mg" type="text" inputmode="decimal" data-marge="'+echappe(x.nom)+'" value="'+(perso?Number(d.marges[x.nom]).toLocaleString('fr-FR',{maximumFractionDigits:2,useGrouping:false}):'')+'" placeholder="'+String(d.marge).replace('.',',')+'" title="Marge propre à cet intervenant, vide = marge du devis">%</span></td>':'')
+        +(mg?'<td class="num" data-l="Marge"><span class="mg-boite'+(perso?' perso':'')+'">'
+          +'<input class="mg" type="text" inputmode="decimal" data-marge="'+echappe(x.nom)+'" value="'+(perso?Number(d.marges[x.nom]).toLocaleString('fr-FR',{maximumFractionDigits:2,useGrouping:false}):'')+'" placeholder="'+String(d.marge).replace('.',',')+'" title="Marge de cet intervenant. Vide = marge du devis ('+String(d.marge).replace('.',',')+' %). Flèches haut et bas pour ajuster, Maj pour 5 points.">%'
+          +(perso?'<button class="mg-raz" data-marge-raz="'+echappe(x.nom)+'" title="Revenir à la marge du devis">↺</button>':'')
+          +'</span></td>':'')
         +'<td class="num fort" data-l="Prix client HT">'+eur(x.ht)+'</td>'
         +'<td class="c-act"><button class="mini" data-biblio="'+echappe(x.nom)+'" title="Enregistrer ce devis dans la bibliothèque">★</button>'
           +'<button class="mini" data-retire="'+echappe(x.nom)+'" title="Retirer cet intervenant et ses lignes">×</button></td>'
@@ -2294,6 +2304,8 @@ $('onglets').addEventListener('click',function(e){
 });
 
 $('listeSt').addEventListener('click',function(e){
+  var br=e.target.closest('button[data-marge-raz]');
+  if(br){ var dd=D(); if(dd.marges) delete dd.marges[br.getAttribute('data-marge-raz')]; renduRecapSt(); rendu(); return; }
   var bm=e.target.closest('button[data-montage]');
   if(bm){ dialogueMontage(D(), bm.getAttribute('data-montage')); return; }
   var bb=e.target.closest('button[data-biblio]');
@@ -2607,6 +2619,21 @@ $('listeSt').addEventListener('change',function(e){
   var d=D(); if(!d.retenus) d.retenus={};
   if(e.target.checked) delete d.retenus[nom]; else d.retenus[nom]=false;
   rendu();
+});
+$('listeSt').addEventListener('focusin',function(e){
+  if(e.target.getAttribute('data-marge')==null) return;
+  var c=e.target; c.select(); setTimeout(function(){ c.select(); },0);
+});
+$('listeSt').addEventListener('keydown',function(e){
+  var nom=e.target.getAttribute('data-marge'); if(nom==null) return;
+  if(e.key!=='ArrowUp' && e.key!=='ArrowDown') return;
+  e.preventDefault();
+  var d=D(); if(!d.marges) d.marges={};
+  var base=(d.marges[nom]!=null?d.marges[nom]:d.marge), pas=(e.shiftKey?5:1);
+  d.marges[nom]=borneMarge(base+(e.key==='ArrowUp'?pas:-pas));
+  renduRecapSt(); rendu();
+  var champ=$('listeSt').querySelector('[data-marge="'+nom.replace(/"/g,'\\"')+'"]');
+  if(champ){ champ.focus(); champ.select(); }
 });
 $('listeSt').addEventListener('input',function(e){
   var lotNom=e.target.getAttribute('data-lot');
