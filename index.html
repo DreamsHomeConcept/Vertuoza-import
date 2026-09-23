@@ -736,6 +736,10 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <button class="plein" id="btnRetour">← Revenir aux devis</button>
   </div>
   <p class="note" id="versionParam" style="margin-top:14px"></p>
+  <div class="rangee-boutons" style="margin-top:6px">
+    <button class="fant" id="btnMaj">Vérifier les mises à jour</button>
+  </div>
+  <p class="etat-sync" id="etatMaj"></p>
 
 </div><!-- /pageParam -->
 
@@ -794,9 +798,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.51';
-var DATE_VERSION = '21/09/2026';
-var NOTES = 'Un modèle inséré garde la structure du chiffrage : le chapitre porte le nom du modèle, les sections restent des sous-chapitres.';
+var VERSION = '2.53';
+var DATE_VERSION = '23/09/2026';
+var NOTES = 'Un modèle seul dans un dossier voit ses sections devenir des chapitres (01, 02, 03) ; le chapitre au nom du modèle n\'apparaît que s\'il y a d\'autres intervenants.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1825,6 +1829,10 @@ async function dialogueInsertion(){
 }
 function integreModeles(modeles,surface,ajuste){
   var d=D();
+  /* Modèle seul dans un dossier vide : ses sections deviennent les chapitres du devis,
+     numérotés 01, 02, 03. Dès qu'un autre intervenant est présent, le chapitre au nom
+     du modèle est conservé pour garder le repère « qui fait quoi ». */
+  var seul = (modeles.length===1) && !d.lignes.length;
   if(d.mode!=='st'){
     if(estVide(d) || !d.lignes.length){ d.mode='st'; d.margeActive=true; }
     else {
@@ -1848,9 +1856,15 @@ function integreModeles(modeles,surface,ajuste){
     var nom=ajouteIntervenant(d,{entete:{intervenant:m.intervenant||m.nom, lot:m.lot||'', nature:m.nature, total_ht:0}, lignes:lignes}, m.nom);
     if(nom){
       d.bibli[nom]={id:m.id, nom:m.nom, datePrix:m.datePrix, echelle:Math.round(f*100)/100};
-      /* le chapitre porte le nom du modèle : le lot deviné ferait doublon avec ses sections */
-      for(var z=0;z<d.lignes.length;z++){
-        if(d.lignes[z].type==='chapitre' && d.lignes[z].intervenant===nom){ d.lignes[z].designation=nom.toUpperCase(); break; }
+      if(seul){
+        d.lignes=d.lignes.filter(function(r){ return !(r.type==='chapitre' && r.intervenant===nom); });
+        d.lignes.forEach(function(r){ if(r.type==='sous' && r.intervenant===nom) r.type='chapitre'; });
+        if(!d.entete.chantier && !d.feuille) d.feuille=nomFeuilleSure(nom,d);
+      } else {
+        /* le chapitre porte le nom du modèle : le lot deviné ferait doublon avec ses sections */
+        for(var z=0;z<d.lignes.length;z++){
+          if(d.lignes[z].type==='chapitre' && d.lignes[z].intervenant===nom){ d.lignes[z].designation=nom.toUpperCase(); break; }
+        }
       }
     }
     var a=ageJours(m.datePrix); if(a!=null && a>180) vieux++;
@@ -4060,23 +4074,40 @@ function plusRecente(a,b){
 }
 var versionIgnoree=null, verifEnCours=false;
 /* Lit le numéro dans le index.html publié, sans passer par aucun cache. */
-async function verifieVersion(){
-  if(verifEnCours || location.protocol.indexOf('http')!==0 || !navigator.onLine) return;
+async function verifieVersion(manuel){
+  if(verifEnCours) return;
+  if(location.protocol.indexOf('http')!==0){ if(manuel) majEtatVersion('Contrôle impossible : la page n\'est pas ouverte depuis son adresse en ligne.','err'); return; }
+  if(!navigator.onLine){ if(manuel) majEtatVersion('Contrôle impossible : ce poste est hors connexion.','err'); return; }
   verifEnCours=true;
+  if(manuel) majEtatVersion('Contrôle en cours…','attente');
   try{
     var rep=await fetch('index.html?verif-version='+Date.now(),{cache:'no-store'});
     if(!rep.ok) return;
     var txt=await rep.text();
     var mv=/var VERSION\s*=\s*'([^']+)'/.exec(txt);
-    if(!mv || !plusRecente(mv[1],VERSION) || mv[1]===versionIgnoree) return;
+    if(!mv){ if(manuel) majEtatVersion('Contrôle impossible : version publiée illisible.','err'); return; }
+    if(!plusRecente(mv[1],VERSION)){
+      if(manuel) majEtatVersion('Vous utilisez la dernière version : '+VERSION+'. Contrôle effectué à '+heureCourte()+'.','ok');
+      return;
+    }
+    if(mv[1]===versionIgnoree && !manuel) return;
+    if(manuel) majEtatVersion('Version '+mv[1]+' disponible : le bandeau de mise à jour s\'affiche en haut de la page.','avertit');
+    versionIgnoree=null;
     var mn=/var NOTES\s*=\s*'((?:[^'\\]|\\.)*)'/.exec(txt);
     $('majNum').textContent=mv[1];
     $('majNotes').textContent=mn?mn[1].replace(/\\'/g,"'"):'';
     $('majBandeau').dataset.version=mv[1];
     $('majBandeau').hidden=false;
-  }catch(e){ /* hors ligne ou page locale : rien à signaler */ }
+  }catch(e){ if(manuel) majEtatVersion('Contrôle impossible : '+((e&&e.message)||'la version publiée n\'a pas pu être lue')+'.','err'); }
   finally{ verifEnCours=false; }
 }
+function heureCourte(){ return new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); }
+function majEtatVersion(txt,classe){
+  var el=$('etatMaj'); if(!el) return;
+  el.textContent=txt||''; el.className='etat-sync '+(txt?(classe||''):'');
+}
+$('btnMaj').onclick=function(){ this.disabled=true; var b=this;
+  Promise.resolve(verifieVersion(true)).then(function(){ b.disabled=false; }); };
 $('majRecharger').onclick=function(){
   var v=$('majBandeau').dataset.version||'';
   var suite=function(){ location.replace(location.pathname+'?v='+encodeURIComponent(v)+location.hash); };
