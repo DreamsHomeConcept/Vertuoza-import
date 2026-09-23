@@ -540,12 +540,14 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <button class="fant" id="btnBiblio" hidden>Enregistrer dans la bibliothèque</button>
     </div>
     <details>
-      <summary>Rappel de la grammaire du template</summary>
+      <summary>Rappel du modèle d'import Vertuoza</summary>
       <p class="aide">
-        Chapitre : <code>Article = 01</code>, dénomination seule.<br>
-        Sous-chapitre : <code>Article = 01.01</code>, dénomination seule.<br>
-        Ligne d'ouvrage : Article vide, dénomination préfixée <code>01.</code>, puis unité, quantité, prix unitaire, total en formule <code>=Ex*Fx</code>.<br>
-        Colonne Marché vide sauf besoin. Unités conformes à l'onglet <code>Unité</code>.
+        Colonnes : <code>Format · Référence · Description · Quantite · TM · Unite · Prix Uni · Prix Total · Commentaire</code>.<br>
+        Chapitre : <code>Format = T</code>, référence 1, 2, 3.<br>
+        Sous-chapitre : <code>Format = S</code>, référence 1.1, 1.2.<br>
+        Ligne d'ouvrage : Format vide, avec quantité, unité, prix unitaire et total en formule.<br>
+        Un texte sous une ligne devient son <code>Commentaire</code> ; un texte isolé sort en <code>PO</code>.<br>
+        <code>TM</code> : QF pour une quantité forfaitaire, QP pour une quantité présumée.
       </p>
     </details>
   </div>
@@ -669,10 +671,6 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <label class="case"><input type="checkbox" id="optMulti">
       <span>Autoriser plusieurs taux de TVA dans un même devis
         <small>Ajoute une colonne TVA par ligne. Utile quand une partie des travaux relève du taux normal.</small>
-      </span></label>
-    <label class="case"><input type="checkbox" id="optMarche" checked>
-      <span>En mode sous-traitants, reporter l'intervenant dans la colonne Marché
-        <small>La colonne Marché de votre template est libre : elle devient la trace de qui a chiffré chaque ligne.</small>
       </span></label>
     <label class="case"><input type="checkbox" id="optPied">
       <span>Ajouter le pied de totaux dans la feuille exportée
@@ -799,9 +797,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.58';
+var VERSION = '2.61';
 var DATE_VERSION = '23/09/2026';
-var NOTES = 'Un modèle inséré seul donne son nom au devis : onglet, feuille Excel et nom du fichier exporté.';
+var NOTES = 'L\'ancien modèle d\'export est retiré : seul le nouveau format Vertuoza subsiste.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1248,7 +1246,7 @@ function renduRecapSt(){
 function margeVisible(d){ return !!(d && d.margeActive); }
 function renduTeteTable(){
   var d=D();
-  var c=['Article','Dénomination','Marché','Quantité','Unité',
+  var c=['Article','Dénomination','TM','Quantité','Unité',
          margeVisible(d)?'PU déboursé':'Prix unitaire'];
   if(params.multiTaux) c.push('TVA');
   if(margeVisible(d)) c.push('PU vente');
@@ -1309,7 +1307,9 @@ function rendu(){
         +'<textarea rows="1" data-c="designation" placeholder="'+ph+'">'+echappe(r.designation)+'</textarea>'
         +(replie?'<span class="resume">'+(refuse(d,r)?'refusé · ':'')+(r.type==='sous'&&r.variante!=null&&r.option?'non retenue · ':'')+M.nb[i]+' ligne'+(M.nb[i]>1?'s':'')+' masquée'+(M.nb[i]>1?'s':'')+'</span>':'')
         +'</div></td>'
-      +'<td class="marche">'+(estLigne?'<input type="text" data-c="marche" value="'+echappe(r.marche)+'">':'')+'</td>'
+      +'<td class="marche">'+(estLigne?'<select data-c="tm" title="Type de marché : quantité forfaitaire ou présumée">'
+          +'<option value="QF"'+(r.tm!=='QP'?' selected':'')+'>QF</option>'
+          +'<option value="QP"'+(r.tm==='QP'?' selected':'')+'>QP</option></select>':'')+'</td>'
       +'<td class="qte">'+(estLigne?'<input type="text" data-c="qte" value="'+echappe(afficheQte(r.qte))+'">':'')+'</td>'
       +'<td class="unite">'+(estLigne?selectUnite(r.unite):'')+'</td>'
       +'<td class="pu">'+(estLigne?'<input type="text" data-c="pu" value="'+echappe(affichePu(r.pu))+'">':'')+'</td>'
@@ -2312,8 +2312,9 @@ $('corpsTable').addEventListener('input',function(e){
   else diffuse();
 });
 $('corpsTable').addEventListener('change',function(e){
-  var c=e.target.getAttribute('data-c'); if(c!=='unite'&&c!=='tva') return;
+  var c=e.target.getAttribute('data-c'); if(c!=='unite'&&c!=='tva'&&c!=='tm') return;
   var r=trouve(e.target.closest('tr').getAttribute('data-id')); if(!r) return;
+  if(c==='tm'){ r.tm=e.target.value; return; }
   if(c==='unite') r.unite=e.target.value;
   else r.tva = e.target.value===''?null:parseFloat(e.target.value);
   majTotaux();
@@ -2826,7 +2827,6 @@ $('memCle').onchange=function(){
 $('optPrefixe').onchange=function(){ params.prefixe=this.checked; sauveParams(); rendu(); };
 $('optMulti').onchange=function(){ params.multiTaux=this.checked; sauveParams(); rendu(); };
 $('optPied').onchange=function(){ params.pied=this.checked; sauveParams(); };
-$('optMarche').onchange=function(){ params.marche=this.checked; sauveParams(); rendu(); };
 $('margeDef').addEventListener('blur',function(){
   var n=nombreFr(this.value); if(!isFinite(n)||n<0) n=30;
   params.margeDefaut=Math.round(n*10)/10; this.value=String(params.margeDefaut).replace('.',',');
@@ -3755,6 +3755,32 @@ function matrice(d){
   });
   return aoa;
 }
+/* ---- nouveau modèle Vertuoza : Format | Référence | Description | Quantite |
+   TM | Unite | Prix Uni | Prix Total | Commentaire ---- */
+function matrice2026(d){
+  var aoa=[['Format','Référence','Description','Quantite','TM','Unite','Prix Uni','Prix Total','Commentaire']];
+  var nChap=0, nSous=0;
+  lignesExport(d).forEach(function(r){
+    if(r.type==='chapitre'){ nChap++; nSous=0; aoa.push(['T',String(nChap),String(r.designation||'').toUpperCase(),null,null,null,null,null,null]); }
+    else if(r.type==='sous'){ nSous++; aoa.push(['S',nChap+'.'+nSous,r.designation||'',null,null,null,null,null,null]); }
+    else if(r.type==='texte'){ aoa.push(['PO','',r.designation||'',null,null,null,null,null,null]); }
+    else aoa.push(['','',r.designation||'',nombreFr(r.qte),(r.tm==='QP'?'QP':'QF'),r.unite||'',puVente(d,r),null,r.detail||null]);
+  });
+  return aoa;
+}
+function feuille2026(d){
+  var aoa=matrice2026(d), ws=XLSX.utils.aoa_to_sheet(aoa), exp=lignesExport(d);
+  exp.forEach(function(r,i){
+    var n=i+2;
+    if(r.type!=='ligne') return;
+    ws['G'+n]={t:'n',v:puVente(d,r),z:FORMAT_EURO};
+    ws['H'+n]={t:'n',f:'D'+n+'*G'+n,v:totalLigne(d,r),z:FORMAT_EURO};
+    if(r.detail && ws['I'+n]) ws['I'+n].s={alignment:{wrapText:true,vertical:'top'}};
+  });
+  ws['!cols']=[{wch:8},{wch:10},{wch:62},{wch:10},{wch:6},{wch:10},{wch:12},{wch:12},{wch:48}];
+  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:exp.length,c:8}});
+  return ws;
+}
 function feuilleDe(d){
   var aoa=matrice(d);
   var ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -3797,11 +3823,8 @@ function exporteXlsx(unSeul){
     var n=(d.feuille||('Devis'+(i+1))).replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31)||('Devis'+(i+1));
     while(pris[n]) n=n.slice(0,28)+'_'+(i+1);
     pris[n]=1;
-    XLSX.utils.book_append_sheet(wb,feuilleDe(d),n);
+    XLSX.utils.book_append_sheet(wb,feuille2026(d),n);
   });
-  var wsu=XLSX.utils.aoa_to_sheet([['Libéllé ']].concat(UNITES.map(function(u){return [u];})));
-  wsu['!cols']=[{wch:14}];
-  XLSX.utils.book_append_sheet(wb,wsu,'Unité');
   /* le fichier porte le nom du chantier ; à défaut, celui de la feuille */
   var chantier='';
   for(var k=0;k<liste.length && !chantier;k++) chantier=(liste[k].entete.chantier||'').trim();
@@ -4092,7 +4115,11 @@ function chapitreSuivant(){
   var trs=$('corpsTable').querySelectorAll('tr.r-chapitre'), cible=null;
   for(var i=0;i<trs.length;i++){ if(trs[i].getBoundingClientRect().top>90){ cible=trs[i]; break; } }
   if(!cible){ versLeBas(); return; }
-  window.scrollTo({top:cible.getBoundingClientRect().top+window.scrollY-72, behavior:doux()?'smooth':'auto'});
+  /* en fin de document, viser le chapitre dépasserait le bas : on descend au maximum,
+     le dernier chapitre reste visible et l'appui n'est jamais sans effet */
+  var max=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
+  var but=Math.min(cible.getBoundingClientRect().top+window.scrollY-72, max);
+  window.scrollTo({top:but, behavior:doux()?'smooth':'auto'});
 }
 (function(){
   var b=$('versBas'), minuteur=null, long=false;
@@ -4203,7 +4230,6 @@ $('tvaDef').value=String(params.tvaDefaut);
 $('optPrefixe').checked=params.prefixe;
 $('optMulti').checked=params.multiTaux;
 $('optPied').checked=params.pied;
-$('optMarche').checked=params.marche;
 $('margeDef').value=String(params.margeDefaut).replace('.',',');
 $('margeMode').value=params.margeMode;
 majAideMarge();
