@@ -229,6 +229,13 @@ tr.r-option td.total .somme,tr.r-refuse td.total .somme{opacity:.6;text-decorati
 .etat-sync.err{background:#FBEDEC;border-color:var(--alerte);color:#8A2A22;font-weight:600}
 .etat-sync.avertit{background:#FCF4E6;border-color:#C98A2B;color:#7A5212;font-weight:600}
 .etat-sync.attente{background:var(--taupe-voile);border-color:var(--taupe);color:var(--encre-faible)}
+.menu-ins{position:absolute;z-index:70;background:#fff;border:1px solid var(--trait);border-radius:3px;
+  box-shadow:0 8px 24px rgba(15,22,38,.22);padding:4px;min-width:178px}
+.menu-ins button{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;font:inherit;font-size:13px;cursor:pointer;color:var(--encre)}
+.menu-ins button:hover{background:var(--taupe-voile);color:var(--nuit)}
+td.c-act .poignee{cursor:grab}
+tr.tire{opacity:.45}
+tr.cible td{box-shadow:inset 0 3px 0 var(--taupe)}
 .barre-tab{display:flex;gap:6px;justify-content:flex-end;margin-bottom:6px}
 td.num .plie{border:none;background:transparent;padding:0 4px 0 0;font-size:12px;line-height:1;cursor:pointer;color:inherit;opacity:.8}
 td.num .plie:hover{opacity:1;background:transparent}
@@ -527,8 +534,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <button id="addSous">+ Sous-chapitre</button>
       <button id="addLigne">+ Ligne</button>
       <button class="fant" id="addTexte">+ Texte libre</button>
-      <button class="fant" id="vider">Vider ce devis</button>
-      <button class="fant" id="btnTsv">Copier ce devis pour Excel</button>
+      <button class="fant" id="btnExportDevis">Export Excel</button>
       <button class="fant" id="btnArchive">Archiver dans la base de prix</button>
       <button class="fant" id="btnBiblio" hidden>Enregistrer dans la bibliothèque</button>
     </div>
@@ -788,9 +794,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.47';
+var VERSION = '2.48';
 var DATE_VERSION = '21/09/2026';
-var NOTES = 'Anti-doublons renforcé : un devis est reconnu par son émetteur et son numéro, quel que soit le poste ; archive remplaçable. Message de vérification des clés bien visible.';
+var NOTES = 'Main-d\'œuvre fondue dans le prix unitaire des chiffrages, insertion au milieu d\'un devis, déplacement d\'un chapitre par glisser-déposer, export Excel du devis.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1306,6 +1312,8 @@ function rendu(){
       +(margeVisible(d)?'<td class="pv">'+(estLigne?eur(puVente(d,r)):'')+'</td>':'')
       +'<td class="total">'+(estLigne?eur(totalLigne(d,r)):(titre?'<span class="somme">'+eur(sommes[i]||0)+'</span>':''))+'</td>'
       +'<td class="outils">'
+        +'<button class="mini" data-a="plus" title="Insérer juste en dessous">+</button>'
+        +(titre?'<button class="mini poignee" data-a="poignee" draggable="true" title="Glisser pour déplacer ce bloc, ses sous-chapitres et ses lignes">⠿</button>':'')
         +'<button class="mini" data-a="haut" title="Monter"'+(i===0?' disabled':'')+'>↑</button>'
         +'<button class="mini" data-a="bas" title="Descendre"'+(i===d.lignes.length-1?' disabled':'')+'>↓</button>'
         +'<button class="mini" data-a="type" title="Changer le niveau">≡</button>'
@@ -1646,7 +1654,7 @@ function appliqueLecture(){
     b.innerHTML='<b>Consultation — lecture seule.</b> Chantier géré par le chef de chantier · dernière modification '
       +quand(D().maj)+'. Pour des chiffres à jour, rouvrez-le depuis la page Chantiers.';
     Array.prototype.forEach.call(document.querySelectorAll('#pageDevis input, #pageDevis select, #pageDevis textarea, #pageDevis button'),function(el){
-      if(el.closest('.onglets') || el.id==='btnTsv' || el.getAttribute('data-a')==='plie'
+      if(el.closest('.onglets') || el.id==='btnExportDevis' || el.getAttribute('data-a')==='plie'
          || el.id==='btnReplierTout' || el.id==='btnDeplierTout') return;
       if(!el.disabled){ el.disabled=true; el.setAttribute('data-ro','1'); }
     });
@@ -1681,7 +1689,14 @@ function effaceModele(id){
     try{ var q=magasin('readwrite','modeles').delete(id); q.onsuccess=function(){ok();}; q.onerror=function(){ok();}; }catch(e){ ok(); }
   });
 }
-function puModele(l){ return l.mo ? params.tauxMO : nombreFr(l.pu); }
+/* Prix unitaire d'une ligne de modèle : matériaux + jours de main-d'œuvre au coût
+   journalier du jour, ramenés à la quantité. (l.mo : anciens modèles à ligne de MO séparée.) */
+function puEffectif(l){
+  if(l.mo) return params.tauxMO;
+  var q=nombreFr(l.qte)||1, pu=nombreFr(l.pu);
+  return nombreFr(l.jours)>0 ? Math.round((pu+nombreFr(l.jours)*params.tauxMO/q)*100)/100 : pu;
+}
+function puModele(l){ return puEffectif(l); }
 function suitSurface(l){ return l.echelle!==undefined ? !!l.echelle : l.unite==='m²'; }
 function deboursModele(m){
   return (m.lignes||[]).reduce(function(t,l){ return t+(l.type==='ligne'&&!l.option?nombreFr(l.qte)*puModele(l):0); },0);
@@ -1825,7 +1840,7 @@ function integreModeles(modeles,surface,ajuste){
     var f = (ajuste && surface>0 && m.surfaceRef>0) ? surface/m.surfaceRef : 1;
     var lignes=(m.lignes||[]).map(function(l){
       var c=Object.assign({},l);
-      if(c.type==='ligne' && c.mo) c.pu=params.tauxMO;               /* main-d'œuvre au coût journalier du jour */
+      if(c.type==='ligne'){ c.pu=puEffectif(c); delete c.jours; delete c.mo; }   /* MO au coût journalier du jour */
       if(f!==1 && c.type==='ligne' && suitSurface(c)) c.qte=Math.round(nombreFr(c.qte)*f*100)/100;
       return c;
     });
@@ -1900,13 +1915,12 @@ function lisChiffrage(buf){
       if(!des) continue;                                    /* lignes de sommes */
       var q=nb(row,h.q), pu=nb(row,h.pu), j=nb(row,h.j), u=normaliseUnite(row[h.u]||'');
       if(!q && !pu && !j){ f.lignes.push({type:'sous', designation:titreCasse(des)}); continue; }
-      var surf = (u==='m²');
-      var mat=null;
-      if(q>0 && (pu>0 || !j)){ mat={type:'ligne', designation:des, unite:u, qte:q, pu:pu, echelle:surf}; f.lignes.push(mat); }
-      if(j>0){
-        f.lignes.push({type:'ligne', designation: mat ? 'Main-d\'œuvre — '+des : des+' — main-d\'œuvre',
-          unite:'Jour(s)', qte:j, pu:0, mo:true, echelle:surf, lien: mat ? f.lignes.length-1 : null});
-      }
+      /* la main-d'œuvre n'est pas une ligne à part : ses jours entrent dans le prix
+         unitaire de l'ouvrage, tout en restant mémorisés pour suivre le coût journalier */
+      var q0=q, u0=u;
+      if(!(q0>0) && j>0){ q0=1; u0=normaliseUnite('Forfait'); }
+      if(q0>0 && (pu>0 || j>0))
+        f.lignes.push({type:'ligne', designation:des, unite:u0, qte:q0, pu:pu, jours:j||0, echelle:(u0==='m²')});
     }
     if(!f.lignes.some(function(l){ return l.type==='ligne' && (l.mo || nombreFr(l.pu)>0); })) f.ignoree='aucun prix dans cette feuille';
     feuilles.push(f);
@@ -1915,7 +1929,11 @@ function lisChiffrage(buf){
 }
 function totauxFeuille(f,taux){
   var mat=0, jours=0;
-  f.lignes.forEach(function(l){ if(l.type!=='ligne') return; if(l.mo) jours+=nombreFr(l.qte); else mat+=nombreFr(l.qte)*nombreFr(l.pu); });
+  f.lignes.forEach(function(l){
+    if(l.type!=='ligne') return;
+    if(l.mo){ jours+=nombreFr(l.qte); return; }
+    mat+=nombreFr(l.qte)*nombreFr(l.pu); jours+=nombreFr(l.jours);
+  });
   return {mat:mat, jours:jours, total:mat+jours*taux};
 }
 async function dialogueImportChiffrage(fichier){
@@ -1933,9 +1951,10 @@ async function dialogueImportChiffrage(fichier){
       if(l.type==='sous') return '<tr class="s"><td colspan="4">'+echappe(l.designation)+'</td></tr>';
       var coche = (l.mo && l.lien!=null) ? '<span class="note" title="Suit la ligne du dessus">↳</span>'
         : '<input type="checkbox" data-f="'+fi+'" data-l="'+li+'"'+(l.echelle?' checked':'')+' title="Quantité ajustée à la surface du chantier">';
-      return '<tr'+(l.mo?' class="mo"':'')+'><td>'+coche+'</td><td>'+echappe(l.designation)+'</td>'
+      return '<tr><td>'+coche+'</td><td>'+echappe(l.designation)
+        +(nombreFr(l.jours)>0?' <span class="note">· dont '+afficheQte(l.jours)+' j de main-d\'œuvre</span>':'')+'</td>'
         +'<td class="n">'+afficheQte(l.qte)+' '+echappe(l.unite)+'</td>'
-        +'<td class="n">'+(l.mo?'× coût journalier':eur(l.pu))+'</td></tr>';
+        +'<td class="n">'+eur(puEffectif(l))+'</td></tr>';
     }).join('');
     return '<div class="imp-feuille">'
       +'<div class="imp-tete"><label class="case" style="margin:0"><input type="checkbox" class="imp-oui" data-f="'+fi+'" checked></label>'
@@ -2281,6 +2300,71 @@ $('btnDeplierTout').onclick=function(){
   d.lignes.forEach(function(r){ if(r.type==='chapitre'||r.type==='sous') d.replis[r.id]=false; });
   rendu();
 };
+/* ------- insérer un élément au milieu du devis ------- */
+function fermeMenuIns(){ var m=document.getElementById('menuIns'); if(m) m.remove(); }
+function menuInsertion(bouton,i){
+  fermeMenuIns();
+  var d=D(), m=document.createElement('div'); m.id='menuIns'; m.className='menu-ins';
+  [['chapitre','+ Chapitre'],['sous','+ Sous-chapitre'],['ligne','+ Ligne'],['texte','+ Texte libre']]
+   .forEach(function(x){
+    var b=document.createElement('button'); b.textContent=x[1];
+    b.onclick=function(){
+      var neuve = x[0]==='ligne' ? nouvelleLigne('ligne',{unite:'Forfait',qte:1}) : nouvelleLigne(x[0]);
+      var r=d.lignes[i];
+      if(r && r.intervenant) neuve.intervenant=r.intervenant;   /* reste dans le même intervenant */
+      var pos = (r && (r.type==='chapitre'||r.type==='sous')) ? i+1 : bloc(d,i).fin;
+      if(x[0]==='chapitre'||x[0]==='sous') pos=bloc(d,i).fin;   /* un titre s'insère après le bloc courant */
+      d.lignes.splice(pos,0,neuve);
+      fermeMenuIns(); rendu();
+      var el=$('corpsTable').querySelector('tr[data-id="'+neuve.id+'"] textarea');
+      if(el){ el.focus(); if(el.scrollIntoView) el.scrollIntoView({block:'center'}); }
+    };
+    m.appendChild(b);
+  });
+  document.body.appendChild(m);
+  var r=bouton.getBoundingClientRect();
+  m.style.top=(r.bottom+window.scrollY+4)+'px';
+  m.style.left=Math.max(8,Math.min(r.left+window.scrollX-90, window.innerWidth-190))+'px';
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#menuIns') && !e.target.closest('button[data-a="plus"]')) fermeMenuIns();
+});
+
+/* ------- déplacer un bloc entier par sa poignée ------- */
+var blocTire=null;
+$('corpsTable').addEventListener('dragstart',function(e){
+  var p=e.target.closest('button[data-a="poignee"]'); if(!p) return;
+  var tr=p.closest('tr'), d=D(), i=d.lignes.findIndex(function(x){ return x.id===tr.getAttribute('data-id'); });
+  if(i<0) return;
+  blocTire=bloc(d,i);
+  tr.classList.add('tire');
+  try{ e.dataTransfer.setData('text/plain',String(i)); e.dataTransfer.effectAllowed='move'; }catch(er){}
+});
+$('corpsTable').addEventListener('dragover',function(e){
+  if(!blocTire) return;
+  e.preventDefault();
+  var tr=e.target.closest('tr'); if(!tr) return;
+  Array.prototype.forEach.call($('corpsTable').querySelectorAll('.cible'),function(x){ x.classList.remove('cible'); });
+  tr.classList.add('cible');
+});
+$('corpsTable').addEventListener('dragend',function(){
+  blocTire=null;
+  Array.prototype.forEach.call($('corpsTable').querySelectorAll('.tire,.cible'),function(x){ x.classList.remove('tire','cible'); });
+});
+$('corpsTable').addEventListener('drop',function(e){
+  if(!blocTire) return;
+  e.preventDefault();
+  var tr=e.target.closest('tr'); if(!tr) return;
+  var d=D(), j=d.lignes.findIndex(function(x){ return x.id===tr.getAttribute('data-id'); });
+  if(j<0 || (j>=blocTire.debut && j<blocTire.fin)) return;     /* pas sur lui-même */
+  var cible=bloc(d,j).debut;                                    /* on se cale au début du bloc visé */
+  var morceau=d.lignes.splice(blocTire.debut,blocTire.fin-blocTire.debut);
+  if(cible>blocTire.debut) cible-=morceau.length;
+  Array.prototype.splice.apply(d.lignes,[cible,0].concat(morceau));
+  blocTire=null;
+  rendu();
+});
+
 $('corpsTable').addEventListener('keydown',function(e){
   if(e.key==='Enter' && e.target.tagName==='TEXTAREA'){ e.preventDefault(); e.target.blur(); }
 });
@@ -2292,6 +2376,7 @@ $('corpsTable').addEventListener('click',function(e){
   if(a==='haut'&&i>0) d.lignes.splice(i-1,0,d.lignes.splice(i,1)[0]);
   else if(a==='bas'&&i<d.lignes.length-1) d.lignes.splice(i+1,0,d.lignes.splice(i,1)[0]);
   else if(a==='sup'){ if(!supprimeBloc(d,i)) return; }
+  else if(a==='plus'){ menuInsertion(b,i); return; }
   else if(a==='plie'){ if(!d.replis) d.replis={}; d.replis[d.lignes[i].id]=!estReplie(d,d.lignes[i]); }
   else if(a==='opt'){
     var t=d.lignes[i].type, etat=!d.lignes[i].option;
@@ -2364,10 +2449,6 @@ $('addChap').onclick=function(){ D().lignes.push(nouvelleLigne('chapitre')); ren
 $('addSous').onclick=function(){ D().lignes.push(nouvelleLigne('sous')); rendu(); };
 $('addLigne').onclick=function(){ D().lignes.push(nouvelleLigne('ligne',{unite:'Forfait',qte:1})); rendu(); };
 $('addTexte').onclick=function(){ D().lignes.push(nouvelleLigne('texte')); rendu(); };
-$('vider').onclick=function(){
-  if(D().lignes.length && !confirm('Effacer toutes les lignes de ce devis ?')) return;
-  D().lignes=[]; rendu();
-};
 ['fClient','fChantier','fRef','fDate'].forEach(function(id){
   $(id).addEventListener('input',function(){
     D().entete[{fClient:'client',fChantier:'chantier',fRef:'reference',fDate:'date'}[id]]=this.value; diffuse();
@@ -3705,7 +3786,7 @@ $('btnPied').onclick=function(){
   this.textContent=ouvert?'Réduire ▾':'Détail ▴';
   this.setAttribute('aria-expanded',ouvert?'true':'false');
 };
-$('btnTsv').onclick=copieTsv;
+$('btnExportDevis').onclick=function(){ exporteXlsx(true); };
 $('btnJson').onclick=exporteJson;
 
 /* ----------------------- archivage dans la base de prix ------------------ */
@@ -3917,10 +3998,26 @@ $('versHaut').onclick=function(){
   var doux=!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   window.scrollTo({top:0, behavior:doux?'smooth':'auto'});
 };
-$('versBas').onclick=function(){
-  var doux=!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-  window.scrollTo({top:document.documentElement.scrollHeight, behavior:doux?'smooth':'auto'});
-};
+/* Un appui : chapitre suivant, pour parcourir les postes. Appui maintenu : tout en bas. */
+var doux=function(){ return !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); };
+function versLeBas(){ window.scrollTo({top:document.documentElement.scrollHeight, behavior:doux()?'smooth':'auto'}); }
+function chapitreSuivant(){
+  var trs=$('corpsTable').querySelectorAll('tr.r-chapitre'), cible=null;
+  for(var i=0;i<trs.length;i++){ if(trs[i].getBoundingClientRect().top>90){ cible=trs[i]; break; } }
+  if(!cible){ versLeBas(); return; }
+  window.scrollTo({top:cible.getBoundingClientRect().top+window.scrollY-72, behavior:doux()?'smooth':'auto'});
+}
+(function(){
+  var b=$('versBas'), minuteur=null, long=false;
+  var debut=function(){ long=false; minuteur=setTimeout(function(){ long=true; versLeBas(); },550); };
+  var fin=function(){ if(minuteur) clearTimeout(minuteur); minuteur=null; if(!long) chapitreSuivant(); long=false; };
+  b.addEventListener('pointerdown',function(e){ e.preventDefault(); debut(); });
+  b.addEventListener('pointerup',fin);
+  b.addEventListener('pointerleave',function(){ if(minuteur){ clearTimeout(minuteur); minuteur=null; long=false; } });
+  b.addEventListener('contextmenu',function(e){ e.preventDefault(); });
+  b.onclick=function(e){ e.preventDefault(); };     /* le pointeur gère déjà l'appui */
+})();
+$('versBas').title='Chapitre suivant — appui maintenu : tout en bas';
 $('btnPied').addEventListener('click',function(){ setTimeout(placeFleche,20); });
 /* le contenu grandit quand on importe un devis : on réévalue régulièrement */
 setInterval(placeFleche,1500);
