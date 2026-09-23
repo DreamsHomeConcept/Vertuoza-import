@@ -811,9 +811,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.66';
+var VERSION = '2.68';
 var DATE_VERSION = '23/09/2026';
-var NOTES = 'À l\'export, chaque ligne porte sa référence : 1.01, 1.02 sous un chapitre, 3.1.01 sous un sous-chapitre.';
+var NOTES = 'Numérotation de l\'export alignée sur vos devis : chapitre 1.0, sous-chapitre 6.1, lignes 2.1 et 6.1.1.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2510,21 +2510,9 @@ function supprimeBloc(d,i){
   if(r.type==='chapitre'||r.type==='sous'){
     var montant=retires.reduce(function(s,x){return s+totalLigne(d,x);},0);
     var quoi=(r.designation||'ce titre');
-    if(retires.length>1){
-      /* OK : le titre seul, ses lignes remontent d'un niveau — Annuler : tout le bloc */
-      var seul=confirm('Supprimer « '+quoi+' » :\n\n'
-        +'OK — le titre seul. Ses '+(retires.length-1)+' éléments, dont '+nbLignes+' lignes chiffrées ('+eur(montant)+' HT), sont conservés et remontent d\'un niveau.\n\n'
-        +'Annuler — pour choisir ensuite de tout supprimer.');
-      if(seul){
-        if(r.type==='chapitre') for(var z=b.debut+1;z<b.fin;z++){ if(d.lignes[z].type==='sous') d.lignes[z].type='chapitre'; }
-        var titre=d.lignes.splice(b.debut,1);
-        corbeille={pos:b.debut, lignes:titre, devis:d.id, quoi:quoi};
-        proposeAnnulation();
-        return true;
-      }
-      if(!confirm('Supprimer « '+quoi+' » ET tout ce qui en dépend ?\n\n'
-        +(retires.length-1)+' éléments dont '+nbLignes+' lignes chiffrées, soit '+eur(montant)+' HT, seront retirés.')) return false;
-    }
+    if(retires.length>1 && !confirm('Supprimer « '+quoi+' » et tout ce qui en dépend ?\n\n'
+        +(retires.length-1)+' éléments dont '+nbLignes+' lignes chiffrées, soit '+eur(montant)+' HT, seront retirés.\n\n'
+        +'« Annuler la suppression » restera proposé 20 secondes.')) return false;
   }
   d.lignes.splice(b.debut,b.fin-b.debut);
   corbeille={pos:b.debut, lignes:retires, devis:d.id, quoi:(r.designation||'bloc')};
@@ -3846,18 +3834,26 @@ function matrice(d){
    TM | Unite | Prix Uni | Prix Total | Commentaire ---- */
 function matrice2026(d){
   var aoa=[['Format','Référence','Description','Quantite','TM','Unite','Prix Uni','Prix Total','Commentaire']];
-  /* références : chapitre 1, sous-chapitre 1.1, lignes 1.01 puis 1.1.01 sous un sous-chapitre */
-  var nChap=0, nSous=0, nLigne=0, parent='';
-  var deux=function(n){ return (n<10?'0':'')+n; };
+  /* Références : chapitre 1.0, puis un seul compteur par chapitre, partagé entre ses
+     sous-chapitres et ses lignes directes — 1.1, 1.2 — et un compteur propre à chaque
+     sous-chapitre pour ses lignes — 6.1.1, 6.1.2. Aucune collision possible. */
+  var nChap=0, nDansChap=0, nDansSous=0, sousOuvert='';
   lignesExport(d).forEach(function(r){
-    if(r.type==='chapitre'){ nChap++; nSous=0; nLigne=0; parent=String(nChap);
-      aoa.push(['T',parent,String(r.designation||'').toUpperCase(),null,null,null,null,null,null]); }
-    else if(r.type==='sous'){ nSous++; nLigne=0; parent=nChap+'.'+nSous;
-      aoa.push(['S',parent,r.designation||'',null,null,null,null,null,null]); }
-    else if(r.type==='texte'){ aoa.push(['PO','',r.designation||'',null,null,null,null,null,null]); }
-    else { nLigne++;
-      aoa.push(['',(parent?parent+'.':'')+deux(nLigne),r.designation||'',nombreFr(r.qte),
-                (r.tm==='QP'?'QP':'QF'),r.unite||'',puVente(d,r),null,r.detail||null]); }
+    if(r.type==='chapitre'){
+      nChap++; nDansChap=0; sousOuvert='';
+      aoa.push(['T',nChap+'.0',String(r.designation||'').toUpperCase(),null,null,null,null,null,null]);
+    } else if(r.type==='sous'){
+      nDansChap++; nDansSous=0; sousOuvert=nChap+'.'+nDansChap;
+      aoa.push(['S',sousOuvert,r.designation||'',null,null,null,null,null,null]);
+    } else if(r.type==='texte'){
+      aoa.push(['PO','',r.designation||'',null,null,null,null,null,null]);
+    } else {
+      var ref;
+      if(sousOuvert){ nDansSous++; ref=sousOuvert+'.'+nDansSous; }
+      else { nDansChap++; ref=(nChap?nChap+'.'+nDansChap:String(nDansChap)); }
+      aoa.push(['',ref,r.designation||'',nombreFr(r.qte),
+                (r.tm==='QP'?'QP':'QF'),r.unite||'',puVente(d,r),null,r.detail||null]);
+    }
   });
   return aoa;
 }
