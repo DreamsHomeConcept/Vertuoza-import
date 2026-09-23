@@ -799,9 +799,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.55';
+var VERSION = '2.56';
 var DATE_VERSION = '23/09/2026';
-var NOTES = 'Le fichier exporté porte le nom du chantier.';
+var NOTES = 'À l\'export, le détail de composition rejoint la désignation de sa ligne : Vertuoza ne le prend plus pour un titre.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -3699,15 +3699,27 @@ function designationExport(r){
   if(r.type==='chapitre') return String(r.designation||'').toUpperCase();   /* chapitres toujours en majuscules */
   return (r.type==='ligne'&&params.prefixe&&r.numLigne) ? r.numLigne+'.'+r.designation : r.designation;
 }
+/* Un texte libre placé juste sous une ligne chiffrée en est le détail de composition :
+   à l'export il rejoint la désignation, dans la même cellule. Seul, sous un chapitre,
+   il reste une ligne de texte. Sinon Vertuoza le prend pour un titre. */
 function lignesExport(d){
   var l=d.lignes.filter(function(r){ return !r.option && !refuse(d,r); });
   numerote({lignes:l});
-  return l;
+  var out=[], dernier=null;
+  l.forEach(function(r){
+    if(r.type==='texte' && dernier && dernier.type==='ligne' && String(r.designation||'').trim()){
+      dernier.detail=(dernier.detail?dernier.detail+'\n':'')+String(r.designation).trim();
+      return;
+    }
+    var c=Object.assign({},r); delete c.detail;
+    out.push(c); dernier=c;
+  });
+  return out;
 }
 function matrice(d){
   var aoa=[['Article ','Dénomination ','Marché','Unité','Quantité','Prix unitaire','Total']];
   lignesExport(d).forEach(function(r){
-    if(r.type==='ligne') aoa.push(['',designationExport(r),marcheDe(d,r),r.unite||'',nombreFr(r.qte),puVente(d,r),null]);
+    if(r.type==='ligne') aoa.push(['',designationExport(r)+(r.detail?'\n'+r.detail:''),marcheDe(d,r),r.unite||'',nombreFr(r.qte),puVente(d,r),null]);
     else aoa.push([r.article||'',designationExport(r),null,null,null,null,null]);
   });
   return aoa;
@@ -3723,6 +3735,7 @@ function feuilleDe(d){
       ws['G'+n]={t:'n',f:'E'+n+'*F'+n,v:totalLigne(d,r),z:FORMAT_EURO};
     }
     if(ws['A'+n]) ws['A'+n].z='@';
+    if(r.detail && ws['B'+n]){ ws['B'+n].s=Object.assign({},ws['B'+n].s,{alignment:{wrapText:true,vertical:'top'}}); }
   });
   var derniere=exp.length+1;
   if(params.pied&&exp.length){
