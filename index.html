@@ -245,6 +245,7 @@ tr.r-chapitre td.des textarea{text-transform:uppercase}
   box-shadow:0 8px 24px rgba(15,22,38,.22);padding:4px;min-width:178px}
 .menu-ins button{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;font:inherit;font-size:13px;cursor:pointer;color:var(--encre)}
 .menu-ins button:hover{background:var(--taupe-voile);color:var(--nuit)}
+.menu-ins button.actif{font-weight:600;color:var(--nuit)}
 td.c-act .poignee{cursor:grab}
 tr.tire{opacity:.45}
 tr.cible td{box-shadow:inset 0 3px 0 var(--taupe)}
@@ -810,9 +811,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.64';
+var VERSION = '2.66';
 var DATE_VERSION = '23/09/2026';
-var NOTES = 'Champ de marge élargi (plus de chiffre tronqué) et rappel explicite quand un chantier est ouvert en lecture seule.';
+var NOTES = 'À l\'export, chaque ligne porte sa référence : 1.01, 1.02 sous un chapitre, 3.1.01 sous un sous-chapitre.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2389,8 +2390,35 @@ function menuInsertion(bouton,i){
   m.style.left=Math.max(8,Math.min(r.left+window.scrollX-90, window.innerWidth-190))+'px';
 }
 document.addEventListener('click',function(e){
-  if(!e.target.closest('#menuIns') && !e.target.closest('button[data-a="plus"]')) fermeMenuIns();
+  if(!e.target.closest('#menuIns') && !e.target.closest('button[data-a="plus"]')
+     && !e.target.closest('button[data-a="type"]')) fermeMenuIns();
 });
+
+/* ------- choisir le niveau d'une ligne ------- */
+function menuNiveau(bouton,i){
+  fermeMenuIns();
+  var d=D(), r=d.lignes[i]; if(!r) return;
+  var m=document.createElement('div'); m.id='menuIns'; m.className='menu-ins';
+  [['chapitre','Chapitre'],['sous','Sous-chapitre'],['ligne','Ligne chiffrée'],['texte','Texte libre']]
+   .forEach(function(x){
+    var b=document.createElement('button');
+    b.textContent=(r.type===x[0]?'✓ ':'') + x[1];
+    if(r.type===x[0]) b.className='actif';
+    b.onclick=function(){
+      if(r.type!==x[0]){
+        r.type=x[0];
+        if(x[0]==='ligne' && !nombreFr(r.qte)) r.qte=1;
+        if(x[0]==='ligne' && !r.unite) r.unite='Forfait';
+      }
+      fermeMenuIns(); rendu();
+    };
+    m.appendChild(b);
+  });
+  document.body.appendChild(m);
+  var b2=bouton.getBoundingClientRect();
+  m.style.top=(b2.bottom+window.scrollY+4)+'px';
+  m.style.left=Math.max(8,Math.min(b2.left+window.scrollX-100, window.innerWidth-190))+'px';
+}
 
 /* ------- déplacer un bloc entier par sa poignée ------- */
 var blocTire=null;
@@ -2446,6 +2474,7 @@ $('corpsTable').addEventListener('click',function(e){
   else if(a==='bas'&&i<d.lignes.length-1) d.lignes.splice(i+1,0,d.lignes.splice(i,1)[0]);
   else if(a==='sup'){ if(!supprimeBloc(d,i)) return; }
   else if(a==='plus'){ menuInsertion(b,i); return; }
+  else if(a==='type'){ menuNiveau(b,i); return; }
   else if(a==='plie'){ if(!d.replis) d.replis={}; d.replis[d.lignes[i].id]=!estReplie(d,d.lignes[i]); }
   else if(a==='opt'){
     var t=d.lignes[i].type, etat=!d.lignes[i].option;
@@ -2455,7 +2484,6 @@ $('corpsTable').addEventListener('click',function(e){
     } else d.lignes[i].option=etat;
   }
   else if(a==='dup'){ var c=Object.assign({},d.lignes[i]); c.id='l'+(++seq)+'_'+SESSION; d.lignes.splice(i+1,0,c); }
-  else if(a==='type'){ var o=['chapitre','sous','ligne','texte']; var r=d.lignes[i]; r.type=o[(o.indexOf(r.type)+1)%o.length]; }
   rendu();
 });
 function trouve(id){ return D().lignes.find(function(r){return r.id===id;}); }
@@ -3818,12 +3846,18 @@ function matrice(d){
    TM | Unite | Prix Uni | Prix Total | Commentaire ---- */
 function matrice2026(d){
   var aoa=[['Format','Référence','Description','Quantite','TM','Unite','Prix Uni','Prix Total','Commentaire']];
-  var nChap=0, nSous=0;
+  /* références : chapitre 1, sous-chapitre 1.1, lignes 1.01 puis 1.1.01 sous un sous-chapitre */
+  var nChap=0, nSous=0, nLigne=0, parent='';
+  var deux=function(n){ return (n<10?'0':'')+n; };
   lignesExport(d).forEach(function(r){
-    if(r.type==='chapitre'){ nChap++; nSous=0; aoa.push(['T',String(nChap),String(r.designation||'').toUpperCase(),null,null,null,null,null,null]); }
-    else if(r.type==='sous'){ nSous++; aoa.push(['S',nChap+'.'+nSous,r.designation||'',null,null,null,null,null,null]); }
+    if(r.type==='chapitre'){ nChap++; nSous=0; nLigne=0; parent=String(nChap);
+      aoa.push(['T',parent,String(r.designation||'').toUpperCase(),null,null,null,null,null,null]); }
+    else if(r.type==='sous'){ nSous++; nLigne=0; parent=nChap+'.'+nSous;
+      aoa.push(['S',parent,r.designation||'',null,null,null,null,null,null]); }
     else if(r.type==='texte'){ aoa.push(['PO','',r.designation||'',null,null,null,null,null,null]); }
-    else aoa.push(['','',r.designation||'',nombreFr(r.qte),(r.tm==='QP'?'QP':'QF'),r.unite||'',puVente(d,r),null,r.detail||null]);
+    else { nLigne++;
+      aoa.push(['',(parent?parent+'.':'')+deux(nLigne),r.designation||'',nombreFr(r.qte),
+                (r.tm==='QP'?'QP':'QF'),r.unite||'',puVente(d,r),null,r.detail||null]); }
   });
   return aoa;
 }
