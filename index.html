@@ -229,6 +229,7 @@ tr.r-option td.total .somme,tr.r-refuse td.total .somme{opacity:.6;text-decorati
 .etat-sync.err{background:#FBEDEC;border-color:var(--alerte);color:#8A2A22;font-weight:600}
 .etat-sync.avertit{background:#FCF4E6;border-color:#C98A2B;color:#7A5212;font-weight:600}
 .etat-sync.attente{background:var(--taupe-voile);border-color:var(--taupe);color:var(--encre-faible)}
+tr.r-chapitre td.des textarea{text-transform:uppercase}
 .menu-ins{position:absolute;z-index:70;background:#fff;border:1px solid var(--trait);border-radius:3px;
   box-shadow:0 8px 24px rgba(15,22,38,.22);padding:4px;min-width:178px}
 .menu-ins button{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;font:inherit;font-size:13px;cursor:pointer;color:var(--encre)}
@@ -798,9 +799,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.53';
+var VERSION = '2.55';
 var DATE_VERSION = '23/09/2026';
-var NOTES = 'Un modèle seul dans un dossier voit ses sections devenir des chapitres (01, 02, 03) ; le chapitre au nom du modèle n\'apparaît que s\'il y a d\'autres intervenants.';
+var NOTES = 'Le fichier exporté porte le nom du chantier.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -3695,6 +3696,7 @@ function marcheDe(d,r){
   return r.marche||'';
 }
 function designationExport(r){
+  if(r.type==='chapitre') return String(r.designation||'').toUpperCase();   /* chapitres toujours en majuscules */
   return (r.type==='ligne'&&params.prefixe&&r.numLigne) ? r.numLigne+'.'+r.designation : r.designation;
 }
 function lignesExport(d){
@@ -3756,9 +3758,12 @@ function exporteXlsx(unSeul){
   var wsu=XLSX.utils.aoa_to_sheet([['Libéllé ']].concat(UNITES.map(function(u){return [u];})));
   wsu['!cols']=[{wch:14}];
   XLSX.utils.book_append_sheet(wb,wsu,'Unité');
-  var nomFichier = liste.length===1
-    ? 'VERTUOZA_'+liste[0].feuille+'.xlsx'
-    : 'VERTUOZA_dossier_'+liste.length+'_devis.xlsx';
+  /* le fichier porte le nom du chantier ; à défaut, celui de la feuille */
+  var chantier='';
+  for(var k=0;k<liste.length && !chantier;k++) chantier=(liste[k].entete.chantier||'').trim();
+  if(!chantier) chantier=(liste[0].entete.client||'').trim();
+  var base=(chantier||liste[0].feuille||'Devis').replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,60);
+  var nomFichier = base+(liste.length>1?' — '+liste.length+' devis':'')+'.xlsx';
   XLSX.writeFile(wb,nomFichier);
 }
 function tsv(d){
