@@ -794,9 +794,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.48';
+var VERSION = '2.51';
 var DATE_VERSION = '21/09/2026';
-var NOTES = 'Main-d\'œuvre fondue dans le prix unitaire des chiffrages, insertion au milieu d\'un devis, déplacement d\'un chapitre par glisser-déposer, export Excel du devis.';
+var NOTES = 'Un modèle inséré garde la structure du chiffrage : le chapitre porte le nom du modèle, les sections restent des sous-chapitres.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1813,8 +1813,8 @@ async function dialogueInsertion(){
      '<div class="mod-liste">'+groupes+'</div>'
     +'<div class="grille" style="margin-top:12px">'
     +'<div><label class="champ" for="iSurf">Surface du chantier (m²)</label><input type="text" id="iSurf" inputmode="decimal" value="'+(sf||'')+'" placeholder="ex. 110"></div>'
-    +'<div style="align-self:end"><label class="case" style="margin:0"><input type="checkbox" id="iAjuste" checked>'
-    +'<span>Ajuster les quantités au m² <small>Pour les modèles qui ont une surface de référence. Forfaits et unités restent inchangés.</small></span></label></div>'
+    +'<div style="align-self:end"><label class="case" style="margin:0"><input type="checkbox" id="iAjuste">'
+    +'<span>Ajuster les quantités à cette surface <small>Décoché, le modèle arrive avec les quantités de la bibliothèque, à corriger à la main. Coché, les lignes qui suivent la surface sont recalculées.</small></span></label></div>'
     +'</div>',
     [{lib:'Annuler', action:function(){}},
      {lib:'Intégrer la sélection', plein:true, action:function(){
@@ -1841,11 +1841,18 @@ function integreModeles(modeles,surface,ajuste){
     var lignes=(m.lignes||[]).map(function(l){
       var c=Object.assign({},l);
       if(c.type==='ligne'){ c.pu=puEffectif(c); delete c.jours; delete c.mo; }   /* MO au coût journalier du jour */
-      if(f!==1 && c.type==='ligne' && suitSurface(c)) c.qte=Math.round(nombreFr(c.qte)*f*100)/100;
+      if(f!==1 && c.type==='ligne' && suitSurface(c))
+        c.qte = c.entier ? Math.ceil(nombreFr(c.qte)*f) : Math.round(nombreFr(c.qte)*f*100)/100;
       return c;
     });
     var nom=ajouteIntervenant(d,{entete:{intervenant:m.intervenant||m.nom, lot:m.lot||'', nature:m.nature, total_ht:0}, lignes:lignes}, m.nom);
-    if(nom) d.bibli[nom]={id:m.id, nom:m.nom, datePrix:m.datePrix, echelle:Math.round(f*100)/100};
+    if(nom){
+      d.bibli[nom]={id:m.id, nom:m.nom, datePrix:m.datePrix, echelle:Math.round(f*100)/100};
+      /* le chapitre porte le nom du modèle : le lot deviné ferait doublon avec ses sections */
+      for(var z=0;z<d.lignes.length;z++){
+        if(d.lignes[z].type==='chapitre' && d.lignes[z].intervenant===nom){ d.lignes[z].designation=nom.toUpperCase(); break; }
+      }
+    }
     var a=ageJours(m.datePrix); if(a!=null && a>180) vieux++;
   });
   rendu();
@@ -1865,6 +1872,20 @@ function etatBi(txt,classe){
 /* Format des chiffrages DHC : une feuille par modèle, titre avec la surface
    (« TOITURE NEUVE 100 M2 »), colonnes Prix unitaire / Unité / Quantité /
    Nbre jour de M.O, sous-titres de section, totaux en bas. */
+/* Une ligne suit-elle la surface du chantier ? On reconnaît le poste, pas seulement
+   l'unité : les liteaux en ml suivent la surface, la gouttière en ml suit le périmètre,
+   et la benne ne suit rien. Reste modifiable case par case à l'import. */
+var POSTE_SURFACE=/(liteau|litelage|latte|contre.?latte|volige|chevron|fermette|charpente|ecran|pare.?pluie|sous.?toiture|tuile|ardoise|bac acier|shingle|zinc au m|isolant|laine|membrane|etancheite|osb|plancher|mur |cloison|doublage|plafond|peinture|enduit|couverture|demoussage|demontage|depose|evacuation|nettoyage)/;
+var POSTE_PERIMETRE=/(gouttiere|goutiere|tuyau|descente|crochet|collier|coude|naissance|talon|bandeau|rive|frisette|sous.?face|solin|arretier|faitage|closoir|about|chatiere|noue)/;
+var POSTE_FIXE=/(benne|echafaudage|location|forfait|consuel|deplacement|etude|plan |grue|nacelle|camion|livraison|transport|amenee|repli)/;
+function suitLaSurface(designation,unite){
+  var t=sansAccent(designation||'');
+  if(/pour\s*\d+\s*m\s*[2²]/.test(t)) return true;          /* « 1 carton pour 200 m2 » */
+  if(POSTE_FIXE.test(t) || POSTE_PERIMETRE.test(t)) return false;
+  if(unite==='m²') return true;
+  return POSTE_SURFACE.test(t);
+}
+function parLot(designation){ var m=/pour\s*(\d+)\s*m\s*[2²]/.exec(sansAccent(designation||'')); return m?+m[1]:0; }
 function titreCasse(t){ t=String(t||'').trim().toLowerCase(); return t.charAt(0).toUpperCase()+t.slice(1); }
 function lisChiffrage(buf){
   var wb=XLSX.read(buf,{type:'array',cellFormula:true}), feuilles=[];
@@ -1919,8 +1940,11 @@ function lisChiffrage(buf){
          unitaire de l'ouvrage, tout en restant mémorisés pour suivre le coût journalier */
       var q0=q, u0=u;
       if(!(q0>0) && j>0){ q0=1; u0=normaliseUnite('Forfait'); }
-      if(q0>0 && (pu>0 || j>0))
-        f.lignes.push({type:'ligne', designation:des, unite:u0, qte:q0, pu:pu, jours:j||0, echelle:(u0==='m²')});
+      if(q0>0 && (pu>0 || j>0)){
+        var ligne={type:'ligne', designation:des, unite:u0, qte:q0, pu:pu, jours:j||0, echelle:suitLaSurface(des,u0)};
+        if(parLot(des)) ligne.entier=true;                 /* un carton entamé est un carton acheté */
+        f.lignes.push(ligne);
+      }
     }
     if(!f.lignes.some(function(l){ return l.type==='ligne' && (l.mo || nombreFr(l.pu)>0); })) f.ignoree='aucun prix dans cette feuille';
     feuilles.push(f);
