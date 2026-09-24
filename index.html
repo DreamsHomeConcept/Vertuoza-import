@@ -799,9 +799,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.60';
+var VERSION = '2.61';
 var DATE_VERSION = '24/09/2026';
-var NOTES = 'Offres d\'ossature en PDF texte : métré (profilé, surface, portée, charge) et précisions techniques repris dans chaque option ; pages de CGV mieux écartées.';
+var NOTES = 'Le bandeau « Offre à variantes » disparaît avec l\'offre supprimée. Offres d\'ossature en PDF texte : métré et précisions techniques repris dans chaque option ; pages de CGV mieux écartées.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1033,8 +1033,14 @@ function intervenants(d){
 }
 function renduVariantes(){
   var d=D(), v=$('variantes');
-  var cles=Object.keys(d.variantes||{}).filter(function(c){ return d.variantes[c].liste.length>1; });
-  if(!cles.length){ v.hidden=true; return; }
+  /* seules les offres dont une ligne est encore présente : une offre supprimée
+     ne laisse pas de bandeau fantôme, et une suppression annulée le fait revenir */
+  var cles=Object.keys(d.variantes||{}).filter(function(c){
+    return d.variantes[c].liste.length>1 && (d.lignes||[]).some(function(r){
+      return (r.intervenant||'')===c && r.variante!=null;
+    });
+  });
+  if(!cles.length){ v.hidden=true; v.innerHTML=''; return; }
   v.hidden=false;
   v.innerHTML=cles.map(function(c){
     var jeu=d.variantes[c];
