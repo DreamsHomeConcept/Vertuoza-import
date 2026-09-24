@@ -257,6 +257,13 @@ tr.r-chapitre td.des textarea{text-transform:uppercase}
 .badge-inter{background:#e8e2d6;color:#5a5245}
 .badge-mg{background:#fff3d6;color:#7a5a00}
 .badge-mo{background:#e3eef8;color:#1f4f7a}
+.pastille-coh{border:1px solid transparent;border-radius:12px;padding:5px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.pastille-coh.ok{background:#e3f2e6;color:#23633a}
+.pastille-coh.moyen{background:#fff3d6;color:#7a5a00}
+.pastille-coh.ko{background:#f8e1df;color:#9b2c24;border-color:#9b2c24}
+ul.coh{margin:4px 0 10px;padding-left:18px;font-size:13px;line-height:1.7}
+ul.coh li.ko{color:#9b2c24} ul.coh li.moyen{color:#6a5200}
+tr.eclair td{background:#fff3c4 !important;transition:background .4s}
 .badge-tva{display:inline-block;margin:3px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;background:#e3f2e6;color:#23633a;white-space:nowrap}
 .badge-tva.ko{background:#f8e1df;color:#9b2c24}
 .badge-qp{display:inline-block;margin:2px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;background:#f3e1e1;color:#8a2f2f;vertical-align:middle}
@@ -824,6 +831,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       </div>
     </div>
     <div class="actions">
+      <button class="pastille-coh" id="btnCoherence" hidden>✓ Cohérent</button>
       <span class="ventil" id="ventil"></span>
       <button class="bascule" id="btnPied" aria-expanded="false">Détail ▴</button>
       <button class="plein" id="btnXlsx2">Exporter le classeur</button>
@@ -837,9 +845,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.70';
+var VERSION = '2.71';
 var DATE_VERSION = '25/09/2026';
-var NOTES = 'Fusion avec la branche 2.69 : import des DPGF (codes, localisations, quantités) et export du DPGF complété ; saisie des marges plus rapide (raccourcis 10 à 40 %, ↺, flèches ↑↓, Maj = 5 points) ; suppression d\'un titre en une étape. Tout le travail 2.60 à 2.68 est conservé.';
+var NOTES = 'Contrôle de cohérence permanent (pastille à côté du total, vérification avant export). Totaux des chapitres et du tableau des intervenants recalculés à chaque frappe. Une ligne ajoutée hérite de son bloc (intervenant, option) et « + Ligne » vise le dernier bloc visible.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1376,6 +1384,134 @@ function estReplie(d,r){
   if(r.type==='chapitre' && refuse(d,r)) return true;
   return r.type==='sous' && r.variante!=null && !!r.option;   /* option non retenue */
 }
+/* Somme affichée sur chaque chapitre et sous-chapitre : une option non retenue montre
+   sa propre valeur, sans entrer dans celle du chapitre. */
+function calculeSommes(d){
+  var sommes={}, iChap=-1, iSous=-1;
+  d.lignes.forEach(function(r,i){
+    if(r.type==='chapitre'){ iChap=i; iSous=-1; sommes[i]=0; return; }
+    if(r.type==='sous'){ iSous=i; sommes[i]=0; return; }
+    if(r.type!=='ligne') return;
+    var v=totalLigne(d,Object.assign({},r,{option:false}));
+    if(iSous>-1 && (!r.option || d.lignes[iSous].option)) sommes[iSous]+=v;
+    if(iChap>-1 && !r.option) sommes[iChap]+=v;
+  });
+  return sommes;
+}
+/* Après une saisie (quantité, prix, unité, TVA) : tout ce qui dépend du montant est
+   remis à jour sur place, sans reconstruire le tableau ni perdre le curseur. */
+function majEnDirect(){
+  var d=D(), sommes=calculeSommes(d);
+  d.lignes.forEach(function(r,i){
+    if(sommes[i]==null) return;
+    var tr=$('corpsTable').querySelector('tr[data-id="'+r.id+'"] td.total .somme');
+    if(tr) tr.textContent=eur(sommes[i]);
+  });
+  Array.prototype.forEach.call($('corpsTable').querySelectorAll('tr.r-note'),function(tr){
+    var n=trouve(tr.getAttribute('data-id')); if(!n) return;
+    var foc=document.activeElement && tr.contains(document.activeElement);
+    if(!foc){ var td=tr.querySelector('td.des'); if(td) td.innerHTML=htmlNote(d,n); }
+  });
+  majTotaux(); renduRecapSt(); renduControle(); majPastilleCoherence();
+}
+/* ======================= CONTRÔLE DE COHÉRENCE =======================
+   Refait tous les calculs de son côté, sans passer par l'affichage, et compare :
+   sommes des titres, total HT, tableau des intervenants, export Vertuoza, DPGF,
+   et ce qui est affiché à l'écran. Écart = bloquant à l'export ; alerte = à vérifier. */
+function controleCoherence(d){
+  var ecarts=[], alertes=[], cts=function(v){ return Math.round(v*100)/100; };
+  if(!d || !d.lignes) return {ecarts:ecarts, alertes:alertes};
+  var compte=function(r){ return r.type==='ligne' && !r.option && !refuse(d,r); };
+  var nom=function(r){ return String(r.designation||'(sans désignation)').slice(0,60); };
+  /* 1. total HT = somme indépendante des lignes comptées */
+  var somme=0; d.lignes.forEach(function(r){ if(compte(r)) somme+=nombreFr(r.qte)*puVente(d,r); });
+  var ht=totalHt(d);
+  if(Math.abs(cts(somme)-cts(ht))>0.01) ecarts.push({msg:'Total HT '+eur(ht)+' ≠ somme des lignes '+eur(somme)});
+  /* 2. chaque titre = somme de ses lignes */
+  var S=calculeSommes(d);
+  d.lignes.forEach(function(r,i){
+    if(r.type!=='chapitre' && r.type!=='sous') return;
+    var b=bloc(d,i), t=0;
+    for(var k=b.debut+1;k<b.fin;k++){ var x=d.lignes[k]; if(x.type==='ligne' && (!x.option || (r.type==='sous' && r.option))) t+=nombreFr(x.qte)*puVente(d,x); }
+    if(Math.abs(cts(t)-cts(S[i]||0))>0.01) ecarts.push({id:r.id, msg:(r.type==='chapitre'?'Chapitre':'Sous-chapitre')+' « '+nom(r)+' » : '+eur(S[i]||0)+' affiché ≠ '+eur(t)+' de lignes'});
+  });
+  /* 3. écran à jour : chaque somme et chaque ligne affichées correspondent au calcul */
+  var tb=$('corpsTable');
+  if(tb && D()===d){
+    d.lignes.forEach(function(r,i){
+      var tr=tb.querySelector('tr[data-id="'+r.id+'"]'); if(!tr) return;
+      var cel=tr.querySelector('td.total'); if(!cel) return;
+      var aff=nombreFr(cel.textContent.replace(/[^\d,.\-]/g,'')), att=(r.type==='ligne')?totalLigne(d,Object.assign({},r,{option:false})):(S[i]!=null?S[i]:null);
+      if(att==null || (r.type==='ligne' && r.option)) return;
+      if(Math.abs(cts(aff)-cts(att))>0.01) ecarts.push({id:r.id, msg:'Affichage en retard sur « '+nom(r)+' » : '+eur(aff)+' affiché, '+eur(att)+' calculé'});
+    });
+    var tht=$('tHt'); if(tht && Math.abs(nombreFr(tht.textContent.replace(/[^\d,.\-]/g,''))-cts(ht))>0.01) ecarts.push({msg:'Total HT affiché en retard : '+tht.textContent+' pour '+eur(ht)});
+  }
+  /* 4. export Vertuoza = total HT */
+  try{
+    var aoa=matrice(d), tx=0;
+    for(var a=1;a<aoa.length;a++){ var z=aoa[a]; if(z[0]==='PO' && z[3]!=null && z[6]!=null) tx+=nombreFr(z[3])*nombreFr(z[6]); }
+    if(Math.abs(cts(tx)-cts(ht))>0.01) ecarts.push({msg:'Export Vertuoza '+eur(tx)+' ≠ total HT '+eur(ht)});
+  }catch(e){ ecarts.push({msg:'Export Vertuoza impossible à calculer : '+(e.message||e)}); }
+  /* 5. tableau des intervenants (consolidation) : les lignes sans intervenant n'y figurent pas */
+  if(d.mode==='st'){
+    var hors=d.lignes.filter(function(r){ return compte(r) && !r.intervenant; });
+    if(hors.length){
+      var mt=hors.reduce(function(t,r){ return t+totalLigne(d,r); },0);
+      alertes.push({id:hors[0].id, msg:hors.length+(hors.length>1?' lignes sans intervenant':' ligne sans intervenant')+' ('+eur(mt)+') : comptée'+(hors.length>1?'s':'')+' dans le total HT mais absente'+(hors.length>1?'s':'')+' du tableau des intervenants'});
+    }
+  }
+  /* 6. options non retenues : aucune de leurs lignes ne doit compter */
+  d.lignes.forEach(function(r,i){
+    if(r.type!=='ligne' || r.option) return;
+    var t=titreDe(d,i);
+    if(r.variante!=null && d.variantes && d.variantes[r.intervenant||''] && d.variantes[r.intervenant||''].choix!==r.variante)
+      ecarts.push({id:r.id, msg:'« '+nom(r)+' » appartient à une option non retenue mais est comptée ('+eur(totalLigne(d,r))+')'});
+    else if(t && t.option && t.type==='sous')
+      ecarts.push({id:r.id, msg:'« '+nom(r)+' » est sous un titre en option mais est comptée ('+eur(totalLigne(d,r))+')'});
+  });
+  /* 7. points à vérifier */
+  d.lignes.forEach(function(r){
+    if(!compte(r)) return;
+    if(!(nombreFr(r.pu)>0) && !moDeb(r)) alertes.push({id:r.id, msg:'« '+nom(r)+' » : prix unitaire à 0'});
+    else if(!(nombreFr(r.qte)>0)) alertes.push({id:r.id, msg:'« '+nom(r)+' » : quantité à 0'});
+  });
+  var sia=d.lignes.filter(function(r){ return r.sansIA; });
+  if(sia.length) alertes.push({id:sia[0].id, msg:sia.length+(sia.length>1?' blocs lus sans IA non vérifiés':' bloc lu sans IA non vérifié')});
+  if(d.dpgf){
+    var od=d.lignes.filter(function(r){ return r.type==='ligne' && !r.option && !refuse(d,r) && !(nombreFr(r.pu)>0); }).length;
+    if(od) alertes.push({msg:'DPGF : '+od+(od>1?' ouvrages sans prix':' ouvrage sans prix')});
+  }
+  return {ecarts:ecarts, alertes:alertes};
+}
+function majPastilleCoherence(){
+  var b=$('btnCoherence'); if(!b) return;
+  var d=D();
+  if(!d || !d.lignes.length){ b.hidden=true; return; }
+  var r=controleCoherence(d);
+  b.hidden=false;
+  b.className='pastille-coh '+(r.ecarts.length?'ko':(r.alertes.length?'moyen':'ok'));
+  b.textContent = r.ecarts.length ? '⚠ '+r.ecarts.length+(r.ecarts.length>1?' écarts':' écart')
+    : (r.alertes.length ? '✓ Cohérent · '+r.alertes.length+' à vérifier' : '✓ Cohérent');
+  b.title='Contrôle de cohérence des totaux — cliquer pour le détail';
+}
+function dialogueCoherence(d,apresExport){
+  var r=controleCoherence(d);
+  var li=function(x,cl){ return '<li class="'+cl+'">'+echappe(x.msg)+(x.id?' <button class="mini" data-coh="'+x.id+'">Voir</button>':'')+'</li>'; };
+  var corps = (r.ecarts.length ? '<p class="note" style="color:#9b2c24;font-weight:600;margin-top:0">'+r.ecarts.length+(r.ecarts.length>1?' écarts de calcul':' écart de calcul')+' — à corriger avant d\'envoyer le devis :</p><ul class="coh">'+r.ecarts.map(function(x){ return li(x,'ko'); }).join('')+'</ul>'
+      : '<p class="note" style="color:#23633a;font-weight:600;margin-top:0">✓ Totaux cohérents : chapitres, sous-chapitres, total HT, tableau des intervenants et export Vertuoza concordent au centime ('+eur(totalHt(d))+' HT).</p>')
+    +(r.alertes.length ? '<p class="note" style="margin-bottom:4px">À vérifier :</p><ul class="coh">'+r.alertes.map(function(x){ return li(x,'moyen'); }).join('')+'</ul>' : '');
+  var boutons=[{lib:'Fermer', action:function(){}}];
+  if(apresExport) boutons=[{lib:'Corriger d\'abord', action:function(){}},{lib:'Exporter quand même', plein:true, action:function(){ apresExport(); }}];
+  ouvreModale('Contrôle de cohérence — '+(d.feuille||'devis'), corps, boutons);
+  Array.prototype.forEach.call($('modCorps').querySelectorAll('button[data-coh]'),function(b){
+    b.onclick=function(){
+      var id=b.getAttribute('data-coh'), dd=D(), idx=dd.lignes.findIndex(function(x){ return x.id===id; });
+      if(idx>-1 && dd.replis){ for(var k=idx;k>=0;k--){ var t=dd.lignes[k]; if(t.type==='sous'||t.type==='chapitre'){ dd.replis[t.id]=false; if(t.type==='chapitre') break; } } }
+      fermeModale(); location.hash='#devis'; rendu(); montreLigne(id);
+    };
+  });
+}
 function lignesMasquees(d){
   var caches={}, nb={}, chap=-1, chapR=false, sous=-1, sousR=false;
   d.lignes.forEach(function(r,i){
@@ -1394,20 +1530,12 @@ function rendu(){
   var tb=$('corpsTable');
   if(!d.lignes.length){
     tb.innerHTML='<tr class="ligne-vide"><td colspan="'+nbColonnes()+'">Aucune ligne. Importez un devis PDF ou ajoutez un chapitre.</td></tr>';
-    majTotaux(); appliqueLecture(); return;
+    majTotaux(); appliqueLecture(); majPastilleCoherence(); return;
   }
   var M=lignesMasquees(d);
   /* somme de chaque chapitre et sous-chapitre, au prix affiché dans la colonne Total ;
      une option non retenue montre sa propre valeur, sans entrer dans celle du chapitre */
-  var sommes={}, iChap=-1, iSous=-1;
-  d.lignes.forEach(function(r,i){
-    if(r.type==='chapitre'){ iChap=i; iSous=-1; sommes[i]=0; return; }
-    if(r.type==='sous'){ iSous=i; sommes[i]=0; return; }
-    if(r.type!=='ligne') return;
-    var v=nombreFr(r.qte)*puVente(d,r);
-    if(iSous>-1 && (!r.option || d.lignes[iSous].option)) sommes[iSous]+=v;
-    if(iChap>-1 && !r.option) sommes[iChap]+=v;
-  });
+  var sommes=calculeSommes(d);
   tb.innerHTML=d.lignes.map(function(r,i){
     if(M.caches[i]) return '';
     if(r.type==='note'){
@@ -1447,6 +1575,7 @@ function rendu(){
   ajusteToutes();
   majTotaux();
   appliqueLecture();
+  majPastilleCoherence();
 }
 function affichePu(v){ var n=nombreFr(v); return n?eur(n):''; }
 function afficheQte(v){
@@ -2625,7 +2754,7 @@ $('corpsTable').addEventListener('input',function(e){
   var tr=e.target.closest('tr'), r=trouve(tr.getAttribute('data-id')); if(!r) return;
   r[c]=e.target.value;
   if(c==='designation' && e.target.tagName==='TEXTAREA') ajusteHauteur(e.target);
-  if(c==='qte'||c==='pu'){ rafraichitLigne(tr,r); majTotaux(); }
+  if(c==='qte'||c==='pu'){ rafraichitLigne(tr,r); majEnDirect(); }
   else diffuse();
 });
 $('corpsTable').addEventListener('change',function(e){
@@ -2645,7 +2774,7 @@ $('corpsTable').addEventListener('change',function(e){
   var r=trouve(e.target.closest('tr').getAttribute('data-id')); if(!r) return;
   if(c==='unite') r.unite=e.target.value;
   else r.tva = e.target.value===''?null:parseFloat(e.target.value);
-  majTotaux();
+  majEnDirect();
 });
 $('corpsTable').addEventListener('focusin',function(e){
   var c=e.target.getAttribute('data-c');
@@ -2671,6 +2800,41 @@ $('btnDeplierTout').onclick=function(){
 };
 /* ------- insérer un élément au milieu du devis ------- */
 function fermeMenuIns(){ var m=document.getElementById('menuIns'); if(m) m.remove(); }
+/* Contexte d'une position : le titre (sous-chapitre, sinon chapitre) qui la contient. */
+function titreDe(d,pos){
+  for(var k=Math.min(pos,d.lignes.length)-1;k>=0;k--){
+    var t=d.lignes[k].type;
+    if(t==='sous'||t==='chapitre') return d.lignes[k];
+  }
+  return null;
+}
+/* Insère une ligne à la position voulue : elle prend l'intervenant, la variante et le
+   statut d'option du bloc qui l'accueille. Une ligne n'est jamais glissée entre un
+   ouvrage et ses commentaires ou sa note de main-d'oeuvre. */
+function insereLigne(d,type,pos,ref){
+  var neuve = type==='ligne' ? nouvelleLigne('ligne',{unite:'Forfait',qte:1}) : nouvelleLigne(type);
+  if(type!=='chapitre'){
+    if(type!=='sous'){
+      while(pos<d.lignes.length && pos>0 && (d.lignes[pos].type==='note'||d.lignes[pos].type==='texte')
+            && d.lignes[pos-1] && d.lignes[pos-1].type!=='chapitre' && d.lignes[pos-1].type!=='sous') pos++;
+    }
+    var t=titreDe(d,pos), src=ref||t;
+    if(src && src.intervenant) neuve.intervenant=src.intervenant;
+    if(type!=='sous' && t){
+      if(t.variante!=null){ neuve.variante=t.variante; neuve.option=!!t.option; }
+      else if(t.option) neuve.option=true;
+    }
+  }
+  d.lignes.splice(pos,0,neuve);
+  return neuve;
+}
+function montreLigne(id){
+  var tr=$('corpsTable').querySelector('tr[data-id="'+id+'"]'); if(!tr) return;
+  var el=tr.querySelector('textarea')||tr;
+  if(el.focus) el.focus();
+  if(tr.scrollIntoView) tr.scrollIntoView({block:'center'});
+  tr.classList.add('eclair'); setTimeout(function(){ tr.classList.remove('eclair'); },1600);
+}
 function menuInsertion(bouton,i){
   fermeMenuIns();
   var d=D(), m=document.createElement('div'); m.id='menuIns'; m.className='menu-ins';
@@ -2678,15 +2842,14 @@ function menuInsertion(bouton,i){
    .forEach(function(x){
     var b=document.createElement('button'); b.textContent=x[1];
     b.onclick=function(){
-      var neuve = x[0]==='ligne' ? nouvelleLigne('ligne',{unite:'Forfait',qte:1}) : nouvelleLigne(x[0]);
       var r=d.lignes[i];
-      if(r && r.intervenant) neuve.intervenant=r.intervenant;   /* reste dans le même intervenant */
       var pos = (r && (r.type==='chapitre'||r.type==='sous')) ? i+1 : bloc(d,i).fin;
       if(x[0]==='chapitre'||x[0]==='sous') pos=bloc(d,i).fin;   /* un titre s'insère après le bloc courant */
-      d.lignes.splice(pos,0,neuve);
+      if(r && (r.type==='chapitre'||r.type==='sous')){ if(!d.replis) d.replis={}; d.replis[r.id]=false; }   /* on voit ce qu'on ajoute */
+      var neuve=insereLigne(d,x[0],pos,r);
       fermeMenuIns(); rendu();
-      var el=$('corpsTable').querySelector('tr[data-id="'+neuve.id+'"] textarea');
-      if(el){ el.focus(); if(el.scrollIntoView) el.scrollIntoView({block:'center'}); }
+      if(neuve.option && x[0]==='ligne') info('Ligne ajoutée dans une option non retenue : elle est hors total, comme le reste de l\'option.',100,'avertit');
+      montreLigne(neuve.id);
     };
     m.appendChild(b);
   });
@@ -2913,8 +3076,24 @@ function annuleSuppression(){
 
 $('addChap').onclick=function(){ D().lignes.push(nouvelleLigne('chapitre')); rendu(); };
 $('addSous').onclick=function(){ D().lignes.push(nouvelleLigne('sous')); rendu(); };
-$('addLigne').onclick=function(){ D().lignes.push(nouvelleLigne('ligne',{unite:'Forfait',qte:1})); rendu(); };
-$('addTexte').onclick=function(){ D().lignes.push(nouvelleLigne('texte')); rendu(); };
+/* « + Ligne » et « + Texte libre » en bas : à la fin du dernier bloc VISIBLE, jamais
+   dans une option repliée ou un bloc fermé où la ligne disparaîtrait. */
+function ajouteEnBas(type){
+  var d=D(), M=lignesMasquees(d), pos=d.lignes.length;
+  for(var k=d.lignes.length-1;k>=0;k--){
+    var r=d.lignes[k];
+    if(M.caches[k]) continue;
+    if((r.type==='chapitre'||r.type==='sous') && (estReplie(d,r) || r.option)) continue;
+    pos=bloc(d,k).fin;
+    if(r.type!=='chapitre' && r.type!=='sous'){ pos=k+1; }
+    break;
+  }
+  if(k<0) pos=d.lignes.length;
+  var neuve=insereLigne(d,type,pos,null);
+  rendu(); montreLigne(neuve.id);
+}
+$('addLigne').onclick=function(){ ajouteEnBas('ligne'); };
+$('addTexte').onclick=function(){ ajouteEnBas('texte'); };
 ['fClient','fChantier','fRef','fDate'].forEach(function(id){
   $(id).addEventListener('input',function(){
     D().entete[{fClient:'client',fChantier:'chantier',fRef:'reference',fDate:'date'}[id]]=this.value; diffuse();
@@ -4381,9 +4560,17 @@ function feuilleDe(d){
   ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:derniere-1,c:8}});
   return ws;
 }
-function exporteXlsx(unSeul){
+function exporteXlsx(unSeul,force){
   var liste = unSeul ? [D()] : dossier.filter(function(d){return d.lignes.length;});
   if(!liste.length){ alert('Aucune ligne à exporter.'); return; }
+  if(!force){
+    var ko=liste.filter(function(d){ return controleCoherence(d).ecarts.length; });
+    if(ko.length){
+      if(ko.indexOf(D())<0){ actif=dossier.indexOf(ko[0]); rendu(); }
+      dialogueCoherence(D(),function(){ exporteXlsx(unSeul,true); });
+      return;
+    }
+  }
   /* le modèle Vertuoza n'a pas de colonne TVA : un taux réduit se règle dans Vertuoza */
   var reduits=liste.filter(function(d){ return d.lignes.some(function(r){ return r.type==='ligne' && !r.option && r.tva!=null && r.tva!==d.tva; }); });
   if(reduits.length) setTimeout(function(){ info('⚠ Le modèle Vertuoza n\'a pas de colonne TVA : dans Vertuoza, réglez à la main le taux des lignes à TVA particulière (5,5 % en rénovation) — '+reduits.map(function(d){return d.feuille;}).join(', ')+'.',100,'avertit'); },50);
@@ -4474,7 +4661,12 @@ $('btnPied').onclick=function(){
   this.setAttribute('aria-expanded',ouvert?'true':'false');
 };
 $('btnExportDevis').onclick=function(){ exporteXlsx(true); };
-$('btnExportDpgf').onclick=function(){ exporteDpgf(D()); };
+$('btnExportDpgf').onclick=function(){
+  var d=D(), r=controleCoherence(d);
+  if(r.ecarts.length){ dialogueCoherence(d,function(){ exporteDpgf(d); }); return; }
+  exporteDpgf(d);
+};
+$('btnCoherence').onclick=function(){ dialogueCoherence(D()); };
 $('btnJson').onclick=exporteJson;
 
 /* ----------------------- archivage dans la base de prix ------------------ */
