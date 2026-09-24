@@ -271,8 +271,16 @@ tr.r-note td{background:#f4f8fc;font-size:13px;color:#1f4f7a;padding-top:6px;pad
 tr.r-note .note-int{display:block;line-height:1.9}
 tr.r-note input.mo-j{width:56px;padding:3px 6px;text-align:right;font:inherit;border:1px solid #9bb8d3;border-radius:3px;background:#fff}
 td.c-act .poignee{cursor:grab}
-tr.tire{opacity:.45}
-tr.cible td{box-shadow:inset 0 3px 0 var(--taupe)}
+tr.tire td{opacity:.45;background:#fff4e0 !important}
+tr.cible td{box-shadow:inset 0 4px 0 #e07b00}
+tr.cible-bas td{box-shadow:inset 0 -4px 0 #e07b00}
+tr.deplace td:first-child{box-shadow:inset 4px 0 0 #e07b00}
+tr.deplace td{background-image:linear-gradient(#fff7ec,#fff7ec)}
+.badge-depl{display:inline-block;margin:2px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;background:#ffe3bf;color:#8a4b00;vertical-align:middle}
+button.depl{background:#ffe3bf;border-color:#e07b00;color:#8a4b00;font-weight:600}
+.mg-slot{display:inline-block;width:34px;text-align:left}
+.mg-herit{font-size:10.5px;color:var(--encre-faible);margin-left:3px}
+.tab-inter input.mg::placeholder,.inter input.mg::placeholder{color:#6f6a60 !important;font-style:normal !important}
 .barre-tab{display:flex;gap:6px;justify-content:flex-end;margin-bottom:6px}
 td.num .plie{border:none;background:transparent;padding:0 4px 0 0;font-size:12px;line-height:1;cursor:pointer;color:inherit;opacity:.8}
 td.num .plie:hover{opacity:1;background:transparent}
@@ -322,7 +330,8 @@ body.lecture tr.r-chapitre td.des textarea:disabled{color:#fff;-webkit-text-fill
 .tab-inter tr.grp b{color:var(--nuit);font-size:13px}
 .tab-inter .grp-n{margin-left:8px;font-size:12px;color:var(--taupe-fonce);font-weight:600}
 .tab-inter .grp-alerte{margin-left:10px;font-size:12px;color:var(--alerte);font-weight:600}
-.tab-inter tr.refuse td{opacity:.5}
+.tab-inter tr.refuse td{opacity:1;color:var(--encre-faible)}
+.tab-inter tr.refuse td.fort{text-decoration:line-through}
 .tab-inter tr.refuse .c-nom b{text-decoration:line-through}
 .tab-inter tr.refuse td.c-ret{opacity:1}
 .tab-inter tr.sim td{font-size:12px;color:var(--encre-faible);background:#FBFAF7;padding-top:3px;padding-bottom:7px}
@@ -559,6 +568,8 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <hr class="separateur">
 
     <div class="barre-tab">
+      <button class="mini" id="btnAnnuler" disabled title="Rien à annuler">↶ Annuler</button>
+      <button class="mini depl" id="btnValideDepl" hidden title="Retirer la couleur des lignes déplacées">Valider les déplacements</button>
       <button class="mini" id="btnReplierTout" title="Replier tous les chapitres">Tout replier</button>
       <button class="mini" id="btnDeplierTout" title="Déplier tous les chapitres">Tout déplier</button>
     </div>
@@ -845,9 +856,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.71';
+var VERSION = '2.72';
 var DATE_VERSION = '25/09/2026';
-var NOTES = 'Contrôle de cohérence permanent (pastille à côté du total, vérification avant export). Totaux des chapitres et du tableau des intervenants recalculés à chaque frappe. Une ligne ajoutée hérite de son bloc (intervenant, option) et « + Ligne » vise le dernier bloc visible.';
+var NOTES = 'Déplacement des blocs entiers sans mélange (repère de dépôt, couleur « déplacé » jusqu\'à validation) ; ↶ Annuler et Ctrl+Z sur les 20 dernières actions ; ↑ ↓ déplacent le bloc entier ; colonne Marge alignée et lisible.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1335,7 +1346,7 @@ function renduRecapSt(){
         +'<td data-l="Contrôle">'+(controleInter(d,x)||'<span class="vide">—</span>')+'</td>'
         +(mg?'<td class="num" data-l="Marge"><span class="mg-boite'+(perso?' perso':'')+'">'
           +'<input class="mg" type="text" inputmode="decimal" data-marge="'+echappe(x.nom)+'" value="'+(perso?Number(d.marges[x.nom]).toLocaleString('fr-FR',{maximumFractionDigits:2,useGrouping:false}):'')+'" placeholder="'+String(d.marge).replace('.',',')+'" title="Marge de cet intervenant. Vide = marge du devis ('+String(d.marge).replace('.',',')+' %). Flèches haut et bas pour ajuster, Maj pour 5 points.">%'
-          +(perso?'<button class="mg-raz" data-marge-raz="'+echappe(x.nom)+'" title="Revenir à la marge du devis">↺</button>':'')
+          +'<span class="mg-slot">'+(perso?'<button class="mg-raz" data-marge-raz="'+echappe(x.nom)+'" title="Revenir à la marge du devis">↺</button>':'<small class="mg-herit" title="Marge du devis">devis</small>')+'</span>'
           +'</span></td>':'')
         +'<td class="num fort" data-l="Prix client HT">'+eur(x.ht)+'</td>'
         +'<td class="c-act"><button class="mini" data-biblio="'+echappe(x.nom)+'" title="Enregistrer ce devis dans la bibliothèque">★</button>'
@@ -1539,7 +1550,7 @@ function rendu(){
   tb.innerHTML=d.lignes.map(function(r,i){
     if(M.caches[i]) return '';
     if(r.type==='note'){
-      return '<tr class="r-note'+(r.option?' r-option':'')+(refuse(d,r)?' r-refuse':'')+'" data-id="'+r.id+'">'
+      return '<tr class="r-note'+(r.option?' r-option':'')+(refuse(d,r)?' r-refuse':'')+(r.deplace?' deplace':'')+'" data-id="'+r.id+'">'
         +'<td class="num"></td><td class="des" colspan="'+(nbColonnes()-2)+'">'+htmlNote(d,r)+'</td>'
         +'<td class="outils"><button class="mini" data-a="menu" title="Actions">⋯</button></td></tr>';
     }
@@ -1548,10 +1559,11 @@ function rendu(){
     var prefixe=(estLigne&&params.prefixe&&r.numLigne&&!d.dpgf)?'<span class="prefixe">'+r.numLigne+'.</span>':'';
     var ph=r.type==='chapitre'?'Intitulé du chapitre':r.type==='sous'?'Intitulé du sous-chapitre'
           :r.type==='texte'?'Commentaire libre':'Désignation de l\'ouvrage';
-    return '<tr class="r-'+r.type+(r.option?' r-option':'')+(refuse(d,r)?' r-refuse':'')+'" data-id="'+r.id+'">'
+    return '<tr class="r-'+r.type+(r.option?' r-option':'')+(refuse(d,r)?' r-refuse':'')+(r.deplace?' deplace':'')+'" data-id="'+r.id+'">'
       +'<td class="num">'+(titre?'<button class="plie" data-a="plie" aria-expanded="'+(!replie)+'" title="'+(replie?'Déplier':'Replier')+'">'+(replie?'▸':'▾')+'</button>':'')+echappe(d.dpgf&&r.code?r.code:r.article)+'</td>'
       +'<td class="des"><div class="des-in">'+prefixe
         +'<textarea rows="1" data-c="designation" placeholder="'+ph+'">'+echappe(r.designation)+'</textarea>'
+        +(r.deplace && !(i>0 && d.lignes[i-1].deplace)?'<span class="badge-depl" title="Déplacé — « Valider les déplacements » pour retirer la couleur">déplacé</span>':'')
         +(r.sansIA?'<span class="badge-tva ko" title="Lu sans l\'IA : découpage approximatif. Menu ⋯ → Marquer comme vérifié">lu sans IA — à vérifier</span>':'')
         +(r.type==='chapitre'&&d.mode==='st'&&r.intervenant?'<span class="badge-inter" title="Intervenant — non exporté">'+echappe(r.intervenant)+'</span>':'')
         +(estLigne&&typeMarche(r)==='QP'?'<span class="badge-qp" title="Quantité présumée — exportée en TM = QP">QP</span>':'')
@@ -1576,6 +1588,10 @@ function rendu(){
   majTotaux();
   appliqueLecture();
   majPastilleCoherence();
+  var nd=d.lignes.filter(function(r){ return r.deplace; }).length;
+  $('btnValideDepl').hidden=!nd;
+  $('btnValideDepl').textContent='Valider les déplacements ('+nd+')';
+  majBoutonAnnuler();
 }
 function affichePu(v){ var n=nombreFr(v); return n?eur(n):''; }
 function afficheQte(v){
@@ -2846,6 +2862,7 @@ function menuInsertion(bouton,i){
       var pos = (r && (r.type==='chapitre'||r.type==='sous')) ? i+1 : bloc(d,i).fin;
       if(x[0]==='chapitre'||x[0]==='sous') pos=bloc(d,i).fin;   /* un titre s'insère après le bloc courant */
       if(r && (r.type==='chapitre'||r.type==='sous')){ if(!d.replis) d.replis={}; d.replis[r.id]=false; }   /* on voit ce qu'on ajoute */
+      memorise(d,'ajout d\'un élément');
       var neuve=insereLigne(d,x[0],pos,r);
       fermeMenuIns(); rendu();
       if(neuve.option && x[0]==='ligne') info('Ligne ajoutée dans une option non retenue : elle est hors total, comme le reste de l\'option.',100,'avertit');
@@ -2863,38 +2880,166 @@ document.addEventListener('click',function(e){
 });
 
 /* ------- déplacer un bloc entier par sa poignée ------- */
+/* Bloc mobile : un titre emporte tout ce qu'il contient ; une ligne emporte ses
+   commentaires et sa note de main-d'oeuvre. */
+function blocMobile(d,i){
+  var r=d.lignes[i];
+  if(r.type==='chapitre'||r.type==='sous') return bloc(d,i);
+  var fin=i+1;
+  if(r.type==='ligne') while(fin<d.lignes.length && (d.lignes[fin].type==='texte'||d.lignes[fin].type==='note')) fin++;
+  return {debut:i, fin:fin};
+}
+function chapitreDe(d,j){ for(var k=j;k>=0;k--) if(d.lignes[k].type==='chapitre') return k; return -1; }
+function sousDe(d,j){ for(var k=j;k>=0;k--){ var t=d.lignes[k].type; if(t==='sous') return k; if(t==='chapitre') return -1; } return -1; }
+function ligneDe(d,j){ for(var k=j;k>=0;k--){ var t=d.lignes[k].type; if(t==='ligne') return k; if(t!=='texte'&&t!=='note') return -1; } return -1; }
+/* Où tombe le bloc src si on le lâche sur la ligne j, moitié haute (apres=false) ou basse.
+   Renvoie une position dans d.lignes, ou -1 si le dépôt n'a pas de sens. */
+function destination(d,src,j,apres){
+  if(j>=src.debut && j<src.fin) return -1;
+  var t=d.lignes[src.debut].type, c=d.lignes[j], pos;
+  if(t==='chapitre'){
+    var cj=chapitreDe(d,j);
+    if(c.type!=='chapitre') apres=(j>src.debut);            /* lâché dans un chapitre : on descend → après, on monte → avant */
+    if(cj<0){ var p0=d.lignes.findIndex(function(x){return x.type==='chapitre';}); pos = p0>-1?p0:d.lignes.length; }   /* jamais avant les lignes hors chapitre : il les avalerait */
+    else pos = apres ? bloc(d,cj).fin : cj;
+  } else if(t==='sous'){
+    if(c.type==='chapitre'){
+      /* premier sous-chapitre du chapitre visé, après ses lignes directes */
+      var b=bloc(d,j); pos=b.fin;
+      for(var k=j+1;k<b.fin;k++){ if(d.lignes[k].type==='sous'){ pos=k; break; } }
+    } else {
+      var sj=sousDe(d,j);
+      if(c.type!=='sous') apres=(j>src.debut);
+      if(sj>-1) pos = apres ? bloc(d,sj).fin : sj;
+      else {
+        var cc=chapitreDe(d,j), bc=cc>-1?bloc(d,cc):{debut:-1,fin:d.lignes.length}; pos=bc.fin;
+        for(var k2=j+1;k2<bc.fin;k2++){ if(d.lignes[k2].type==='sous'){ pos=k2; break; } }
+      }
+    }
+  } else {
+    /* première ligne sous le titre, après les textes de présentation du titre */
+    var apresTitre=function(k){ var q=k+1; while(q<d.lignes.length && d.lignes[q].type==='texte') q++; return q; };
+    if(c.type==='chapitre'||c.type==='sous') pos=apresTitre(j);
+    else {
+      var lj=ligneDe(d,j);
+      if(lj<0){ var tt=j; while(tt>0 && d.lignes[tt].type==='texte') tt--; pos=apresTitre(tt); }
+      else { var bl=blocMobile(d,lj); pos = apres ? bl.fin : bl.debut; }
+    }
+  }
+  if(pos>=src.debut && pos<=src.fin) return -1;             /* même place */
+  return pos;
+}
+/* Déplace le bloc src à la position pos ; marque les lignes déplacées. */
+function deplaceBloc(d,src,pos){
+  if(pos<0 || (pos>=src.debut && pos<=src.fin)) return false;
+  memorise(d,'déplacement de « '+String(d.lignes[src.debut].designation||'bloc').slice(0,40)+' »');
+  var morceau=d.lignes.splice(src.debut,src.fin-src.debut);
+  if(pos>src.debut) pos-=morceau.length;
+  morceau.forEach(function(r){ r.deplace=true; });
+  Array.prototype.splice.apply(d.lignes,[pos,0].concat(morceau));
+  return true;
+}
+/* ↑ ↓ : le bloc passe au-dessus / au-dessous du bloc voisin de même niveau. */
+function deplaceVoisin(d,i,sens){
+  var src=blocMobile(d,i), t=d.lignes[i].type, pos=-1;
+  if(sens<0){
+    for(var k=src.debut-1;k>=0;k--){
+      var x=d.lignes[k].type;
+      if(t==='chapitre'){ if(x==='chapitre'){ pos=k; break; } }
+      else if(t==='sous'){ if(x==='sous'){ pos=k; break; } if(x==='chapitre') break; }
+      else { if(x==='ligne'){ pos=k; break; } if(x==='chapitre'||x==='sous') break; }
+    }
+  } else {
+    var n=d.lignes[src.fin];
+    if(n && (n.type===t || (t==='texte' && n.type==='ligne') || (t==='ligne' && n.type==='texte'))) pos=blocMobile(d,src.fin).fin;
+  }
+  if(pos<0){ info('Déjà '+(sens<0?'en tête':'en fin')+' de son niveau : utilisez la poignée ⠿ pour le changer de chapitre.',100,'avertit'); return false; }
+  return deplaceBloc(d,src,pos);
+}
+
+/* ================= historique : ↶ Annuler, Ctrl+Z ================= */
+var HIST={};
+function etatLignes(d){ return JSON.stringify({l:d.lignes, r:d.replis||{}}); }
+function memorise(d,quoi){
+  if(!d || d._lecture) return;
+  var h=HIST[d.id]||(HIST[d.id]=[]), e=etatLignes(d);
+  if(h.length && h[h.length-1].etat===e) return;
+  h.push({etat:e, quoi:quoi||'modification'});
+  if(h.length>20) h.shift();
+  majBoutonAnnuler();
+}
+function majBoutonAnnuler(){
+  var b=$('btnAnnuler'); if(!b) return;
+  var h=(D()&&HIST[D().id])||[];
+  b.disabled=!h.length;
+  b.title = h.length ? 'Annuler : '+h[h.length-1].quoi+' (Ctrl+Z) — '+h.length+' action'+(h.length>1?'s':'')+' en mémoire' : 'Rien à annuler';
+}
+function annuler(){
+  var d=D(); if(!d) return;
+  var h=HIST[d.id]||[], cur=etatLignes(d);
+  while(h.length && h[h.length-1].etat===cur) h.pop();
+  if(!h.length){ info('Rien à annuler.',100,'avertit'); majBoutonAnnuler(); return; }
+  var e=h.pop(), o=JSON.parse(e.etat);
+  d.lignes=o.l; d.replis=o.r;
+  rendu(); majBoutonAnnuler();
+  info('Annulé : '+e.quoi+'.',100,'ok');
+}
+document.addEventListener('keydown',function(e){
+  if(!(e.ctrlKey||e.metaKey) || e.shiftKey || (e.key!=='z'&&e.key!=='Z')) return;
+  var t=e.target, tag=(t&&t.tagName)||'';
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable)) return;   /* annulation de frappe du navigateur */
+  if(location.hash && location.hash!=='#devis') return;
+  e.preventDefault(); annuler();
+});
+
 var blocTire=null;
 $('corpsTable').addEventListener('dragstart',function(e){
   var p=e.target.closest('button[data-a="poignee"]'); if(!p) return;
   var tr=p.closest('tr'), d=D(), i=d.lignes.findIndex(function(x){ return x.id===tr.getAttribute('data-id'); });
   if(i<0) return;
-  blocTire=bloc(d,i);
-  tr.classList.add('tire');
+  blocTire=blocMobile(d,i);
+  for(var q=blocTire.debut;q<blocTire.fin;q++){
+    var rr=$('corpsTable').querySelector('tr[data-id="'+d.lignes[q].id+'"]'); if(rr) rr.classList.add('tire');
+  }
   try{ e.dataTransfer.setData('text/plain',String(i)); e.dataTransfer.effectAllowed='move'; }catch(er){}
 });
 $('corpsTable').addEventListener('dragover',function(e){
   if(!blocTire) return;
   e.preventDefault();
   var tr=e.target.closest('tr'); if(!tr) return;
-  Array.prototype.forEach.call($('corpsTable').querySelectorAll('.cible'),function(x){ x.classList.remove('cible'); });
-  tr.classList.add('cible');
+  Array.prototype.forEach.call($('corpsTable').querySelectorAll('.cible,.cible-bas'),function(x){ x.classList.remove('cible','cible-bas'); });
+  var d=D(), j=d.lignes.findIndex(function(x){ return x.id===tr.getAttribute('data-id'); }); if(j<0) return;
+  var bx=tr.getBoundingClientRect(), apres=(e.clientY>bx.top+bx.height/2);
+  var pos=destination(d,blocTire,j,apres);
+  if(pos<0){ e.dataTransfer.dropEffect='none'; return; }
+  /* repère : trait au-dessus de la ligne qui suivra le bloc, sinon sous la dernière visible */
+  var trs=$('corpsTable').querySelectorAll('tr[data-id]'), mis=false;
+  for(var k=pos;k<d.lignes.length && !mis;k++){
+    if(k>=blocTire.debut && k<blocTire.fin) continue;
+    var cible=$('corpsTable').querySelector('tr[data-id="'+d.lignes[k].id+'"]');
+    if(cible){ cible.classList.add('cible'); mis=true; }
+  }
+  if(!mis && trs.length) trs[trs.length-1].classList.add('cible-bas');
 });
 $('corpsTable').addEventListener('dragend',function(){
   blocTire=null;
-  Array.prototype.forEach.call($('corpsTable').querySelectorAll('.tire,.cible'),function(x){ x.classList.remove('tire','cible'); });
+  Array.prototype.forEach.call($('corpsTable').querySelectorAll('.tire,.cible,.cible-bas'),function(x){ x.classList.remove('tire','cible','cible-bas'); });
 });
 $('corpsTable').addEventListener('drop',function(e){
   if(!blocTire) return;
   e.preventDefault();
   var tr=e.target.closest('tr'); if(!tr) return;
   var d=D(), j=d.lignes.findIndex(function(x){ return x.id===tr.getAttribute('data-id'); });
-  if(j<0 || (j>=blocTire.debut && j<blocTire.fin)) return;     /* pas sur lui-même */
-  var cible=bloc(d,j).debut;                                    /* on se cale au début du bloc visé */
-  var morceau=d.lignes.splice(blocTire.debut,blocTire.fin-blocTire.debut);
-  if(cible>blocTire.debut) cible-=morceau.length;
-  Array.prototype.splice.apply(d.lignes,[cible,0].concat(morceau));
+  if(j<0){ blocTire=null; return; }
+  var bx=tr.getBoundingClientRect(), apres=(e.clientY>bx.top+bx.height/2);
+  var src=blocTire, pos=destination(d,src,j,apres), id=d.lignes[src.debut].id;
   blocTire=null;
-  rendu();
+  if(pos<0){ rendu(); info('Déplacement impossible à cet endroit : un chapitre ne se pose jamais à l\'intérieur d\'un autre, et un bloc ne se pose pas sur lui-même.',100,'avertit'); return; }
+  var t=d.lignes[pos-1];
+  if(t && (t.type==='chapitre'||t.type==='sous')){ if(!d.replis) d.replis={}; d.replis[t.id]=false; }   /* on voit où il est tombé */
+  deplaceBloc(d,src,pos);
+  rendu(); montreLigne(id);
+  info('Bloc déplacé — ↶ Annuler ou Ctrl+Z pour revenir en arrière.',100,'ok');
 });
 
 $('corpsTable').addEventListener('keydown',function(e){
@@ -2906,20 +3051,21 @@ $('corpsTable').addEventListener('click',function(e){
   var d=D(), id=b.closest('tr').getAttribute('data-id');
   var i=d.lignes.findIndex(function(r){return r.id===id;}); if(i<0) return;
   var a=b.getAttribute('data-a');
-  if(a==='haut'&&i>0) d.lignes.splice(i-1,0,d.lignes.splice(i,1)[0]);
-  else if(a==='bas'&&i<d.lignes.length-1) d.lignes.splice(i+1,0,d.lignes.splice(i,1)[0]);
+  if(a==='haut'){ if(!deplaceVoisin(d,i,-1)) return; }
+  else if(a==='bas'){ if(!deplaceVoisin(d,i,1)) return; }
   else if(a==='sup'){ if(!supprimeBloc(d,i)) return; }
   else if(a==='plus'){ menuInsertion(b,i); return; }
   else if(a==='menu'){ menuActions(b,i); return; }
   else if(a==='plie'){ if(!d.replis) d.replis={}; d.replis[d.lignes[i].id]=!estReplie(d,d.lignes[i]); }
   else if(a==='opt'){
+    memorise(d,'option');
     var t=d.lignes[i].type, etat=!d.lignes[i].option;
     if(t==='chapitre'||t==='sous'){
       var b=bloc(d,i);
       for(var z=b.debut;z<b.fin;z++) d.lignes[z].option=etat;
     } else d.lignes[i].option=etat;
   }
-  else if(a==='dup'){ var c=Object.assign({},d.lignes[i]); c.id='l'+(++seq)+'_'+SESSION; d.lignes.splice(i+1,0,c); }
+  else if(a==='dup'){ memorise(d,'duplication'); var c=Object.assign({},d.lignes[i]); c.id='l'+(++seq)+'_'+SESSION; d.lignes.splice(i+1,0,c); }
   rendu();
 });
 /* ------- menu ⋯ : toutes les actions d'une ligne ------- */
@@ -2953,12 +3099,12 @@ function menuActions(bouton,i){
   var ajoute=function(lib,fn,inactif,classe){
     var b=document.createElement('button'); b.textContent=lib; if(classe) b.className=classe;
     if(inactif) b.disabled=true;
-    b.onclick=function(){ fermeMenuIns(); fn(); };
+    b.onclick=function(){ fermeMenuIns(); if(!/Monter|Descendre/.test(lib)) memorise(d,lib.replace(/^[^A-Za-zÀ-ÿ%]+/,'').replace(/….*$/,'').toLowerCase()); fn(); majBoutonAnnuler(); };
     m.appendChild(b);
   };
   var sep=function(t){ var x=document.createElement('div'); x.className='menu-sep'; if(t) x.textContent=t; m.appendChild(x); };
-  ajoute('↑ Monter',function(){ if(i>0){ d.lignes.splice(i-1,0,d.lignes.splice(i,1)[0]); rendu(); } }, i===0);
-  ajoute('↓ Descendre',function(){ if(i<d.lignes.length-1){ d.lignes.splice(i+1,0,d.lignes.splice(i,1)[0]); rendu(); } }, i===d.lignes.length-1);
+  ajoute('↑ Monter'+(r.type==='chapitre'||r.type==='sous'?' (bloc entier)':''),function(){ var id=r.id; if(deplaceVoisin(d,i,-1)){ rendu(); montreLigne(id); } }, i===0);
+  ajoute('↓ Descendre'+(r.type==='chapitre'||r.type==='sous'?' (bloc entier)':''),function(){ var id=r.id; if(deplaceVoisin(d,i,1)){ rendu(); montreLigne(id); } }, i===d.lignes.length-1);
   if(r.type!=='note'){
     sep('Transformer en');
     ['chapitre','sous','ligne','texte'].forEach(function(t){
@@ -3043,8 +3189,9 @@ function supprimeBloc(d,i){
     var quoi=(r.designation||'ce titre');
     if(retires.length>1 && !confirm('Supprimer « '+quoi+' » et tout ce qui en dépend ?\n\n'
         +(retires.length-1)+' éléments dont '+nbLignes+' lignes chiffrées, soit '+eur(montant)+' HT, seront retirés.\n\n'
-        +'« Annuler la suppression » restera proposé 20 secondes.')) return false;
+        +'Vous pourrez revenir en arrière avec ↶ Annuler ou Ctrl+Z.')) return false;
   }
+  memorise(d,'suppression de « '+String(r.designation||'bloc').slice(0,40)+' »');
   d.lignes.splice(b.debut,b.fin-b.debut);
   corbeille={pos:b.debut, lignes:retires, devis:d.id, quoi:(r.designation||'bloc')};
   proposeAnnulation();
@@ -3065,17 +3212,13 @@ function proposeAnnulation(){
 function annuleSuppression(){
   if(!corbeille) return;
   var d=dossier.find(function(x){return x.id===corbeille.devis;});
-  if(d){
-    Array.prototype.splice.apply(d.lignes,[Math.min(corbeille.pos,d.lignes.length),0].concat(corbeille.lignes));
-    var i=dossier.indexOf(d); if(i>-1) actif=i;
-  }
+  if(d){ var i=dossier.indexOf(d); if(i>-1) actif=i; }
   corbeille=null; clearTimeout(minuteurCorbeille);
-  rendu();
-  info('Suppression annulée.',100,'ok');
+  annuler();
 }
 
-$('addChap').onclick=function(){ D().lignes.push(nouvelleLigne('chapitre')); rendu(); };
-$('addSous').onclick=function(){ D().lignes.push(nouvelleLigne('sous')); rendu(); };
+$('addChap').onclick=function(){ memorise(D(),'ajout d\'un chapitre'); D().lignes.push(nouvelleLigne('chapitre')); rendu(); };
+$('addSous').onclick=function(){ memorise(D(),'ajout d\'un sous-chapitre'); D().lignes.push(nouvelleLigne('sous')); rendu(); };
 /* « + Ligne » et « + Texte libre » en bas : à la fin du dernier bloc VISIBLE, jamais
    dans une option repliée ou un bloc fermé où la ligne disparaîtrait. */
 function ajouteEnBas(type){
@@ -3089,6 +3232,7 @@ function ajouteEnBas(type){
     break;
   }
   if(k<0) pos=d.lignes.length;
+  memorise(d,'ajout d\'un élément');
   var neuve=insereLigne(d,type,pos,null);
   rendu(); montreLigne(neuve.id);
 }
@@ -4667,6 +4811,8 @@ $('btnExportDpgf').onclick=function(){
   exporteDpgf(d);
 };
 $('btnCoherence').onclick=function(){ dialogueCoherence(D()); };
+$('btnAnnuler').onclick=function(){ annuler(); };
+$('btnValideDepl').onclick=function(){ D().lignes.forEach(function(r){ delete r.deplace; }); rendu(); info('Déplacements validés.',100,'ok'); };
 $('btnJson').onclick=exporteJson;
 
 /* ----------------------- archivage dans la base de prix ------------------ */
