@@ -799,9 +799,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.61';
+var VERSION = '2.62';
 var DATE_VERSION = '24/09/2026';
-var NOTES = 'Le bandeau « Offre à variantes » disparaît avec l\'offre supprimée. Offres d\'ossature en PDF texte : métré et précisions techniques repris dans chaque option ; pages de CGV mieux écartées.';
+var NOTES = 'Offres d\'ossature : métré et caractéristiques du matériau repris, sans les listes d\'inclus / exclus ; surface contrôlée par la somme des éléments ; montage supprimé avec son offre ; compte de lignes juste à l\'import.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2454,6 +2454,9 @@ function bloc(d,i){
 var corbeille=null, minuteurCorbeille=null;
 function supprimeBloc(d,i){
   var b=bloc(d,i), r=d.lignes[i];
+  /* le chapitre d'un fournisseur emporte son montage DHC, placé juste après lui */
+  var mont=(r.type==='chapitre' && r.intervenant) ? (d.montages||{})[r.intervenant] : null;
+  if(mont && mont.nom){ while(b.fin<d.lignes.length && d.lignes[b.fin].intervenant===mont.nom) b.fin++; }
   var retires=d.lignes.slice(b.debut,b.fin);
   var nbLignes=retires.filter(function(x){return x.type==='ligne';}).length;
   if(r.type==='chapitre'||r.type==='sous'){
@@ -2979,7 +2982,7 @@ async function traiteLot(liste){
     bp.onclick=function(){ location.hash='#parametres'; };
     $('etatTexte').appendChild(bp);
   } else {
-    info(tete+nb+' lignes au total.'
+    info(tete+nb+(st?' lignes ajoutées.':' lignes au total.')
         +(notes.length?' '+notes.join(' ; ').replace(/^./,function(c){return c.toUpperCase();})+'.':'')
         +(ko?' '+ko+' sans IA'+(raison?' ('+raison+')':'')+', à relire de près.':' Vérifiez avant export.'),
         100, ko?'avertit':'ok');
@@ -3006,6 +3009,7 @@ async function traiteUn(f,prefixe,idx,total){
   else if(D() && !D().lignes.length && !D().texteBrut){ cible=D(); }
   else { cible=nouveauDevis(); dossier.push(cible); actif=dossier.length-1; cree=true; }
   var texteAvant=cible.texteBrut;
+  var nbAvant = ajout ? cible.lignes.filter(function(x){return x.type==='ligne';}).length : 0;
   try{
     if(estExcel(f)){
       info(prefixe+'Lecture du fichier Excel…',base(20));
@@ -3027,7 +3031,7 @@ async function traiteUn(f,prefixe,idx,total){
       var noteF = (xl.feuille && xl.nbFeuilles>1)
         ? 'feuille « '+xl.feuille+' » retenue sur '+xl.nbFeuilles
           +(xl.autres&&xl.autres.length?' (lignes aussi dans : '+xl.autres.join(', ')+')':'') : '';
-      return {lignes:cible.lignes.filter(function(x){return x.type==='ligne';}).length, repli:false, note:noteF};
+      return {lignes:cible.lignes.filter(function(x){return x.type==='ligne';}).length-nbAvant, repli:false, note:noteF};
     }
     info(prefixe+'Lecture du PDF…',base(10));
     var lu=await lirePdf(f,function(p,t,img){
@@ -3082,7 +3086,7 @@ async function traiteUn(f,prefixe,idx,total){
     applique(cible,res,f.name,ajout);
     rendu();
     var noteM=cible._noteMontage||''; delete cible._noteMontage;
-    return {lignes:cible.lignes.filter(function(r){return r.type==='ligne';}).length,
+    return {lignes:cible.lignes.filter(function(r){return r.type==='ligne';}).length-nbAvant,
             repli:!!repli, raison:repli, note:noteM};
   }catch(err){
     console.error(err);
@@ -3313,7 +3317,8 @@ var SYSTEME =
 "MÉTRÉ ET PRÉCISIONS TECHNIQUES — ces règles valent pour TOUTES les pages, qu'elles soient données en texte ou en image :\n"+
 "  * Un tableau de métré (éléments de structure, profilés, surfaces estimées, portées, charges) donne les QUANTITÉS. Sers-t'en pour renseigner les quantités et les unités des lignes correspondantes. Si le devis n'a pas de ligne chiffrée par élément, reprends CHAQUE élément du tableau en ligne de type texte, sous la forme : ÉLÉMENT : profilé — surface m² — portée — charge (omets une valeur N/A ou vide).\n"+
 "  * Une ligne TOTAL d'un tableau de métré n'est pas une prestation : ne la reprends ni en ligne chiffrée ni en ligne texte.\n"+
-"  * Les PARAGRAPHES TECHNIQUES décrivant la nature de l'ouvrage — mode d'assemblage, nuance d'acier, essence, protection ou traitement, marque et référence du matériau, épaisseurs, normes, hypothèses de charge — ainsi que les listes d'ÉLÉMENTS INCLUS et d'ÉLÉMENTS EXCLUS sont à reprendre INTÉGRALEMENT en lignes de type texte (une ligne par point ; préfixe « Exclu : » pour un élément exclu), placées juste APRÈS le quantitatif auquel ils se rapportent. Ces précisions engagent le fournisseur : ne les résume pas, ne les omets pas.\n"+
+"  * Les CARACTÉRISTIQUES DU MATÉRIAU — mode d'assemblage, nuance d'acier, essence, protection ou traitement, marque et référence du matériau, épaisseurs — sont reprises en lignes de type texte, une ligne par caractéristique, placées juste APRÈS le métré. Recopie-les fidèlement, sans les résumer.\n"+
+"  * NE REPRENDS PAS les listes d'éléments inclus ou exclus, les hypothèses et considérations d'étude (charges limitées, pieux, platines, trous de service, murs structurels…), les obligations du client ni les conditions de livraison ou de prix : ni en ligne chiffrée, ni en ligne texte.\n"+
 "  * Recopie les repères techniques au caractère près (C89 x 1,2 mm, S350GD, ZM250, ZM310, OSB3 12 mm). Une lettre ou un chiffre changé désigne un autre produit : relis-les avant de répondre.\n"+
 "\n"+
 "OFFRES À VARIANTES — certains industriels ne chiffrent pas ligne par ligne : ils présentent une matrice de prestations cochées en colonnes (Option 1, Option 2, Formule A/B, Base/Confort…), chaque colonne ayant son propre Total HT global.\n"+
@@ -3322,7 +3327,7 @@ var SYSTEME =
 "  * Comme aucun prix unitaire n'est donné, les lignes d'une variante sont : UNE seule ligne chiffrée de type ligne, unite \"Forfait\", qte 1, pu = le total HT de la variante, désignation = la nature de la prestation ; puis une ligne de type texte par prestation COCHÉE dans cette colonne, reprenant son intitulé.\n"+
 "  * Une prestation non cochée dans une colonne n'apparaît pas dans cette variante. N'invente aucun prix pour la répartir.\n"+
 "  * Si toutes les colonnes cochent la même chose, il n'y a pas de variante : reviens au mode lignes.\n"+
-"  * Dans CHAQUE variante, après les prestations cochées, ajoute les lignes texte du métré puis les précisions techniques (voir MÉTRÉ ET PRÉCISIONS TECHNIQUES). Une précision rattachée à une option précise (« option 2 ») ne figure que dans la variante correspondante ; une précision commune figure dans chaque variante.\n"+
+"  * Dans CHAQUE variante, après les prestations cochées, ajoute les lignes texte du métré puis les caractéristiques du matériau (voir MÉTRÉ ET PRÉCISIONS TECHNIQUES). Une caractéristique rattachée à une option précise (« option 2 ») ne figure que dans la variante correspondante, jamais comme un manque dans les autres ; une caractéristique commune figure dans chaque variante.\n"+
 "\n"+
 "DEVIS ÉCLATÉS SUR PLUSIEURS PAGES — les pages te sont données avec un marqueur === PAGE n ===.\n"+
 "Certains fournisseurs présentent une page commerciale (le prix, les variantes, les options) puis une ou plusieurs pages de composition détaillée (ce que contient réellement la prestation).\n"+
@@ -3640,12 +3645,17 @@ function ajouteIntervenant(d,res,nomFichier){
   if(estLotOssature(lot)){
     var elts=(e.metre_surfaces||[]).filter(function(x){ return x && nombreFr(x.surface)>0 && !/total/i.test(x.element||''); })
       .map(function(x){ return {element:String(x.element||'').trim(), surface:nombreFr(x.surface)}; });
-    var surf=nombreFr(e.surface_ossature) || elts.reduce(function(t,x){ return t+x.surface; },0);
+    /* la somme des éléments fait foi : un TOTAL imprimé peut rester d'une version antérieure de l'offre */
+    var somme=Math.round(elts.reduce(function(t,x){ return t+x.surface; },0)*100)/100;
+    var imprime=nombreFr(e.surface_ossature)||0;
+    var surf=somme||imprime, alerteSurf='';
+    if(somme && imprime && Math.abs(imprime-somme)>0.5)
+      alerteSurf=' — ATTENTION : TOTAL imprimé '+imprime.toLocaleString('fr-FR')+' m² ≠ somme des éléments '+somme.toLocaleString('fr-FR')+' m², somme retenue : vérifiez l\'offre';
     if(!d.metres) d.metres={};
-    d.metres[nom]={surface:surf, elements:elts};
+    d.metres[nom]={surface:surf, elements:elts, totalImprime:imprime};
     if(surf>0){
       var mt=ajouteMontage(d,nom,surf,params.rendMontage);
-      d._noteMontage='montage calculé : '+surf.toLocaleString('fr-FR')+' m² ÷ '+params.rendMontage.toLocaleString('fr-FR')+' = '+mt.jours.toLocaleString('fr-FR')+' jours';
+      d._noteMontage='montage calculé : '+surf.toLocaleString('fr-FR')+' m² ÷ '+params.rendMontage.toLocaleString('fr-FR')+' = '+mt.jours.toLocaleString('fr-FR')+' jours'+alerteSurf;
     } else {
       d._noteMontage='ossature sans surfaces lisibles : ajoutez le montage avec le bouton « + montage »';
     }
