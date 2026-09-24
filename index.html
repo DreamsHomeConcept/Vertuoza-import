@@ -244,6 +244,8 @@ tr.r-chapitre td.des textarea{text-transform:uppercase}
 .badge-inter{background:#e8e2d6;color:#5a5245}
 .badge-mg{background:#fff3d6;color:#7a5a00}
 .badge-mo{background:#e3eef8;color:#1f4f7a}
+.badge-tva{display:inline-block;margin:3px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;background:#e3f2e6;color:#23633a;white-space:nowrap}
+.badge-tva.ko{background:#f8e1df;color:#9b2c24}
 .badge-qp{display:inline-block;margin:2px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;background:#f3e1e1;color:#8a2f2f;vertical-align:middle}
 tr.r-note td{background:#f4f8fc;font-size:13px;color:#1f4f7a;padding-top:6px;padding-bottom:6px}
 tr.r-note .note-int{display:block;line-height:1.9}
@@ -818,9 +820,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.65';
+var VERSION = '2.66';
 var DATE_VERSION = '24/09/2026';
-var NOTES = 'Colonne Marché retirée du tableau : toutes les lignes partent en QF ; une ligne en quantité présumée se règle par le menu ⋯ (repère QP).';
+var NOTES = 'Contrôle TVA des devis reçus : un devis à 5,5 % est signalé ; en rénovation ses lignes passent à 5,5 % pour le client, en construction neuve elles restent au taux du devis. Rappel d\'autoliquidation quand un sous-traitant facture de la TVA à DHC.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1249,6 +1251,8 @@ function renduRecapSt(){
       html+='<tr class="it'+(ret?'':' refuse')+'">'
         +'<td class="c-ret" data-l="Retenu"><input type="checkbox" data-retenu="'+echappe(x.nom)+'"'+(ret?' checked':'')+' title="Décochez si ce devis a été consulté mais écarté"></td>'
         +'<td class="c-nom" data-l="Intervenant"><b>'+echappe(x.nom.replace(/\s*\(\d+\)$/,''))+'</b>'+etiquetteBiblio(d,x.nom)+ecart
+          +(a55(d,x.nom)?'<span class="badge-tva'+(d.typeProjet==='renovation'?'':' ko')+'" title="'+(d.typeProjet==='renovation'?'Rénovation : lignes facturées au client à 5,5 %':estNeuf(d)?'Construction neuve : 5,5 % non applicable, client au taux du devis':'Type de projet à renseigner')+'">TVA 5,5 %'+(d.typeProjet==='renovation'?' appliquée':estNeuf(d)?' non applicable':' ?')+'</span>':'')
+          +(autoliqAttendue(d,x.nom)?'<span class="badge-tva ko" title="Un sous-traitant du bâtiment facture DHC en autoliquidation, sans TVA">autoliquidation attendue</span>':'')
           +(estLotOssature(lotDe(d,x.nom))?'<button class="lien-mt" data-montage="'+echappe(x.nom)+'">'+((d.montages||{})[x.nom]?'⚒ montage : '+d.montages[x.nom].jours.toLocaleString('fr-FR')+' j — modifier':'+ montage')+'</button>':'')
           +'</td>'
         +'<td data-l="Lot"><input class="lot" type="text" list="listeLots" data-lot="'+echappe(x.nom)+'" value="'+echappe(lotDe(d,x.nom))+'" placeholder="lot"></td>'
@@ -2736,6 +2740,8 @@ $('fType').addEventListener('change',function(){
     d.tva=TVA_PAR_TYPE[this.value];
     info('TVA de vente réglée à '+pct(d.tva)+' pour ce type de projet. Vérifiez qu\'elle s\'applique bien à ce dossier.',100,'avertit');
   }
+  var nt=regleTva(d);
+  if(nt.length) info('⚠ '+nt.join(' ; ⚠ ')+'.',100,'avertit');
   rendu();
 });
 $('fSurface').addEventListener('input',function(){
@@ -3397,7 +3403,7 @@ var SYSTEME =
 "Tu convertis des devis du bâtiment en structure d'import Vertuoza.\n"+
 "Réponds UNIQUEMENT par un objet JSON valide, sans texte autour, sans balises markdown.\n"+
 "Schéma :\n"+
-'{"entete":{"client":"","chantier":"","reference":"","date":"","intervenant":"","lot":"","nature":"","total_ht":0,"surface_ossature":0,"metre_surfaces":[{"element":"","surface":0}]},'+
+'{"entete":{"client":"","chantier":"","reference":"","date":"","intervenant":"","lot":"","nature":"","total_ht":0,"taux_tva":[],"autoliquidation":false,"surface_ossature":0,"metre_surfaces":[{"element":"","surface":0}]},'+
 '"lignes":[{"type":"ligne","designation":"","unite":"","qte":0,"pu":0},{"type":"texte","designation":""}],'+
 '"variantes":[{"nom":"","total_ht":0,"lignes":[]}]}\n'+
 "Règles :\n"+
@@ -3405,6 +3411,8 @@ var SYSTEME =
 "- nature : \"fournisseur\" si le document vend de la marchandise sans pose (négoce, matériaux, produits référencés), \"sous-traitant\" s'il vend une prestation posée.\n"+
 "- metre_surfaces et surface_ossature : si le document contient un tableau de métré d'une structure (ossature, charpente : planchers, murs, toiture…), donne chaque élément avec sa surface en m² dans metre_surfaces, sans la ligne TOTAL, et dans surface_ossature le total du tableau (ligne TOTAL s'il y en a une, sinon la somme). Sinon, surface_ossature = 0 et metre_surfaces = [].\n"+
 "- total_ht : le montant HT total du devis, tel qu'il est imprimé sur le document. Recopie-le, ne le recalcule pas. S'il y a plusieurs totaux (avec et sans options), prends celui de la solution de base.\n"+
+"- taux_tva : la liste des taux de TVA appliqués sur le document (colonne TVA des lignes ou tableau « Détails TVA »), en nombres : [5.5], [20], [5.5,20]. Liste vide si le document n'indique aucun taux.\n"+
+"- autoliquidation : true si le document mentionne l'autoliquidation (« autoliquidation », « TVA due par le preneur », article 283-2 nonies du CGI), sinon false.\n"+
 "- lot : le corps d'état dominant du devis, en un ou deux mots (Électricité, Plomberie, Plâtrerie-peinture, Serrurerie, Menuiserie, Maçonnerie, Couverture, Carrelage, Terrassement…).\n"+
 "- type chapitre : un lot ou un poste principal (MACONNERIE, COUVERTURE, AMENAGEMENT DE CHANTIER…).\n"+
 "- type sous : une subdivision d'un chapitre (un niveau, une zone : Sous-sol, RDC, R+1…).\n"+
@@ -3775,6 +3783,15 @@ function ajouteIntervenant(d,res,nomFichier){
       d._noteMontage='ossature sans surfaces lisibles : ajoutez le montage avec le bouton « + montage »';
     }
   }
+  /* TVA lue sur le devis */
+  if(!d.tvaLues) d.tvaLues={};
+  if(!d.autoliq) d.autoliq={};
+  d.tvaLues[nom]=(Array.isArray(e.taux_tva)?e.taux_tva:[]).map(function(x){ return nombreFr(x); }).filter(function(x){ return x>0; });
+  d.autoliq[nom]=!!e.autoliquidation;
+  var nt=[];
+  if(a55(d,nom)) nt=regleTva(d).filter(function(t){ return t.indexOf(' '+nom+' :')>-1; });
+  if(autoliqAttendue(d,nom)) nt.push('sous-traitance : '+nom+' facture de la TVA ('+tvaLues(d,nom).map(pct).join(', ')+') à DHC, son devis devrait être en autoliquidation');
+  if(nt.length) d._noteMontage=(d._noteMontage?d._noteMontage+' ; ':'')+'⚠ '+nt.join(' ; ⚠ ');
   return nom;
 }
 
@@ -3799,6 +3816,36 @@ function nettoieStructure(d,nom){
    à part, placé sous le fournisseur, marge du dossier appliquée. */
 function estLotOssature(lot){
   var k=cleLot(lot||''); return k.indexOf('ossature')>-1 && k.indexOf('montage')<0;
+}
+/* ------- contrôle TVA des devis reçus -------
+   5,5 % : rénovation énergétique d'un logement achevé depuis plus de 2 ans. Jamais en construction neuve.
+   Un sous-traitant du bâtiment facture DHC en autoliquidation, sans TVA. */
+function estNeuf(d){ return /^(maison|extension|surelevation)$/.test(d.typeProjet||''); }
+function tvaLues(d,nom){ return ((d.tvaLues||{})[nom]||[]).map(Number).filter(function(x){ return x>0; }); }
+function a55(d,nom){ return tvaLues(d,nom).some(function(x){ return Math.abs(x-5.5)<0.01; }); }
+function autoliqAttendue(d,nom){
+  return (d.natures||{})[nom]==='sous-traitant' && tvaLues(d,nom).length>0 && !(d.autoliq||{})[nom];
+}
+/* applique la règle à tous les devis du dossier ; renvoie les messages à afficher */
+function regleTva(d){
+  var notes=[];
+  Object.keys(d.tvaLues||{}).forEach(function(nom){
+    if(!d.lignes.some(function(r){ return r.intervenant===nom; })) return;
+    if(!a55(d,nom)) return;
+    var lignes=d.lignes.filter(function(r){ return r.intervenant===nom && r.type==='ligne'; });
+    if(d.typeProjet==='renovation'){
+      var n=0;
+      lignes.forEach(function(r){ if(r.tva==null || r.tvaAuto){ r.tva=5.5; r.tvaAuto=true; n++; } });
+      if(n && !params.multiTaux){ params.multiTaux=true; sauveParams(); if($('optMulti')) $('optMulti').checked=true; }
+      notes.push('TVA 5,5 % sur le devis '+nom+' : rénovation, ses lignes sont facturées au client à 5,5 %');
+    } else {
+      lignes.forEach(function(r){ if(r.tvaAuto){ r.tva=null; delete r.tvaAuto; } });
+      notes.push(estNeuf(d)
+        ? 'TVA 5,5 % sur le devis '+nom+' : NON applicable en construction neuve, le client reste à '+pct(d.tva)
+        : 'TVA 5,5 % sur le devis '+nom+' : renseignez le type de projet — en rénovation ses lignes passeront à 5,5 %, en neuf elles restent à '+pct(d.tva));
+    }
+  });
+  return notes;
 }
 function joursMontage(surface,rendement){ return Math.ceil((surface/(rendement||30))*2)/2; }
 function ajouteMontage(d,source,surface,rendement){
@@ -3959,6 +4006,9 @@ function feuilleDe(d){
 function exporteXlsx(unSeul){
   var liste = unSeul ? [D()] : dossier.filter(function(d){return d.lignes.length;});
   if(!liste.length){ alert('Aucune ligne à exporter.'); return; }
+  /* le modèle Vertuoza n'a pas de colonne TVA : un taux réduit se règle dans Vertuoza */
+  var reduits=liste.filter(function(d){ return d.lignes.some(function(r){ return r.type==='ligne' && !r.option && r.tva!=null && r.tva!==d.tva; }); });
+  if(reduits.length) setTimeout(function(){ info('⚠ Le modèle Vertuoza n\'a pas de colonne TVA : dans Vertuoza, réglez à la main le taux des lignes à TVA particulière (5,5 % en rénovation) — '+reduits.map(function(d){return d.feuille;}).join(', ')+'.',100,'avertit'); },50);
   var wb=XLSX.utils.book_new(), pris={};
   liste.forEach(function(d,i){
     var n=(d.feuille||('Devis'+(i+1))).replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31)||('Devis'+(i+1));
