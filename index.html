@@ -177,7 +177,7 @@ tr.r-chapitre td.des .prefixe{color:var(--taupe)}
 .bandeau-marge .pc{padding:0 8px 0 2px;color:var(--encre-faible);font-size:13px}
 .bandeau-marge .coef{font-size:12.5px;color:var(--encre-faible)}
 .bandeau-marge .coef b{color:var(--nuit);font-weight:600}
-.inter input.mg{width:74px;text-align:right;padding:5px 7px;font-size:13px}
+.inter input.mg{width:56px;text-align:right;padding:4px 6px;font-size:12.5px}
 .inter .u{color:var(--encre-faible);font-size:12px}
 .inter .ctl{font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:2px;white-space:nowrap}
 .inter .ctl.ok{color:#2D5540;background:#E8F1EA}
@@ -230,22 +230,10 @@ tr.r-option td.total .somme,tr.r-refuse td.total .somme{opacity:.6;text-decorati
 .etat-sync.avertit{background:#FCF4E6;border-color:#C98A2B;color:#7A5212;font-weight:600}
 .etat-sync.attente{background:var(--taupe-voile);border-color:var(--taupe);color:var(--encre-faible)}
 tr.r-chapitre td.des textarea{text-transform:uppercase}
-.mg-boite{display:inline-flex;align-items:center;gap:2px}
-.tab-inter input.mg,.inter input.mg{border:1px solid var(--trait);background:#fff}
-.tab-inter input.mg:hover,.inter input.mg:hover{border-color:var(--taupe)}
-.tab-inter input.mg::placeholder,.inter input.mg::placeholder{color:var(--encre-faible);font-style:italic}
-.mg-boite.perso input.mg{border-color:var(--taupe);background:var(--taupe-voile);font-weight:600}
-.mg-raz{border:none;background:none;cursor:pointer;font-size:12px;padding:0 2px;color:var(--taupe-fonce);line-height:1}
-.mg-raz:hover{color:var(--nuit);background:none}
-.raccourcis{display:inline-flex;gap:4px;flex-wrap:wrap;margin-left:4px}
-.racc{border:1px solid var(--trait);background:#fff;border-radius:2px;padding:4px 8px;font:inherit;font-size:12px;cursor:pointer;color:var(--encre-faible)}
-.racc:hover{border-color:var(--taupe);color:var(--nuit)}
-.racc.actif{background:var(--nuit);border-color:var(--nuit);color:#fff;font-weight:600}
 .menu-ins{position:absolute;z-index:70;background:#fff;border:1px solid var(--trait);border-radius:3px;
   box-shadow:0 8px 24px rgba(15,22,38,.22);padding:4px;min-width:178px}
 .menu-ins button{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;font:inherit;font-size:13px;cursor:pointer;color:var(--encre)}
 .menu-ins button:hover{background:var(--taupe-voile);color:var(--nuit)}
-.menu-ins button.actif{font-weight:600;color:var(--nuit)}
 td.c-act .poignee{cursor:grab}
 tr.tire{opacity:.45}
 tr.cible td{box-shadow:inset 0 3px 0 var(--taupe)}
@@ -292,8 +280,7 @@ body.lecture tr.r-chapitre td.des textarea:disabled{color:#fff;-webkit-text-fill
 .tab-inter input.lot{width:130px;padding:4px 6px;font-size:12.5px}
 .tab-inter select.nat{width:auto;padding:4px 6px;font-size:12.5px}
 .tab-inter .mg-boite{display:inline-flex;align-items:center;gap:3px;color:var(--encre-faible)}
-.tab-inter input.mg{width:74px;text-align:right;padding:5px 7px;font-size:13px}
-.tab-inter td[data-l="Marge"]{white-space:nowrap;cursor:text}
+.tab-inter input.mg{width:54px;text-align:right;padding:4px 6px;font-size:12.5px}
 .tab-inter tr.grp td{background:var(--taupe-pale);border-top:2px solid var(--trait);padding:7px 8px}
 .tab-inter tr.grp b{color:var(--nuit);font-size:13px}
 .tab-inter .grp-n{margin-left:8px;font-size:12px;color:var(--taupe-fonce);font-weight:600}
@@ -517,7 +504,6 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
           <span class="pc">%</span>
         </div>
         <button class="pas" id="margePlus" title="Augmenter d\'un point" aria-label="Augmenter la marge">+</button>
-        <span class="raccourcis" id="margeRacc"></span>
         <button class="mini" id="margeRaz" title="Revenir à la valeur par défaut">Réinitialiser</button>
         <span class="coef" id="margeCoef"></span>
       </div>
@@ -554,14 +540,12 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <button class="fant" id="btnBiblio" hidden>Enregistrer dans la bibliothèque</button>
     </div>
     <details>
-      <summary>Rappel du modèle d'import Vertuoza</summary>
+      <summary>Rappel de la grammaire du template</summary>
       <p class="aide">
-        Colonnes : <code>Format · Référence · Description · Quantite · TM · Unite · Prix Uni · Prix Total · Commentaire</code>.<br>
-        Chapitre : <code>Format = T</code>, référence 1, 2, 3.<br>
-        Sous-chapitre : <code>Format = S</code>, référence 1.1, 1.2.<br>
-        Ligne d'ouvrage : Format vide, avec quantité, unité, prix unitaire et total en formule.<br>
-        Un texte sous une ligne devient son <code>Commentaire</code> ; un texte isolé sort en <code>PO</code>.<br>
-        <code>TM</code> : QF pour une quantité forfaitaire, QP pour une quantité présumée.
+        Chapitre : <code>Article = 01</code>, dénomination seule.<br>
+        Sous-chapitre : <code>Article = 01.01</code>, dénomination seule.<br>
+        Ligne d'ouvrage : Article vide, dénomination préfixée <code>01.</code>, puis unité, quantité, prix unitaire, total en formule <code>=Ex*Fx</code>.<br>
+        Colonne Marché vide sauf besoin. Unités conformes à l'onglet <code>Unité</code>.
       </p>
     </details>
   </div>
@@ -685,6 +669,10 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <label class="case"><input type="checkbox" id="optMulti">
       <span>Autoriser plusieurs taux de TVA dans un même devis
         <small>Ajoute une colonne TVA par ligne. Utile quand une partie des travaux relève du taux normal.</small>
+      </span></label>
+    <label class="case"><input type="checkbox" id="optMarche" checked>
+      <span>En mode sous-traitants, reporter l'intervenant dans la colonne Marché
+        <small>La colonne Marché de votre template est libre : elle devient la trace de qui a chiffré chaque ligne.</small>
       </span></label>
     <label class="case"><input type="checkbox" id="optPied">
       <span>Ajouter le pied de totaux dans la feuille exportée
@@ -811,9 +799,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.68';
-var DATE_VERSION = '23/09/2026';
-var NOTES = 'Numérotation de l\'export alignée sur vos devis : chapitre 1.0, sous-chapitre 6.1, lignes 2.1 et 6.1.1.';
+var VERSION = '2.60';
+var DATE_VERSION = '24/09/2026';
+var NOTES = 'Offres d\'ossature en PDF texte : métré (profilé, surface, portée, charge) et précisions techniques repris dans chaque option ; pages de CGV mieux écartées.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1094,9 +1082,6 @@ function renduMarge(){
   $('margeActive').checked=!!d.margeActive;
   $('reglageMarge').hidden=!d.margeActive;
   $('margeVal').value=String(d.marge).replace('.',',');
-  Array.prototype.forEach.call($('margeRacc').children,function(b){
-    b.classList.toggle('actif', nombreFr(b.textContent)===nombreFr(d.marge));
-  });
   var c=coefficient(d,null);
   $('margeCoef').innerHTML = 'soit <b>×'+c.toLocaleString('fr-FR',{minimumFractionDigits:3,maximumFractionDigits:3})+'</b>'
     + (params.margeMode==='vente'?' — marge sur prix de vente':' — majoration du déboursé');
@@ -1232,10 +1217,7 @@ function renduRecapSt(){
         +'<td class="num" data-l="Déboursé">'+eur(x.deb)+'</td>'
         +(sf>0?'<td class="num" data-l="€/m²">'+eur(x.deb/sf)+'</td>':'')
         +'<td data-l="Contrôle">'+(controleInter(d,x)||'<span class="vide">—</span>')+'</td>'
-        +(mg?'<td class="num" data-l="Marge"><span class="mg-boite'+(perso?' perso':'')+'">'
-          +'<input class="mg" type="text" inputmode="decimal" data-marge="'+echappe(x.nom)+'" value="'+(perso?Number(d.marges[x.nom]).toLocaleString('fr-FR',{maximumFractionDigits:2,useGrouping:false}):'')+'" placeholder="'+String(d.marge).replace('.',',')+'" title="Marge de cet intervenant. Vide = marge du devis ('+String(d.marge).replace('.',',')+' %). Flèches haut et bas pour ajuster, Maj pour 5 points.">%'
-          +(perso?'<button class="mg-raz" data-marge-raz="'+echappe(x.nom)+'" title="Revenir à la marge du devis">↺</button>':'')
-          +'</span></td>':'')
+        +(mg?'<td class="num" data-l="Marge"><span class="mg-boite"><input class="mg" type="text" inputmode="decimal" data-marge="'+echappe(x.nom)+'" value="'+(perso?Number(d.marges[x.nom]).toLocaleString('fr-FR',{maximumFractionDigits:2,useGrouping:false}):'')+'" placeholder="'+String(d.marge).replace('.',',')+'" title="Marge propre à cet intervenant, vide = marge du devis">%</span></td>':'')
         +'<td class="num fort" data-l="Prix client HT">'+eur(x.ht)+'</td>'
         +'<td class="c-act"><button class="mini" data-biblio="'+echappe(x.nom)+'" title="Enregistrer ce devis dans la bibliothèque">★</button>'
           +'<button class="mini" data-retire="'+echappe(x.nom)+'" title="Retirer cet intervenant et ses lignes">×</button></td>'
@@ -1266,7 +1248,7 @@ function renduRecapSt(){
 function margeVisible(d){ return !!(d && d.margeActive); }
 function renduTeteTable(){
   var d=D();
-  var c=['Article','Dénomination','TM','Quantité','Unité',
+  var c=['Article','Dénomination','Marché','Quantité','Unité',
          margeVisible(d)?'PU déboursé':'Prix unitaire'];
   if(params.multiTaux) c.push('TVA');
   if(margeVisible(d)) c.push('PU vente');
@@ -1327,9 +1309,7 @@ function rendu(){
         +'<textarea rows="1" data-c="designation" placeholder="'+ph+'">'+echappe(r.designation)+'</textarea>'
         +(replie?'<span class="resume">'+(refuse(d,r)?'refusé · ':'')+(r.type==='sous'&&r.variante!=null&&r.option?'non retenue · ':'')+M.nb[i]+' ligne'+(M.nb[i]>1?'s':'')+' masquée'+(M.nb[i]>1?'s':'')+'</span>':'')
         +'</div></td>'
-      +'<td class="marche">'+(estLigne?'<select data-c="tm" title="Type de marché : quantité forfaitaire ou présumée">'
-          +'<option value="QF"'+(r.tm!=='QP'?' selected':'')+'>QF</option>'
-          +'<option value="QP"'+(r.tm==='QP'?' selected':'')+'>QP</option></select>':'')+'</td>'
+      +'<td class="marche">'+(estLigne?'<input type="text" data-c="marche" value="'+echappe(r.marche)+'">':'')+'</td>'
       +'<td class="qte">'+(estLigne?'<input type="text" data-c="qte" value="'+echappe(afficheQte(r.qte))+'">':'')+'</td>'
       +'<td class="unite">'+(estLigne?selectUnite(r.unite):'')+'</td>'
       +'<td class="pu">'+(estLigne?'<input type="text" data-c="pu" value="'+echappe(affichePu(r.pu))+'">':'')+'</td>'
@@ -2306,8 +2286,6 @@ $('onglets').addEventListener('click',function(e){
 });
 
 $('listeSt').addEventListener('click',function(e){
-  var br=e.target.closest('button[data-marge-raz]');
-  if(br){ var dd=D(); if(dd.marges) delete dd.marges[br.getAttribute('data-marge-raz')]; renduRecapSt(); rendu(); return; }
   var bm=e.target.closest('button[data-montage]');
   if(bm){ dialogueMontage(D(), bm.getAttribute('data-montage')); return; }
   var bb=e.target.closest('button[data-biblio]');
@@ -2334,9 +2312,8 @@ $('corpsTable').addEventListener('input',function(e){
   else diffuse();
 });
 $('corpsTable').addEventListener('change',function(e){
-  var c=e.target.getAttribute('data-c'); if(c!=='unite'&&c!=='tva'&&c!=='tm') return;
+  var c=e.target.getAttribute('data-c'); if(c!=='unite'&&c!=='tva') return;
   var r=trouve(e.target.closest('tr').getAttribute('data-id')); if(!r) return;
-  if(c==='tm'){ r.tm=e.target.value; return; }
   if(c==='unite') r.unite=e.target.value;
   else r.tva = e.target.value===''?null:parseFloat(e.target.value);
   majTotaux();
@@ -2390,35 +2367,8 @@ function menuInsertion(bouton,i){
   m.style.left=Math.max(8,Math.min(r.left+window.scrollX-90, window.innerWidth-190))+'px';
 }
 document.addEventListener('click',function(e){
-  if(!e.target.closest('#menuIns') && !e.target.closest('button[data-a="plus"]')
-     && !e.target.closest('button[data-a="type"]')) fermeMenuIns();
+  if(!e.target.closest('#menuIns') && !e.target.closest('button[data-a="plus"]')) fermeMenuIns();
 });
-
-/* ------- choisir le niveau d'une ligne ------- */
-function menuNiveau(bouton,i){
-  fermeMenuIns();
-  var d=D(), r=d.lignes[i]; if(!r) return;
-  var m=document.createElement('div'); m.id='menuIns'; m.className='menu-ins';
-  [['chapitre','Chapitre'],['sous','Sous-chapitre'],['ligne','Ligne chiffrée'],['texte','Texte libre']]
-   .forEach(function(x){
-    var b=document.createElement('button');
-    b.textContent=(r.type===x[0]?'✓ ':'') + x[1];
-    if(r.type===x[0]) b.className='actif';
-    b.onclick=function(){
-      if(r.type!==x[0]){
-        r.type=x[0];
-        if(x[0]==='ligne' && !nombreFr(r.qte)) r.qte=1;
-        if(x[0]==='ligne' && !r.unite) r.unite='Forfait';
-      }
-      fermeMenuIns(); rendu();
-    };
-    m.appendChild(b);
-  });
-  document.body.appendChild(m);
-  var b2=bouton.getBoundingClientRect();
-  m.style.top=(b2.bottom+window.scrollY+4)+'px';
-  m.style.left=Math.max(8,Math.min(b2.left+window.scrollX-100, window.innerWidth-190))+'px';
-}
 
 /* ------- déplacer un bloc entier par sa poignée ------- */
 var blocTire=null;
@@ -2455,13 +2405,6 @@ $('corpsTable').addEventListener('drop',function(e){
   rendu();
 });
 
-/* en lecture seule, les champs sont désactivés : on explique pourquoi au premier clic */
-$('pageDevis').addEventListener('click',function(e){
-  if(!(D() && D()._lecture)) return;
-  if(e.target.closest('.onglets') || e.target.closest('#bandeauLecture')) return;
-  info('Ce chantier est ouvert en consultation, en lecture seule : il appartient au poste qui le gère. '
-      +'Pour modifier une marge, travaillez sur un dossier de ce poste.',100,'avertit');
-},true);
 $('corpsTable').addEventListener('keydown',function(e){
   if(e.key==='Enter' && e.target.tagName==='TEXTAREA'){ e.preventDefault(); e.target.blur(); }
 });
@@ -2474,7 +2417,6 @@ $('corpsTable').addEventListener('click',function(e){
   else if(a==='bas'&&i<d.lignes.length-1) d.lignes.splice(i+1,0,d.lignes.splice(i,1)[0]);
   else if(a==='sup'){ if(!supprimeBloc(d,i)) return; }
   else if(a==='plus'){ menuInsertion(b,i); return; }
-  else if(a==='type'){ menuNiveau(b,i); return; }
   else if(a==='plie'){ if(!d.replis) d.replis={}; d.replis[d.lignes[i].id]=!estReplie(d,d.lignes[i]); }
   else if(a==='opt'){
     var t=d.lignes[i].type, etat=!d.lignes[i].option;
@@ -2484,6 +2426,7 @@ $('corpsTable').addEventListener('click',function(e){
     } else d.lignes[i].option=etat;
   }
   else if(a==='dup'){ var c=Object.assign({},d.lignes[i]); c.id='l'+(++seq)+'_'+SESSION; d.lignes.splice(i+1,0,c); }
+  else if(a==='type'){ var o=['chapitre','sous','ligne','texte']; var r=d.lignes[i]; r.type=o[(o.indexOf(r.type)+1)%o.length]; }
   rendu();
 });
 function trouve(id){ return D().lignes.find(function(r){return r.id===id;}); }
@@ -2510,9 +2453,21 @@ function supprimeBloc(d,i){
   if(r.type==='chapitre'||r.type==='sous'){
     var montant=retires.reduce(function(s,x){return s+totalLigne(d,x);},0);
     var quoi=(r.designation||'ce titre');
-    if(retires.length>1 && !confirm('Supprimer « '+quoi+' » et tout ce qui en dépend ?\n\n'
-        +(retires.length-1)+' éléments dont '+nbLignes+' lignes chiffrées, soit '+eur(montant)+' HT, seront retirés.\n\n'
-        +'« Annuler la suppression » restera proposé 20 secondes.')) return false;
+    if(retires.length>1){
+      /* OK : le titre seul, ses lignes remontent d'un niveau — Annuler : tout le bloc */
+      var seul=confirm('Supprimer « '+quoi+' » :\n\n'
+        +'OK — le titre seul. Ses '+(retires.length-1)+' éléments, dont '+nbLignes+' lignes chiffrées ('+eur(montant)+' HT), sont conservés et remontent d\'un niveau.\n\n'
+        +'Annuler — pour choisir ensuite de tout supprimer.');
+      if(seul){
+        if(r.type==='chapitre') for(var z=b.debut+1;z<b.fin;z++){ if(d.lignes[z].type==='sous') d.lignes[z].type='chapitre'; }
+        var titre=d.lignes.splice(b.debut,1);
+        corbeille={pos:b.debut, lignes:titre, devis:d.id, quoi:quoi};
+        proposeAnnulation();
+        return true;
+      }
+      if(!confirm('Supprimer « '+quoi+' » ET tout ce qui en dépend ?\n\n'
+        +(retires.length-1)+' éléments dont '+nbLignes+' lignes chiffrées, soit '+eur(montant)+' HT, seront retirés.')) return false;
+    }
   }
   d.lignes.splice(b.debut,b.fin-b.debut);
   corbeille={pos:b.debut, lignes:retires, devis:d.id, quoi:(r.designation||'bloc')};
@@ -2568,19 +2523,8 @@ $('margeActive').onchange=function(){
   rendu();
   if(this.checked) setTimeout(function(){ $('margeVal').select(); },40);
 };
-/* clic ou tabulation dans le champ : tout est sélectionné, la frappe remplace la valeur */
-$('margeVal').addEventListener('focus',function(){ var c=this; c.select(); setTimeout(function(){ c.select(); },0); });
-$('margeVal').addEventListener('mouseup',function(e){ e.preventDefault(); });
-/* pas de 1 point, ou de 5 avec la touche Maj */
-$('margeMoins').onclick=function(e){ poseMarge(D().marge-(e.shiftKey?5:1)); $('margeVal').focus(); };
-$('margePlus').onclick =function(e){ poseMarge(D().marge+(e.shiftKey?5:1)); $('margeVal').focus(); };
-/* marges usuelles, un clic suffit */
-[10,15,20,25,30,35,40].forEach(function(v){
-  var b=document.createElement('button'); b.className='racc'; b.textContent=v+' %';
-  b.title='Appliquer une marge de '+v+' %';
-  b.onclick=function(){ poseMarge(v); };
-  $('margeRacc').appendChild(b);
-});
+$('margeMoins').onclick=function(){ poseMarge(D().marge-1); $('margeVal').focus(); };
+$('margePlus').onclick =function(){ poseMarge(D().marge+1); $('margeVal').focus(); };
 $('margeRaz').onclick  =function(){ poseMarge(params.margeDefaut); };
 $('margeVal').addEventListener('input',function(){
   var brut=this.value.trim();
@@ -2643,26 +2587,6 @@ $('listeSt').addEventListener('change',function(e){
   var d=D(); if(!d.retenus) d.retenus={};
   if(e.target.checked) delete d.retenus[nom]; else d.retenus[nom]=false;
   rendu();
-});
-/* cliquer n'importe où dans la cellule Marge place le curseur dans le champ */
-$('listeSt').addEventListener('click',function(e){
-  var td=e.target.closest('td[data-l="Marge"]'); if(!td || e.target.tagName==='INPUT' || e.target.tagName==='BUTTON') return;
-  var c=td.querySelector('input.mg'); if(c && !c.disabled) c.focus();
-});
-$('listeSt').addEventListener('focusin',function(e){
-  if(e.target.getAttribute('data-marge')==null) return;
-  var c=e.target; c.select(); setTimeout(function(){ c.select(); },0);
-});
-$('listeSt').addEventListener('keydown',function(e){
-  var nom=e.target.getAttribute('data-marge'); if(nom==null) return;
-  if(e.key!=='ArrowUp' && e.key!=='ArrowDown') return;
-  e.preventDefault();
-  var d=D(); if(!d.marges) d.marges={};
-  var base=(d.marges[nom]!=null?d.marges[nom]:d.marge), pas=(e.shiftKey?5:1);
-  d.marges[nom]=borneMarge(base+(e.key==='ArrowUp'?pas:-pas));
-  renduRecapSt(); rendu();
-  var champ=$('listeSt').querySelector('[data-marge="'+nom.replace(/"/g,'\\"')+'"]');
-  if(champ){ champ.focus(); champ.select(); }
 });
 $('listeSt').addEventListener('input',function(e){
   var lotNom=e.target.getAttribute('data-lot');
@@ -2902,6 +2826,7 @@ $('memCle').onchange=function(){
 $('optPrefixe').onchange=function(){ params.prefixe=this.checked; sauveParams(); rendu(); };
 $('optMulti').onchange=function(){ params.multiTaux=this.checked; sauveParams(); rendu(); };
 $('optPied').onchange=function(){ params.pied=this.checked; sauveParams(); };
+$('optMarche').onchange=function(){ params.marche=this.checked; sauveParams(); rendu(); };
 $('margeDef').addEventListener('blur',function(){
   var n=nombreFr(this.value); if(!isFinite(n)||n<0) n=30;
   params.margeDefaut=Math.round(n*10)/10; this.value=String(params.margeDefaut).replace('.',',');
@@ -3279,7 +3204,9 @@ function pageJuridique(t){
   var marqueurs=['conditions générales','conditions generales','préambule','preambule',
     'code de la consommation','droit de rétractation','garantie légale','garantie legale',
     'médiateur','mediateur','propriété industrielle','données personnelles','donnees personnelles',
-    'non-renonciation','droit applicable','bloctel','cnil'];
+    'non-renonciation','droit applicable','bloctel','cnil',
+    'réserve de propriété','reserve de propriete','force majeure','vices cachés','vices caches',
+    'propriété intellectuelle','propriete intellectuelle','attribution de compétence','attribution de competence'];
   var n=0; marqueurs.forEach(function(m){ if(b.indexOf(m)>-1) n++; });
   var montants=(t.match(/\d+[ ,.]\d{2}\b/g)||[]).length;
   return n>=3 && montants<12;
@@ -3375,11 +3302,13 @@ var SYSTEME =
 "  * Une remise ou une participation négative reste une ligne, avec un pu négatif.\n"+
 "\n"+
 "PAGES FOURNIES EN IMAGE — certaines pages te sont données en image parce que le PDF ne contient aucun texte. Lis-les comme un humain : tableaux, colonnes, cases cochées (une case cochée porte une croix ou un signe de validation, une case vide n'en porte pas). Ne devine jamais un montant illisible : laisse le champ à 0 plutôt que d'inventer.\n"+
-"  * Un tableau de métré (éléments de structure, surfaces estimées, profilés, portées) donne les QUANTITÉS. Sers-t'en pour renseigner les quantités et les unités des lignes correspondantes, ou à défaut reprends chaque élément en ligne de type texte avec sa surface.\n"+
-"  * Une ligne TOTAL d'un tableau de métré n'est pas une prestation : ne la reprends pas comme ligne chiffrée.\n"+
-"  * Les PARAGRAPHES TECHNIQUES décrivant la nature de l'ouvrage — mode d'assemblage, nuance d'acier, essence, protection ou traitement, marque et référence du matériau, épaisseurs, normes — sont à reprendre INTÉGRALEMENT en lignes de type texte, placées juste APRÈS le quantitatif auquel ils se rapportent. Ces précisions engagent le fournisseur : ne les résume pas, ne les omets pas.\n"+
-"  * Recopie les repères techniques au caractère près (C89 x 1,2 mm, S350GD, ZM250, ZM310). Une lettre ou un chiffre changé désigne un autre produit : relis-les avant de répondre.\n"+
 
+"\n"+
+"MÉTRÉ ET PRÉCISIONS TECHNIQUES — ces règles valent pour TOUTES les pages, qu'elles soient données en texte ou en image :\n"+
+"  * Un tableau de métré (éléments de structure, profilés, surfaces estimées, portées, charges) donne les QUANTITÉS. Sers-t'en pour renseigner les quantités et les unités des lignes correspondantes. Si le devis n'a pas de ligne chiffrée par élément, reprends CHAQUE élément du tableau en ligne de type texte, sous la forme : ÉLÉMENT : profilé — surface m² — portée — charge (omets une valeur N/A ou vide).\n"+
+"  * Une ligne TOTAL d'un tableau de métré n'est pas une prestation : ne la reprends ni en ligne chiffrée ni en ligne texte.\n"+
+"  * Les PARAGRAPHES TECHNIQUES décrivant la nature de l'ouvrage — mode d'assemblage, nuance d'acier, essence, protection ou traitement, marque et référence du matériau, épaisseurs, normes, hypothèses de charge — ainsi que les listes d'ÉLÉMENTS INCLUS et d'ÉLÉMENTS EXCLUS sont à reprendre INTÉGRALEMENT en lignes de type texte (une ligne par point ; préfixe « Exclu : » pour un élément exclu), placées juste APRÈS le quantitatif auquel ils se rapportent. Ces précisions engagent le fournisseur : ne les résume pas, ne les omets pas.\n"+
+"  * Recopie les repères techniques au caractère près (C89 x 1,2 mm, S350GD, ZM250, ZM310, OSB3 12 mm). Une lettre ou un chiffre changé désigne un autre produit : relis-les avant de répondre.\n"+
 "\n"+
 "OFFRES À VARIANTES — certains industriels ne chiffrent pas ligne par ligne : ils présentent une matrice de prestations cochées en colonnes (Option 1, Option 2, Formule A/B, Base/Confort…), chaque colonne ayant son propre Total HT global.\n"+
 "  * Dans ce cas, remplis \"variantes\" au lieu de \"lignes\" : une entrée par colonne.\n"+
@@ -3387,6 +3316,7 @@ var SYSTEME =
 "  * Comme aucun prix unitaire n'est donné, les lignes d'une variante sont : UNE seule ligne chiffrée de type ligne, unite \"Forfait\", qte 1, pu = le total HT de la variante, désignation = la nature de la prestation ; puis une ligne de type texte par prestation COCHÉE dans cette colonne, reprenant son intitulé.\n"+
 "  * Une prestation non cochée dans une colonne n'apparaît pas dans cette variante. N'invente aucun prix pour la répartir.\n"+
 "  * Si toutes les colonnes cochent la même chose, il n'y a pas de variante : reviens au mode lignes.\n"+
+"  * Dans CHAQUE variante, après les prestations cochées, ajoute les lignes texte du métré puis les précisions techniques (voir MÉTRÉ ET PRÉCISIONS TECHNIQUES). Une précision rattachée à une option précise (« option 2 ») ne figure que dans la variante correspondante ; une précision commune figure dans chaque variante.\n"+
 "\n"+
 "DEVIS ÉCLATÉS SUR PLUSIEURS PAGES — les pages te sont données avec un marqueur === PAGE n ===.\n"+
 "Certains fournisseurs présentent une page commerciale (le prix, les variantes, les options) puis une ou plusieurs pages de composition détaillée (ce que contient réellement la prestation).\n"+
@@ -3830,46 +3760,6 @@ function matrice(d){
   });
   return aoa;
 }
-/* ---- nouveau modèle Vertuoza : Format | Référence | Description | Quantite |
-   TM | Unite | Prix Uni | Prix Total | Commentaire ---- */
-function matrice2026(d){
-  var aoa=[['Format','Référence','Description','Quantite','TM','Unite','Prix Uni','Prix Total','Commentaire']];
-  /* Références : chapitre 1.0, puis un seul compteur par chapitre, partagé entre ses
-     sous-chapitres et ses lignes directes — 1.1, 1.2 — et un compteur propre à chaque
-     sous-chapitre pour ses lignes — 6.1.1, 6.1.2. Aucune collision possible. */
-  var nChap=0, nDansChap=0, nDansSous=0, sousOuvert='';
-  lignesExport(d).forEach(function(r){
-    if(r.type==='chapitre'){
-      nChap++; nDansChap=0; sousOuvert='';
-      aoa.push(['T',nChap+'.0',String(r.designation||'').toUpperCase(),null,null,null,null,null,null]);
-    } else if(r.type==='sous'){
-      nDansChap++; nDansSous=0; sousOuvert=nChap+'.'+nDansChap;
-      aoa.push(['S',sousOuvert,r.designation||'',null,null,null,null,null,null]);
-    } else if(r.type==='texte'){
-      aoa.push(['PO','',r.designation||'',null,null,null,null,null,null]);
-    } else {
-      var ref;
-      if(sousOuvert){ nDansSous++; ref=sousOuvert+'.'+nDansSous; }
-      else { nDansChap++; ref=(nChap?nChap+'.'+nDansChap:String(nDansChap)); }
-      aoa.push(['',ref,r.designation||'',nombreFr(r.qte),
-                (r.tm==='QP'?'QP':'QF'),r.unite||'',puVente(d,r),null,r.detail||null]);
-    }
-  });
-  return aoa;
-}
-function feuille2026(d){
-  var aoa=matrice2026(d), ws=XLSX.utils.aoa_to_sheet(aoa), exp=lignesExport(d);
-  exp.forEach(function(r,i){
-    var n=i+2;
-    if(r.type!=='ligne') return;
-    ws['G'+n]={t:'n',v:puVente(d,r),z:FORMAT_EURO};
-    ws['H'+n]={t:'n',f:'D'+n+'*G'+n,v:totalLigne(d,r),z:FORMAT_EURO};
-    if(r.detail && ws['I'+n]) ws['I'+n].s={alignment:{wrapText:true,vertical:'top'}};
-  });
-  ws['!cols']=[{wch:8},{wch:10},{wch:62},{wch:10},{wch:6},{wch:10},{wch:12},{wch:12},{wch:48}];
-  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:exp.length,c:8}});
-  return ws;
-}
 function feuilleDe(d){
   var aoa=matrice(d);
   var ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -3912,8 +3802,11 @@ function exporteXlsx(unSeul){
     var n=(d.feuille||('Devis'+(i+1))).replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31)||('Devis'+(i+1));
     while(pris[n]) n=n.slice(0,28)+'_'+(i+1);
     pris[n]=1;
-    XLSX.utils.book_append_sheet(wb,feuille2026(d),n);
+    XLSX.utils.book_append_sheet(wb,feuilleDe(d),n);
   });
+  var wsu=XLSX.utils.aoa_to_sheet([['Libéllé ']].concat(UNITES.map(function(u){return [u];})));
+  wsu['!cols']=[{wch:14}];
+  XLSX.utils.book_append_sheet(wb,wsu,'Unité');
   /* le fichier porte le nom du chantier ; à défaut, celui de la feuille */
   var chantier='';
   for(var k=0;k<liste.length && !chantier;k++) chantier=(liste[k].entete.chantier||'').trim();
@@ -4319,6 +4212,7 @@ $('tvaDef').value=String(params.tvaDefaut);
 $('optPrefixe').checked=params.prefixe;
 $('optMulti').checked=params.multiTaux;
 $('optPied').checked=params.pied;
+$('optMarche').checked=params.marche;
 $('margeDef').value=String(params.margeDefaut).replace('.',',');
 $('margeMode').value=params.margeMode;
 majAideMarge();
