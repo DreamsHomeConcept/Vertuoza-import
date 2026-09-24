@@ -377,7 +377,9 @@ td.pv{width:116px;text-align:right;color:var(--taupe-fonce);font-weight:500;whit
 .inter .m{font-weight:600;white-space:nowrap}
 .inter .l{color:var(--encre-faible);font-size:12px;white-space:nowrap}
 
-.pied{position:fixed;left:0;right:0;bottom:0;background:var(--nuit);border-top:3px solid var(--taupe);padding:10px 18px;z-index:10}
+.pied{position:fixed;left:0;right:0;bottom:0;background:var(--nuit);border-top:3px solid var(--taupe);padding:10px 18px;z-index:10;transition:transform .18s}
+body.glisse .pied{transform:translateY(110%);pointer-events:none}
+body.glisse .fleches{display:none}
 .pied .in{max-width:1320px;margin:0 auto;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
 .fleches{position:fixed;right:18px;bottom:18px;z-index:25;display:flex;flex-direction:column;gap:8px;transition:bottom .2s}
 .vers-haut{width:46px;height:46px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;
@@ -856,9 +858,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.72';
+var VERSION = '2.73';
 var DATE_VERSION = '25/09/2026';
-var NOTES = 'Déplacement des blocs entiers sans mélange (repère de dépôt, couleur « déplacé » jusqu\'à validation) ; ↶ Annuler et Ctrl+Z sur les 20 dernières actions ; ↑ ↓ déplacent le bloc entier ; colonne Marge alignée et lisible.';
+var NOTES = 'Glisser-déposer : la page défile vers le bas comme vers le haut (la barre de totaux s\'efface pendant le glisser), plus vite près du bord.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2993,6 +2995,24 @@ document.addEventListener('keydown',function(e){
 });
 
 var blocTire=null;
+/* Défilement pendant un glisser : la barre de totaux fixe recouvre le bas de l'écran,
+   là où le navigateur déclenche d'habitude le défilement. On le gère nous-mêmes,
+   dans les deux sens, plus vite près du bord. */
+var glisseY=-1, glisseBoucle=null;
+document.addEventListener('dragover',function(e){ if(blocTire) glisseY=e.clientY; });
+function defilePendantGlisser(){
+  if(!blocTire){ glisseBoucle=null; return; }
+  var h=window.innerHeight, zone=Math.min(140,h*0.18), haut=zone+70, v=0;
+  if(glisseY>=0 && glisseY>h-zone) v=Math.ceil(4+26*Math.min(1,(glisseY-(h-zone))/zone));
+  else if(glisseY>=0 && glisseY<haut) v=-Math.ceil(4+26*Math.min(1,(haut-glisseY)/zone));
+  if(v) window.scrollBy(0,v);
+  glisseBoucle=requestAnimationFrame(defilePendantGlisser);
+}
+function finGlisser(){
+  blocTire=null; glisseY=-1;
+  document.body.classList.remove('glisse');
+  if(glisseBoucle){ cancelAnimationFrame(glisseBoucle); glisseBoucle=null; }
+}
 $('corpsTable').addEventListener('dragstart',function(e){
   var p=e.target.closest('button[data-a="poignee"]'); if(!p) return;
   var tr=p.closest('tr'), d=D(), i=d.lignes.findIndex(function(x){ return x.id===tr.getAttribute('data-id'); });
@@ -3002,6 +3022,8 @@ $('corpsTable').addEventListener('dragstart',function(e){
     var rr=$('corpsTable').querySelector('tr[data-id="'+d.lignes[q].id+'"]'); if(rr) rr.classList.add('tire');
   }
   try{ e.dataTransfer.setData('text/plain',String(i)); e.dataTransfer.effectAllowed='move'; }catch(er){}
+  document.body.classList.add('glisse');
+  if(!glisseBoucle) glisseBoucle=requestAnimationFrame(defilePendantGlisser);
 });
 $('corpsTable').addEventListener('dragover',function(e){
   if(!blocTire) return;
@@ -3022,7 +3044,7 @@ $('corpsTable').addEventListener('dragover',function(e){
   if(!mis && trs.length) trs[trs.length-1].classList.add('cible-bas');
 });
 $('corpsTable').addEventListener('dragend',function(){
-  blocTire=null;
+  finGlisser();
   Array.prototype.forEach.call($('corpsTable').querySelectorAll('.tire,.cible,.cible-bas'),function(x){ x.classList.remove('tire','cible','cible-bas'); });
 });
 $('corpsTable').addEventListener('drop',function(e){
@@ -3030,10 +3052,10 @@ $('corpsTable').addEventListener('drop',function(e){
   e.preventDefault();
   var tr=e.target.closest('tr'); if(!tr) return;
   var d=D(), j=d.lignes.findIndex(function(x){ return x.id===tr.getAttribute('data-id'); });
-  if(j<0){ blocTire=null; return; }
+  if(j<0){ finGlisser(); return; }
   var bx=tr.getBoundingClientRect(), apres=(e.clientY>bx.top+bx.height/2);
   var src=blocTire, pos=destination(d,src,j,apres), id=d.lignes[src.debut].id;
-  blocTire=null;
+  finGlisser();
   if(pos<0){ rendu(); info('Déplacement impossible à cet endroit : un chapitre ne se pose jamais à l\'intérieur d\'un autre, et un bloc ne se pose pas sur lui-même.',100,'avertit'); return; }
   var t=d.lignes[pos-1];
   if(t && (t.type==='chapitre'||t.type==='sous')){ if(!d.replis) d.replis={}; d.replis[t.id]=false; }   /* on voit où il est tombé */
