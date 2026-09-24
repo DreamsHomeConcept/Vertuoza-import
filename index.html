@@ -625,6 +625,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
         <input type="password" id="cle" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
       </div>
     </div>
+    <p style="margin:6px 0 10px"><button type="button" class="mini" id="btnReponseIA" title="Pour diagnostiquer une réponse illisible">Copier la dernière réponse brute de l'IA</button></p>
     <label class="case"><input type="checkbox" id="memCle">
       <span>Mémoriser la clé sur cet appareil
         <small>À cocher sur votre poste : sinon la clé est oubliée à la fermeture de l'application, et l'IA ne peut plus lire les devis. À laisser décoché sur un poste partagé.</small>
@@ -820,9 +821,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.66';
+var VERSION = '2.67';
 var DATE_VERSION = '24/09/2026';
-var NOTES = 'Contrôle TVA des devis reçus : un devis à 5,5 % est signalé ; en rénovation ses lignes passent à 5,5 % pour le client, en construction neuve elles restent au taux du devis. Rappel d\'autoliquidation quand un sous-traitant facture de la TVA à DHC.';
+var NOTES = 'Réponse de l\'IA illisible : second essai automatique sans flux, réponse réparée si possible ; plus de lecture sans IA à votre insu (le module demande) ; chapitres lus sans IA signalés « à vérifier » ; dernière réponse brute copiable depuis les paramètres.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1360,6 +1361,7 @@ function rendu(){
       +'<td class="num">'+(titre?'<button class="plie" data-a="plie" aria-expanded="'+(!replie)+'" title="'+(replie?'Déplier':'Replier')+'">'+(replie?'▸':'▾')+'</button>':'')+echappe(r.article)+'</td>'
       +'<td class="des"><div class="des-in">'+prefixe
         +'<textarea rows="1" data-c="designation" placeholder="'+ph+'">'+echappe(r.designation)+'</textarea>'
+        +(r.sansIA?'<span class="badge-tva ko" title="Lu sans l\'IA : découpage approximatif. Menu ⋯ → Marquer comme vérifié">lu sans IA — à vérifier</span>':'')
         +(r.type==='chapitre'&&d.mode==='st'&&r.intervenant?'<span class="badge-inter" title="Intervenant — non exporté">'+echappe(r.intervenant)+'</span>':'')
         +(estLigne&&typeMarche(r)==='QP'?'<span class="badge-qp" title="Quantité présumée — exportée en TM = QP">QP</span>':'')
         +(estLigne&&r.marge!=null&&r.marge!==''?'<span class="badge-mg" title="Marge propre à cette ligne">marge '+String(r.marge).replace('.',',')+' %</span>':'')
@@ -2543,6 +2545,7 @@ function menuActions(bouton,i){
       if(titre){ var bl=bloc(d,i); for(var z=bl.debut;z<bl.fin;z++) d.lignes[z].option=etat; } else r.option=etat;
       rendu();
     });
+    if(r.sansIA) ajoute('✓ Marquer comme vérifié (lu sans IA)',function(){ delete r.sansIA; rendu(); });
     ajoute('⧉ Dupliquer',function(){ var c=Object.assign({},r); c.id='l'+(++seq)+'_'+SESSION; delete c.mo; d.lignes.splice(i+1,0,c); rendu(); });
   }
   ajoute('× Supprimer',function(){ if(supprimeBloc(d,i)) rendu(); }, false, 'danger');
@@ -2945,6 +2948,13 @@ $('btnParam').onclick=function(){ location.hash = (location.hash==='#parametres'
 $('btnRetour').onclick=function(){ location.hash='#devis'; };
 
 /* ------------------------------ paramètres ------------------------------- */
+$('btnReponseIA').onclick=function(){
+  if(!derniereReponseIA){ alert('Aucune réponse de l\'IA reçue depuis l\'ouverture de la page.'); return; }
+  var t='Réponse IA du '+derniereReponseIA.date+' ('+derniereReponseIA.mode+', '+String(derniereReponseIA.texte||'').length+' caractères) — version '+VERSION+'\n\n'+(derniereReponseIA.texte||'(vide)');
+  var ok=function(){ alert('Réponse copiée : collez-la dans un message pour diagnostic.'); };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok,function(){ prompt('Copiez le texte :',t); });
+  else prompt('Copiez le texte :',t);
+};
 $('mode').onchange=function(){ params.mode=this.value; majNoteCle(); sauveParams(); };
 $('tvaDef').onchange=function(){ params.tvaDefaut=parseFloat(this.value); sauveParams(); };
 $('cle').oninput=function(){ params.cle=this.value.trim(); if(params.memCle) ecrisStockage(CLE_STOCKAGE,params.cle); majNoteCle(); };
@@ -3177,15 +3187,31 @@ async function traiteUn(f,prefixe,idx,total){
     var res, repli='';
     if(params.mode==='ia'){
       info(prefixe+'Analyse par l\'IA…',base(40));
-      suiviIA=function(n){ if(n>0) info(prefixe+'Analyse par l\'IA… '+n+(n>1?' lignes reçues':' ligne reçue'), base(40+Math.min(45,n))); };
-      try{ res=await analyseIA(texte,images,function(i,n){ info(prefixe+'Analyse par l\'IA… partie '+i+'/'+n, base(40+50*i/n)); }); suiviIA=null; }
-      catch(e){
-        suiviIA=null;
-        repli=(e&&e.message)?e.message:'appel impossible';
-        if(/failed to fetch|networkerror|load failed/i.test(repli))
-          repli='appel bloqué par le navigateur (clé absente ou domaine non autorisé)';
-        info(prefixe+'IA indisponible — '+repli+'. Découpage automatique…',base(70),'avertit');
-        res=analyseLocale(texte);
+      suiviIA=function(n){ if(n<0){ info(prefixe+'Réponse de l\'IA illisible : second essai, d\'un seul bloc…',base(60),'avertit'); return; } if(n>0) info(prefixe+'Analyse par l\'IA… '+n+(n>1?' lignes reçues':' ligne reçue'), base(40+Math.min(45,n))); };
+      for(;;){
+        try{ res=await analyseIA(texte,images,function(i,n){ info(prefixe+'Analyse par l\'IA… partie '+i+'/'+n, base(40+50*i/n)); }); suiviIA=null; repli=''; break; }
+        catch(e){
+          suiviIA=null;
+          repli=(e&&e.message)?e.message:'appel impossible';
+          if(/failed to fetch|networkerror|load failed/i.test(repli))
+            repli='appel bloqué par le navigateur (clé absente ou domaine non autorisé)';
+          /* on ne lit plus sans IA à l'insu de l'utilisateur */
+          if(confirm('Lecture par l\'IA impossible pour « '+f.name+' » :\n'+repli+'.\n\nOK : réessayer la lecture par l\'IA\nAnnuler : autres choix')){
+            info(prefixe+'Nouvel essai de lecture par l\'IA…',base(40),'avertit'); continue;
+          }
+          if(!confirm('Lire « '+f.name+' » SANS l\'IA ?\n\nLe découpage est approximatif (coordonnées, en-têtes et numéros peuvent devenir des lignes) et devra être relu ligne à ligne.\n\nOK : lire sans IA\nAnnuler : ne pas importer ce devis')){
+            cible.texteBrut=texteAvant;
+            if(cree && !cible.lignes.length){
+              var iy=dossier.indexOf(cible);
+              if(iy>-1 && dossier.length>1){ dossier.splice(iy,1); actif=Math.min(actif,dossier.length-1); }
+            }
+            rendu();
+            return {lignes:0, repli:true, raison:repli+' — import abandonné', rien:true};
+          }
+          info(prefixe+'Découpage automatique, sans IA…',base(70),'avertit');
+          res=analyseLocale(texte);
+          break;
+        }
       }
     } else { info(prefixe+'Découpage automatique…',base(70)); res=analyseLocale(texte); }
     /* Découpage de secours sans aucune ligne chiffrée : on n'importe rien plutôt que
@@ -3204,7 +3230,12 @@ async function traiteUn(f,prefixe,idx,total){
         return {lignes:0, repli:true, raison:cause, rien:true};
       }
     }
+    var idsAvant={}; cible.lignes.forEach(function(r){ idsAvant[r.id]=1; });
     applique(cible,res,f.name,ajout);
+    if(repli || params.mode!=='ia'){
+      var marque=0;
+      cible.lignes.forEach(function(r){ if(!idsAvant[r.id] && (r.type==='chapitre'||(!marque && r.type!=='note'))){ r.sansIA=true; marque++; } });
+    }
     rendu();
     var noteM=cible._noteMontage||''; delete cible._noteMontage;
     return {lignes:cible.lignes.filter(function(r){return r.type==='ligne';}).length-nbAvant,
@@ -3549,15 +3580,42 @@ function decoupe(texte,taille){
    n'est jamais muette, et un antivirus, une box ou un proxy ne la coupe plus sur un
    long devis. suiviIA(n), s'il est défini, reçoit le nombre de lignes déjà lues. */
 var suiviIA=null;
-async function appelClaude(systeme,message){
+/* Décode le JSON rendu par l'IA ; répare les défauts courants avant d'abandonner. */
+function decodeReponseIA(txt){
+  txt=String(txt||'').replace(/```json|```/g,'').trim();
+  var a=txt.indexOf('{'), b=txt.lastIndexOf('}');
+  if(a>-1&&b>a) txt=txt.slice(a,b+1);
+  var essais=[
+    function(t){ return t; },
+    function(t){ return t.replace(/[\u0000-\u001F]+/g,' '); },                       /* retours à la ligne bruts dans les textes */
+    function(t){ return t.replace(/[\u0000-\u001F]+/g,' ').replace(/,\s*([}\]])/g,'$1'); }  /* virgules en trop */
+  ];
+  for(var k=0;k<essais.length;k++){ try{ return JSON.parse(essais[k](txt)); }catch(e){} }
+  return null;
+}
+var derniereReponseIA=null;   /* diagnostic : dernière réponse brute reçue */
+async function appelClaude(systeme,message,sansFlux){
   var cle=(params.cle||CFG.apiKey||'').trim();
   var h={'Content-Type':'application/json'};
   if(cle){ h['x-api-key']=cle; h['anthropic-version']='2023-06-01'; h['anthropic-dangerous-direct-browser-access']='true'; }
   var rep=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:h,
-    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:cle?24000:1000,system:systeme,stream:true,
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:cle?24000:1000,system:systeme,stream:!sansFlux,
       messages:[{role:'user',content:message}]})});
   if(!rep.ok){ var t=await rep.text(); throw new Error('l\'API a répondu '+rep.status+(t?' — '+t.slice(0,160):'')); }
   var txt='', arret=null, tampon='', vues=-1;
+  if(sansFlux){
+    /* réponse reçue d'un bloc : insensible aux antivirus et pare-feu qui coupent les flux */
+    var brut=await rep.text(), dj=null;
+    try{ dj=JSON.parse(brut); }catch(e){}
+    if(dj && dj.type==='error') throw new Error('l\'API a signalé une erreur — '+((dj.error&&dj.error.message)||'inconnue'));
+    txt = dj && Array.isArray(dj.content) ? dj.content.map(function(c){ return c.type==='text'?c.text:''; }).join('') : '';
+    arret = dj ? dj.stop_reason : null;
+    derniereReponseIA={date:new Date().toLocaleString('fr-FR'), mode:'bloc', texte:txt||brut};
+    if(arret==='max_tokens'){ var c2=new Error('réponse de l\'IA coupée, document trop long pour une seule lecture'); c2.tronque=true; throw c2; }
+    var obj=decodeReponseIA(txt);
+    if(obj) return obj;
+    throw new Error('réponse de l\'IA illisible, même au second essai');
+  }
   var traite=function(bloc){
     bloc.split('\n').forEach(function(l){
       if(l.indexOf('data:')!==0) return;
@@ -3568,7 +3626,7 @@ async function appelClaude(systeme,message){
     });
   };
   var pousse=function(morceau,fin){
-    tampon+=morceau;
+    tampon=(tampon+morceau).replace(/\r\n/g,'\n');   /* certains proxys réécrivent les fins de ligne */
     var parts=tampon.split('\n\n'); tampon=fin?'':parts.pop();
     parts.forEach(traite); if(fin && tampon) traite(tampon);
     if(suiviIA){ var n=(txt.match(/"type"\s*:\s*"ligne"/g)||[]).length; if(n!==vues){ vues=n; try{ suiviIA(n); }catch(e){} } }
@@ -3582,11 +3640,12 @@ async function appelClaude(systeme,message){
     var coupe=new Error('réponse de l\'IA coupée, document trop long pour une seule lecture');
     coupe.tronque=true; throw coupe;
   }
-  txt=txt.replace(/```json|```/g,'').trim();
-  var a=txt.indexOf('{'), b=txt.lastIndexOf('}');
-  if(a>-1&&b>a) txt=txt.slice(a,b+1);
-  try{ return JSON.parse(txt); }
-  catch(e){ throw new Error('réponse de l\'IA illisible'); }
+  derniereReponseIA={date:new Date().toLocaleString('fr-FR'), mode:'flux', texte:txt};
+  var obj=decodeReponseIA(txt);
+  if(obj) return obj;
+  /* flux coupé ou abîmé en route : on redemande la même lecture, d'un seul bloc */
+  if(suiviIA){ try{ suiviIA(-1); }catch(e){} }
+  return await appelClaude(systeme,message,true);
 }
 
 /* ------------------------- analyse locale (secours) ---------------------- */
