@@ -821,9 +821,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.67';
-var DATE_VERSION = '24/09/2026';
-var NOTES = 'Réponse de l\'IA illisible : second essai automatique sans flux, réponse réparée si possible ; plus de lecture sans IA à votre insu (le module demande) ; chapitres lus sans IA signalés « à vérifier » ; dernière réponse brute copiable depuis les paramètres.';
+var VERSION = '2.68';
+var DATE_VERSION = '25/09/2026';
+var NOTES = 'Main-d\'œuvre des modèles de la bibliothèque intégrée au prix de chaque ouvrage, avec une note interne non exportée (jours modifiables). Les chantiers composés avec l\'ancien format (lignes « Main-d\'œuvre — … » séparées) sont réparés à l\'ouverture.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1004,8 +1004,47 @@ function moDeb(r){ return (r && r.mo) ? (nombreFr(r.mo.jours)||0)*(nombreFr(r.mo
 function moVente(d,r){
   var x=moDeb(r); if(!x) return 0;
   if(!d || !d.margeActive) return x;
-  var m=parseFloat(r.mo.marge); if(!isFinite(m)) m=params.margeMontage;
-  return x*(1+m/100);
+  var m=parseFloat(r.mo.marge);
+  if(!isFinite(m)) return x*coefficient(d,r);          /* main-d'oeuvre d'un modèle : même marge que l'ouvrage */
+  return x*(1+m/100);                                   /* montage : sa marge propre, en majoration */
+}
+/* Répare un chantier composé avec l'ancien format : chaque ligne « Main-d'œuvre — X »
+   (en jours) rejoint l'ouvrage X juste au-dessus ; puis chaque ouvrage chiffrant de la
+   main-d'oeuvre reçoit sa note interne, et les notes orphelines disparaissent. Idempotent. */
+var RE_MO=/^main[-\s]?d.?\s*(?:œ|oe)uvre\s*(?:[—–:-]\s*(.*))?$/i;
+function repareMO(d){
+  if(!d || !d.lignes) return 0;
+  var fusions=0;
+  for(var i=d.lignes.length-1;i>0;i--){
+    var r=d.lignes[i];
+    if(r.type!=='ligne' || r.mo || r.unite!=='Jour(s)') continue;
+    var m=RE_MO.exec(String(r.designation||'').trim()); if(!m) continue;
+    var k=i-1;
+    while(k>=0 && (d.lignes[k].type==='texte'||d.lignes[k].type==='note')) k--;
+    if(k<0) continue;
+    var prev=d.lignes[k];
+    if(prev.type!=='ligne' || prev.intervenant!==r.intervenant || RE_MO.test(String(prev.designation||'').trim())) continue;
+    var nomMo=sansAccent(m[1]||''), nomPrev=sansAccent(prev.designation||'');
+    if(nomMo && nomMo!==nomPrev && nomPrev.indexOf(nomMo)!==0) continue;       /* ne rejoint que son propre ouvrage */
+    if(!prev.mo) prev.mo={jours:0, taux:nombreFr(r.pu)||params.tauxMO, marge:null};
+    prev.mo.jours=Math.round((nombreFr(prev.mo.jours)+nombreFr(r.qte))*100)/100;
+    if(r.option && !prev.option) prev.option=false;
+    d.lignes.splice(i,1); fusions++;
+  }
+  /* notes internes : une par ligne chiffrant de la main-d'oeuvre, juste sous elle */
+  var ids={}; d.lignes.forEach(function(r){ if(r.type==='ligne' && r.mo) ids[r.id]=r; });
+  d.lignes=d.lignes.filter(function(r){ return r.type!=='note' || !!ids[r.cible]; });
+  var vues={}; d.lignes.forEach(function(r){ if(r.type==='note') vues[r.cible]=1; });
+  for(var z=d.lignes.length-1;z>=0;z--){
+    var c=d.lignes[z];
+    if(c.type==='ligne' && c.mo && !vues[c.id]){
+      var note=nouvelleLigne('note'); note.intervenant=c.intervenant; note.cible=c.id;
+      if(c.variante!=null) note.variante=c.variante;
+      if(c.option) note.option=c.option;
+      d.lignes.splice(z+1,0,note);
+    }
+  }
+  return fusions;
 }
 function qteRepartie(r){ var q=nombreFr(r.qte); return q>0?q:1; }
 function puVente(d,r){ return Math.round((puAchat(r)*coefficient(d,r) + moVente(d,r)/qteRepartie(r))*100)/100; }
@@ -1326,6 +1365,7 @@ function lignesMasquees(d){
 }
 function rendu(){
   var d=D();
+  if(!d._lecture){ var nf=repareMO(d); if(nf) setTimeout(function(){ info(nf+(nf>1?' lignes de main-d\'œuvre séparées ont été intégrées':' ligne de main-d\'œuvre séparée a été intégrée')+' à leur ouvrage (ancien format). Total identique, à l\'arrondi des prix unitaires près : vérifiez avant export.',100,'ok'); },0); }
   renduOnglets(); renduEntete(); renduVariantes(); renduControle(); renduMarge(); renduRecapSt(); renduTeteTable();
   numerote(d);
   var tb=$('corpsTable');
@@ -1798,6 +1838,7 @@ function lignesPourModele(d,nom){
   return src.map(function(r){
     var l={type:r.type, designation:r.designation};
     if(r.type==='ligne'){ l.unite=r.unite||''; l.qte=nombreFr(r.qte); l.pu=puAchat(r); if(r.marche) l.marche=r.marche;
+      if(r.mo && typeof r.mo==='object' && nombreFr(r.mo.jours)>0) l.jours=nombreFr(r.mo.jours);
       if(l.unite==='Jour(s)' && /main-d.œuvre/i.test(r.designation||'')){ l.mo=true; l.pu=0; } }
     return l;
   });
@@ -1899,12 +1940,31 @@ function integreModeles(modeles,surface,ajuste){
   var vieux=0;
   modeles.forEach(function(m){
     var f = (ajuste && surface>0 && m.surfaceRef>0) ? surface/m.surfaceRef : 1;
-    var lignes=(m.lignes||[]).map(function(l){
+    var lignes=[];
+    (m.lignes||[]).forEach(function(l){
       var c=Object.assign({},l);
-      if(c.type==='ligne'){ c.pu=puEffectif(c); delete c.jours; delete c.mo; }   /* MO au coût journalier du jour */
-      if(f!==1 && c.type==='ligne' && suitSurface(c))
+      if(c.type==='ligne' && c.mo===true){
+        /* ancien format : ligne de main-d'oeuvre séparée → rejoint l'ouvrage du dessus */
+        for(var k=lignes.length-1;k>=0;k--){
+          if(lignes[k].type==='ligne'){
+            var p=lignes[k];
+            p.mo={jours:Math.round((nombreFr(p.mo&&p.mo.jours)+nombreFr(c.qte))*100)/100, taux:params.tauxMO, marge:null};
+            return;
+          }
+          if(lignes[k].type!=='texte') break;
+        }
+        c.pu=params.tauxMO; delete c.mo; lignes.push(c); return;          /* orpheline : gardée telle quelle */
+      }
+      var echelle = (f!==1 && c.type==='ligne' && suitSurface(c));
+      if(c.type==='ligne'){
+        var j=nombreFr(c.jours);
+        c.pu=nombreFr(c.pu); delete c.jours; delete c.mo;
+        /* MO au coût journalier du jour ; elle suit la surface comme la quantité */
+        if(j>0) c.mo={jours:Math.round(j*(echelle?f:1)*100)/100, taux:params.tauxMO, marge:null};
+      }
+      if(echelle)
         c.qte = c.entier ? Math.ceil(nombreFr(c.qte)*f) : Math.round(nombreFr(c.qte)*f*100)/100;
-      return c;
+      lignes.push(c);
     });
     var nom=ajouteIntervenant(d,{entete:{intervenant:m.intervenant||m.nom, lot:m.lot||'', nature:m.nature, total_ht:0}, lignes:lignes}, m.nom);
     if(nom){
@@ -2370,8 +2430,10 @@ $('corpsTable').addEventListener('change',function(e){
     var j=nombreFr(e.target.value); if(!(j>=0)) j=nombreFr(c.mo.jours);
     c.mo.jours=Math.round(j*100)/100;
     /* toutes les variantes de la même offre suivent */
-    d.lignes.forEach(function(x){ if(x!==c && x.mo && x.intervenant===c.intervenant) x.mo.jours=c.mo.jours; });
-    if(d.montages && d.montages[c.intervenant]) d.montages[c.intervenant].jours=c.mo.jours;
+    if(d.montages && d.montages[c.intervenant]){
+      d.lignes.forEach(function(x){ if(x!==c && x.mo && x.intervenant===c.intervenant && x.variante!=null) x.mo.jours=c.mo.jours; });
+      d.montages[c.intervenant].jours=c.mo.jours;
+    }
     rendu(); return;
   }
   var c=e.target.getAttribute('data-c'); if(c!=='unite'&&c!=='tva') return;
@@ -3702,7 +3764,8 @@ function convertitLignes(brut,nom){
       unite:t==='ligne'?normaliseUnite(r.unite):'',
       qte:t==='ligne'?(nombreFr(r.qte)||0):0,
       pu:t==='ligne'?(nombreFr(r.pu)||0):0,
-      option:t==='ligne'&&r.option===true
+      option:t==='ligne'&&r.option===true,
+      mo:(t==='ligne' && r.mo && typeof r.mo==='object') ? Object.assign({},r.mo) : undefined
     });
   }).filter(function(r){ return r.designation||r.qte||r.pu; });
 }
@@ -3943,7 +4006,7 @@ function cibleNote(d,n){ return d.lignes.find(function(x){ return x.id===n.cible
 function htmlNote(d,n){
   var c=cibleNote(d,n);
   if(!c || !c.mo) return '<span class="note-int">Note interne — ligne de rattachement introuvable.</span>';
-  var deb=moDeb(c), vte=moVente(d,c), m=parseFloat(c.mo.marge); if(!isFinite(m)) m=params.margeMontage;
+  var deb=moDeb(c), vte=moVente(d,c), m=parseFloat(c.mo.marge); if(!isFinite(m)) m=parseFloat(margeDe(d,c))||0;
   return '<span class="note-int"><b>Note interne, non exportée</b> — dont main-d\'œuvre : '
     +'<input type="text" class="mo-j" data-mo="jours" inputmode="decimal" value="'+String(nombreFr(c.mo.jours)).replace('.',',')+'"> jours × '
     +eur(nombreFr(c.mo.taux))+' = <b>'+eur(deb)+' HT</b> de coût'
