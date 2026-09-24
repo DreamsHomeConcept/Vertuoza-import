@@ -657,6 +657,11 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
         <div class="unite-champ"><input type="text" id="rendMontage" inputmode="decimal"><span>m² / jour</span></div>
         <small class="aide-champ">Ossature métallique, par monteur.</small>
       </div>
+      <div class="p-court">
+        <label class="champ" for="margeMontage">Marge du montage</label>
+        <div class="unite-champ"><input type="text" id="margeMontage" inputmode="decimal"><span>%</span></div>
+        <small class="aide-champ">Toujours en majoration du coût journalier, quelle que soit la marge du dossier.</small>
+      </div>
     </div>
 
     <hr class="separateur">
@@ -799,9 +804,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.62';
+var VERSION = '2.63';
 var DATE_VERSION = '24/09/2026';
-var NOTES = 'Offres d\'ossature : métré et caractéristiques du matériau repris, sans les listes d\'inclus / exclus ; surface contrôlée par la somme des éléments ; montage supprimé avec son offre ; compte de lignes juste à l\'import.';
+var NOTES = 'Montage d\'ossature : marge propre (30 % par défaut, en majoration du déboursé), indépendante de la marge et du mode du dossier — 906 € de coût journalier donnent 1 177,80 € HT par jour au client.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -841,6 +846,7 @@ var params = {
   margeDefaut:30,
   tauxMO:906,
   rendMontage:30,
+  margeMontage:30,
   margeMode:'majoration',
   sbUrl:'', sbCle:'', sbAuto:false
 };
@@ -908,7 +914,7 @@ function sauveParams(){
   ecrisStockage(CLE_PARAMS, JSON.stringify({
     mode:params.mode, tvaDefaut:params.tvaDefaut, prefixe:params.prefixe,
     multiTaux:params.multiTaux, pied:params.pied, marche:params.marche,
-    margeDefaut:params.margeDefaut, margeMode:params.margeMode, tauxMO:params.tauxMO, rendMontage:params.rendMontage,
+    margeDefaut:params.margeDefaut, margeMode:params.margeMode, tauxMO:params.tauxMO, rendMontage:params.rendMontage, margeMontage:params.margeMontage,
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule
   }));
@@ -927,6 +933,7 @@ function chargeParams(){
     if(o.margeMode==='vente'||o.margeMode==='majoration') params.margeMode=o.margeMode;
     if(o.tauxMO!=null && isFinite(parseFloat(o.tauxMO)) && parseFloat(o.tauxMO)>0) params.tauxMO=parseFloat(o.tauxMO);
     if(o.rendMontage!=null && parseFloat(o.rendMontage)>0) params.rendMontage=parseFloat(o.rendMontage);
+    if(o.margeMontage!=null && isFinite(parseFloat(o.margeMontage)) && parseFloat(o.margeMontage)>=0) params.margeMontage=parseFloat(o.margeMontage);
     if(typeof o.sbUrl==='string') params.sbUrl=o.sbUrl;
     if(typeof o.sbCle==='string') params.sbCle=o.sbCle;
     if(typeof o.sbAuto==='boolean') params.sbAuto=o.sbAuto;
@@ -959,10 +966,16 @@ function margeDe(d,r){
   if(r && r.intervenant && d.marges && d.marges[r.intervenant]!=null) return d.marges[r.intervenant];
   return d.marge;
 }
+/* Le montage DHC est une main-d'oeuvre propre : sa marge majore toujours le coût journalier. */
+function estMontage(d,nom){ return !!(nom && d && (d.liensMontage||{})[nom]); }
+function modeMargeDe(d,nom){
+  if(estMontage(d,nom)) return 'majoration';
+  return (d && d.margeModeSource) || params.margeMode;           /* une copie consultée garde le mode de son auteur */
+}
 function coefficient(d,r){
   if(!d || !d.margeActive) return 1;
   var m=parseFloat(margeDe(d,r)); if(!isFinite(m)) return 1;
-  var modeMarge=(d && d.margeModeSource) || params.margeMode;   /* une copie consultée garde le mode de son auteur */
+  var modeMarge=modeMargeDe(d,r&&r.intervenant);
   if(modeMarge==='vente'){ if(m>=99.9) m=99.9; return 1/(1-m/100); }
   return 1+m/100;
 }
@@ -1130,9 +1143,9 @@ function lotDe(d,nom){ return ((d.lots||{})[nom]||'').trim(); }
 function cleLot(l){ return sansAccent(l).replace(/[^a-z]/g,''); }
 
 /* Taux de marge qui redonne exactement le prix client p sur un déboursé deb. */
-function margeCible(deb,p){
+function margeCible(deb,p,mode){
   if(!(deb>0)||!(p>0)) return null;
-  var m = params.margeMode==='vente' ? (1-deb/p)*100 : (p/deb-1)*100;
+  var m = (mode||params.margeMode)==='vente' ? (1-deb/p)*100 : (p/deb-1)*100;
   return Math.round(m*10000)/10000;
 }
 function prixClientInter(d,nom){
@@ -1231,7 +1244,7 @@ function renduRecapSt(){
 
       /* dans un lot en concurrence : ce que donnerait ce devis à prix client inchangé */
       if(plusieurs && mg && x.nom!==ref.nom){
-        var m=margeCible(x.deb,p);
+        var m=margeCible(x.deb,p,modeMargeDe(d,x.nom));
         if(m!=null) html+='<tr class="sim"><td class="c-ret"></td><td colspan="'+(nbCol-1)+'">'
           +'À prix client identique ('+eur(p)+') : marge de <b>'+pc(m)+'</b> contre '
           +pc(parseFloat(margeDe(d,{intervenant:ref.nom}))||0)+' avec '+echappe(ref.nom)+'. '
@@ -2570,7 +2583,7 @@ $('variantes').addEventListener('change',function(e){
 function retenirAPrixIdentique(nom,p){
   var d=D();
   var x=intervenants(d).find(function(i){return i.nom===nom;}); if(!x) return;
-  var m=margeCible(x.deb,p); if(m==null) return;
+  var m=margeCible(x.deb,p,modeMargeDe(d,nom)); if(m==null) return;
   var k=cleLot(lotDe(d,nom));
   if(!d.retenus) d.retenus={};
   if(!d.marges) d.marges={};
@@ -3690,6 +3703,7 @@ function ajouteMontage(d,source,surface,rendement){
   if(!d.liensMontage) d.liensMontage={};
   if(!d.montages) d.montages={};
   var ancien=(d.montages[source]||{}).nom;
+  var margeGardee=(ancien && d.marges && d.marges[ancien]!=null) ? d.marges[ancien] : null;
   if(ancien) d.lignes=d.lignes.filter(function(r){ return r.intervenant!==ancien; });
   var nomM='DHC · '+source;
   var jours=joursMontage(surface,rendement);
@@ -3700,6 +3714,8 @@ function ajouteMontage(d,source,surface,rendement){
   var nom=ajouteIntervenant(d,{entete:{intervenant:nomM, lot:'Montage ossature', nature:'dhc', total_ht:0}, lignes:lignes},nomM);
   d.liensMontage[nom]=source;
   d.montages[source]={nom:nom, surface:surface, rendement:rendement||30, jours:jours};
+  if(!d.marges) d.marges={};
+  d.marges[nom] = margeGardee!=null ? margeGardee : params.margeMontage;
   /* placement : juste après le bloc du fournisseur */
   var bloc=d.lignes.filter(function(r){ return r.intervenant===nom; });
   d.lignes=d.lignes.filter(function(r){ return r.intervenant!==nom; });
@@ -4234,6 +4250,11 @@ $('margeMode').value=params.margeMode;
 majAideMarge();
 $('tauxMO').value=String(params.tauxMO).replace('.',',');
 $('rendMontage').value=String(params.rendMontage).replace('.',',');
+$('margeMontage').value=String(params.margeMontage).replace('.',',');
+$('margeMontage').addEventListener('blur',function(){
+  var n=nombreFr(this.value); if(!isFinite(n)||n<0||this.value.trim()==='') n=30;
+  params.margeMontage=Math.round(n*100)/100; this.value=String(params.margeMontage).replace('.',','); sauveParams();
+});
 $('rendMontage').addEventListener('blur',function(){
   var n=nombreFr(this.value); if(!(n>0)) n=30;
   params.rendMontage=Math.round(n*100)/100; this.value=String(params.rendMontage).replace('.',','); sauveParams();
