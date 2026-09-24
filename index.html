@@ -244,6 +244,7 @@ tr.r-chapitre td.des textarea{text-transform:uppercase}
 .badge-inter{background:#e8e2d6;color:#5a5245}
 .badge-mg{background:#fff3d6;color:#7a5a00}
 .badge-mo{background:#e3eef8;color:#1f4f7a}
+.badge-qp{display:inline-block;margin:2px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;background:#f3e1e1;color:#8a2f2f;vertical-align:middle}
 tr.r-note td{background:#f4f8fc;font-size:13px;color:#1f4f7a;padding-top:6px;padding-bottom:6px}
 tr.r-note .note-int{display:block;line-height:1.9}
 tr.r-note input.mo-j{width:56px;padding:3px 6px;text-align:right;font:inherit;border:1px solid #9bb8d3;border-radius:3px;background:#fff}
@@ -688,7 +689,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <span>Autoriser plusieurs taux de TVA dans un même devis
         <small>Ajoute une colonne TVA par ligne. Utile quand une partie des travaux relève du taux normal.</small>
       </span></label>
-    <label class="case"><input type="checkbox" id="optMarche" checked>
+    <label class="case" hidden><input type="checkbox" id="optMarche" checked>
       <span>En mode sous-traitants, reporter l'intervenant dans la colonne Marché
         <small>La colonne Marché de votre template est libre : elle devient la trace de qui a chiffré chaque ligne.</small>
       </span></label>
@@ -817,9 +818,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.64';
+var VERSION = '2.65';
 var DATE_VERSION = '24/09/2026';
-var NOTES = 'Export au format d\'import Vertuoza (Format T / S / PO, TM, Commentaire). Montage intégré au prix de l\'offre, avec une note interne réglable en jours et jamais exportée. Menu ⋯ par ligne : changer le type, marge propre à la ligne. Titres importés sans le nom du sous-traitant.';
+var NOTES = 'Colonne Marché retirée du tableau : toutes les lignes partent en QF ; une ligne en quantité présumée se règle par le menu ⋯ (repère QP).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1291,7 +1292,7 @@ function renduRecapSt(){
 function margeVisible(d){ return !!(d && d.margeActive); }
 function renduTeteTable(){
   var d=D();
-  var c=['Article','Dénomination','Marché','Quantité','Unité',
+  var c=['Article','Dénomination','Quantité','Unité',
          margeVisible(d)?'PU déboursé':'Prix unitaire'];
   if(params.multiTaux) c.push('TVA');
   if(margeVisible(d)) c.push('PU vente');
@@ -1300,7 +1301,7 @@ function renduTeteTable(){
     return '<th'+(t==='Total'?' style="text-align:right"':'')+'>'+t+'</th>';
   }).join('')+'<th></th>';
 }
-function nbColonnes(){ return 8+(params.multiTaux?1:0)+(margeVisible(D())?1:0); }
+function nbColonnes(){ return 7+(params.multiTaux?1:0)+(margeVisible(D())?1:0); }
 /* Un chapitre est replié s'il l'a été à la main ; à défaut, un devis refusé l'est d'office. */
 function estReplie(d,r){
   var v=(d.replis||{})[r.id];
@@ -1356,11 +1357,11 @@ function rendu(){
       +'<td class="des"><div class="des-in">'+prefixe
         +'<textarea rows="1" data-c="designation" placeholder="'+ph+'">'+echappe(r.designation)+'</textarea>'
         +(r.type==='chapitre'&&d.mode==='st'&&r.intervenant?'<span class="badge-inter" title="Intervenant — non exporté">'+echappe(r.intervenant)+'</span>':'')
+        +(estLigne&&typeMarche(r)==='QP'?'<span class="badge-qp" title="Quantité présumée — exportée en TM = QP">QP</span>':'')
         +(estLigne&&r.marge!=null&&r.marge!==''?'<span class="badge-mg" title="Marge propre à cette ligne">marge '+String(r.marge).replace('.',',')+' %</span>':'')
         +(estLigne&&r.mo?'<span class="badge-mo" title="Main-d\'œuvre DHC incluse dans le prix">+ MO '+eur(moDeb(r))+'</span>':'')
         +(replie?'<span class="resume">'+(refuse(d,r)?'refusé · ':'')+(r.type==='sous'&&r.variante!=null&&r.option?'non retenue · ':'')+M.nb[i]+' ligne'+(M.nb[i]>1?'s':'')+' masquée'+(M.nb[i]>1?'s':'')+'</span>':'')
         +'</div></td>'
-      +'<td class="marche">'+(estLigne?'<input type="text" data-c="marche" value="'+echappe(r.marche)+'">':'')+'</td>'
       +'<td class="qte">'+(estLigne?'<input type="text" data-c="qte" value="'+echappe(afficheQte(r.qte))+'">':'')+'</td>'
       +'<td class="unite">'+(estLigne?selectUnite(r.unite):'')+'</td>'
       +'<td class="pu">'+(estLigne?'<input type="text" data-c="pu" value="'+echappe(affichePu(r.pu))+'">':'')+'</td>'
@@ -2528,6 +2529,9 @@ function menuActions(bouton,i){
       ajoute((r.type===t?'✓ ':'   ')+NOMS_TYPES[t],function(){ if(transformeLigne(d,i,t)) rendu(); }, r.type===t, 'retrait');
     });
     sep();
+    if(r.type==='ligne') ajoute(typeMarche(r)==='QP'?'Repasser en quantité forfaitaire (QF)':'Passer en quantité présumée (QP)',function(){
+      r.marche = typeMarche(r)==='QP' ? 'QF' : 'QP'; rendu();
+    });
     if(r.type==='ligne') ajoute('% Marge de cette ligne…'+(r.marge!=null&&r.marge!==''?' ('+String(r.marge).replace('.',',')+' %)':''),function(){ margeLigne(d,i); });
     var titre=(r.type==='chapitre'||r.type==='sous');
     ajoute(r.option?'Intégrer au devis':'Passer en option'+(titre?' (tout le bloc)':''),function(){
