@@ -882,9 +882,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.77';
+var VERSION = '2.78';
 var DATE_VERSION = '25/09/2026';
-var NOTES = 'Après un déplacement, une mise en option ou une suppression de la sélection, les cases se décochent : « Afficher le chapitre… » revient aussitôt.';
+var NOTES = 'Flèche du haut : un appui remonte chapitre par chapitre, un appui maintenu remonte tout en haut — comme la flèche du bas.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -5245,34 +5245,45 @@ function placeFleche(){
 window.addEventListener('scroll',placeFleche,{passive:true});
 window.addEventListener('resize',placeFleche);
 window.addEventListener('hashchange',function(){ setTimeout(placeFleche,50); });
-$('versHaut').onclick=function(){
-  var doux=!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-  window.scrollTo({top:0, behavior:doux?'smooth':'auto'});
-};
 /* Un appui : chapitre suivant, pour parcourir les postes. Appui maintenu : tout en bas. */
 var doux=function(){ return !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); };
 function versLeBas(){ window.scrollTo({top:document.documentElement.scrollHeight, behavior:doux()?'smooth':'auto'}); }
+/* hauteur occupée en haut par la barre fixe et les en-têtes de colonnes */
+function margeHaut(){ var h=(typeof hautCollant==='function')?hautCollant():0; return Math.max(72,h+8); }
+function versLeHaut(){ window.scrollTo({top:0, behavior:doux()?'smooth':'auto'}); }
+function chapitrePrecedent(){
+  var trs=$('corpsTable').querySelectorAll('tr.r-chapitre'), cible=null, m=margeHaut();
+  for(var i=trs.length-1;i>=0;i--){ if(trs[i].getBoundingClientRect().top<m-6){ cible=trs[i]; break; } }
+  if(!cible){ versLeHaut(); return; }
+  window.scrollTo({top:Math.max(0,cible.getBoundingClientRect().top+window.scrollY-m), behavior:doux()?'smooth':'auto'});
+}
 function chapitreSuivant(){
-  var trs=$('corpsTable').querySelectorAll('tr.r-chapitre'), cible=null;
-  for(var i=0;i<trs.length;i++){ if(trs[i].getBoundingClientRect().top>90){ cible=trs[i]; break; } }
+  var trs=$('corpsTable').querySelectorAll('tr.r-chapitre'), cible=null, m=margeHaut();
+  for(var i=0;i<trs.length;i++){ if(trs[i].getBoundingClientRect().top>m+6){ cible=trs[i]; break; } }
   if(!cible){ versLeBas(); return; }
   /* en fin de document, viser le chapitre dépasserait le bas : on descend au maximum,
      le dernier chapitre reste visible et l'appui n'est jamais sans effet */
   var max=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
-  var but=Math.min(cible.getBoundingClientRect().top+window.scrollY-72, max);
+  var but=Math.min(cible.getBoundingClientRect().top+window.scrollY-m, max);
   window.scrollTo({top:but, behavior:doux()?'smooth':'auto'});
 }
-(function(){
-  var b=$('versBas'), minuteur=null, long=false;
-  var debut=function(){ long=false; minuteur=setTimeout(function(){ long=true; versLeBas(); },550); };
-  var fin=function(){ if(minuteur) clearTimeout(minuteur); minuteur=null; if(!long) chapitreSuivant(); long=false; };
+/* Les deux flèches : un appui = chapitre par chapitre, appui maintenu = tout au bout. */
+function flecheDouble(b,court,longue){
+  var minuteur=null, long=false, appuye=false;
+  /* l'appui doit commencer sur ce bouton : après un appui long, l'autre flèche peut
+     venir se placer sous le doigt, et son relâchement ne doit rien déclencher */
+  var debut=function(){ appuye=true; long=false; minuteur=setTimeout(function(){ long=true; longue(); },550); };
+  var fin=function(){ if(minuteur) clearTimeout(minuteur); minuteur=null; if(appuye && !long) court(); long=false; appuye=false; };
   b.addEventListener('pointerdown',function(e){ e.preventDefault(); debut(); });
   b.addEventListener('pointerup',fin);
-  b.addEventListener('pointerleave',function(){ if(minuteur){ clearTimeout(minuteur); minuteur=null; long=false; } });
+  b.addEventListener('pointerleave',function(){ if(minuteur){ clearTimeout(minuteur); minuteur=null; long=false; } appuye=false; });
   b.addEventListener('contextmenu',function(e){ e.preventDefault(); });
   b.onclick=function(e){ e.preventDefault(); };     /* le pointeur gère déjà l'appui */
-})();
+}
+flecheDouble($('versBas'),chapitreSuivant,versLeBas);
+flecheDouble($('versHaut'),chapitrePrecedent,versLeHaut);
 $('versBas').title='Chapitre suivant — appui maintenu : tout en bas';
+$('versHaut').title='Chapitre précédent — appui maintenu : tout en haut';
 $('btnPied').addEventListener('click',function(){ setTimeout(placeFleche,20); });
 /* le contenu grandit quand on importe un devis : on réévalue régulièrement */
 setInterval(placeFleche,1500);
