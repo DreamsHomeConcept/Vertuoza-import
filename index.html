@@ -881,9 +881,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.74';
+var VERSION = '2.75';
 var DATE_VERSION = '25/09/2026';
-var NOTES = 'Barre d\'outils et en-têtes de colonnes fixés en haut quand on descend ; « Aller au chapitre… » et « Voir ce chapitre seul » ; clic sur le bandeau d\'un chapitre pour le déplier ; sélection multiple (cases à cocher, Maj + clic) pour déplacer, passer en option ou supprimer plusieurs lignes d\'un coup.';
+var NOTES = 'Déplacement de chapitres (case à cocher ou glisser) : le chapitre pris comme repère n\'est plus déplié. Les lignes et sous-chapitres ouvrent toujours leur destination.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2938,7 +2938,12 @@ function dialogueDeplacerVers(){
      {lib:'Déplacer', plein:true, action:function(){
         var k=parseInt($('selCible').value,10); if(!(k>=0)) return false;
         var c=cibles[k];
-        if(c.i>-1){ if(!d.replis) d.replis={}; d.replis[d.lignes[c.i].id]=false; }
+        /* on ouvre la destination pour des lignes ou des sous-chapitres ; pour des chapitres, elle n'est qu'un repère */
+        if(c.i>-1 && niv!=='chapitre'){
+          if(!d.replis) d.replis={};
+          d.replis[d.lignes[c.i].id]=false;
+          var cp=chapitreDe(d,c.i); if(cp>-1) d.replis[d.lignes[cp].id]=false;     /* et son chapitre, sinon rien ne se voit */
+        }
         if(!deplaceGroupe(d,blocsSelection(d),c.pos)){ info('Déplacement impossible à cet endroit.',100,'avertit'); return; }
         rendu(); info(blocs.length+' élément'+(blocs.length>1?'s déplacés':' déplacé')+' — ↶ Annuler ou Ctrl+Z pour revenir en arrière.',100,'ok');
      }}]);
@@ -3219,7 +3224,7 @@ $('corpsTable').addEventListener('drop',function(e){
   finGlisser();
   if(pos<0){ rendu(); info('Déplacement impossible à cet endroit : un chapitre ne se pose jamais à l\'intérieur d\'un autre, et un bloc ne se pose pas sur lui-même.',100,'avertit'); return; }
   var t=d.lignes[pos-1];
-  if(t && (t.type==='chapitre'||t.type==='sous')){ if(!d.replis) d.replis={}; d.replis[t.id]=false; }   /* on voit où il est tombé */
+  if(t && (t.type==='chapitre'||t.type==='sous') && d.lignes[src.debut].type!=='chapitre'){ if(!d.replis) d.replis={}; d.replis[t.id]=false; }   /* lignes, sous-chapitres : on voit où ils sont tombés */
   if(src.groupe) deplaceGroupe(d,src.groupe,pos); else deplaceBloc(d,src,pos);
   rendu(); montreLigne(id);
   info('Bloc déplacé — ↶ Annuler ou Ctrl+Z pour revenir en arrière.',100,'ok');
