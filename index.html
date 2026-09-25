@@ -290,6 +290,7 @@ button.depl{background:#ffe3bf;border-color:#e07b00;color:#8a4b00;font-weight:60
 .barre-sel{display:inline-flex;gap:6px;align-items:center;background:#e6f0fb;border:1px solid #9bbbe0;border-radius:3px;padding:3px 8px;color:#1f4f7a;font-size:12.5px}
 .barre-sel[hidden]{display:none}
 #allerChap{font:inherit;font-size:12.5px;padding:4px 6px;max-width:320px}
+#allerChap[hidden]{display:none}
 @media (min-width:1100px){
   .tableau-cadre{overflow:visible}
   #grille th{top:calc(var(--h-maj,0px) + var(--h-barre,0px))}
@@ -592,7 +593,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
         <button class="mini" id="selVider" title="Tout désélectionner (Échap)">×</button>
       </span>
       <span class="barre-esp"></span>
-      <select id="allerChap" title="Afficher un seul chapitre et y aller"><option value="">Aller au chapitre…</option></select>
+      <select id="allerChap" title="Afficher un seul chapitre pour le contrôler — ne modifie rien"><option value="">Afficher le chapitre…</option></select>
       <button class="mini" id="btnAnnuler" disabled title="Rien à annuler">↶ Annuler</button>
       <button class="mini depl" id="btnValideDepl" hidden title="Retirer la couleur des lignes déplacées">Valider les déplacements</button>
       <button class="mini" id="btnReplierTout" title="Replier tous les chapitres">Tout replier</button>
@@ -881,9 +882,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.75';
+var VERSION = '2.76';
 var DATE_VERSION = '25/09/2026';
-var NOTES = 'Déplacement de chapitres (case à cocher ou glisser) : le chapitre pris comme repère n\'est plus déplié. Les lignes et sous-chapitres ouvrent toujours leur destination.';
+var NOTES = 'La liste de navigation s\'appelle « Afficher le chapitre… » et se masque pendant une sélection, pour ne plus la confondre avec « Déplacer vers… ».';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2867,6 +2868,7 @@ function blocsSelection(d){
 function majBarreSel(){
   var d=D(), n=selIds().length, z=$('barreSel'); if(!z) return;
   z.hidden=!n;
+  var ac=$('allerChap'); if(ac) ac.hidden=!!n;       /* pendant une sélection, seule la zone bleue reste */
   if(n){
     var r0=trouve(selIds()[0]), niv=r0?niveauSel(r0):'lignes';
     $('selNb').textContent=n+' '+(niv==='chapitre'?'chapitre':niv==='sous'?'sous-chapitre':'élément')+(n>1?'s':'')+' sélectionné'+(n>1?'s':'');
@@ -2961,7 +2963,7 @@ function voirChapitreSeul(d,id){
 }
 function majAllerChap(d){
   var sel=$('allerChap'); if(!sel) return;
-  var sommes=calculeSommes(d), h='<option value="">Aller au chapitre…</option>';
+  var sommes=calculeSommes(d), h='<option value="">Afficher le chapitre…</option>';
   d.lignes.forEach(function(r,i){
     if(r.type!=='chapitre') return;
     h+='<option value="'+r.id+'">'+echappe((r.article?r.article+'  ':'')+String(r.designation||'(sans titre)').slice(0,48))+' — '+eur(sommes[i]||0)+'</option>';
