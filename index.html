@@ -599,6 +599,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       </span>
       <span class="barre-esp"></span>
       <select id="allerChap" title="Afficher un seul chapitre pour le contrôler — ne modifie rien"><option value="">Afficher le chapitre…</option></select>
+      <button class="mini" id="btnClasser" title="Ranger les chapitres dans l'ordre des corps d'état (Paramètres)">Classer</button>
       <button class="mini" id="btnAnnuler" disabled title="Rien à annuler">↶ Annuler</button>
       <button class="mini depl" id="btnValideDepl" hidden title="Retirer la couleur des lignes déplacées">Valider les déplacements</button>
       <button class="mini" id="btnReplierTout" title="Replier tous les chapitres">Tout replier</button>
@@ -745,6 +746,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
         <small class="aide-champ">Toujours en majoration du coût journalier, quelle que soit la marge du dossier.</small>
       </div>
     </div>
+    <label class="champ" for="ordreLots" style="margin-top:14px">Ordre des corps d'état dans un chantier</label>
+    <textarea id="ordreLots" rows="7" spellcheck="false" style="width:100%;font:inherit;font-size:12.5px;line-height:1.5"></textarea>
+    <small class="aide-champ">Une ligne par corps d'état, dans l'ordre voulu : <b>TITRE DU CHAPITRE : mots qui le reconnaissent</b> (lot du devis, titre, nom de l'entreprise). Les devis arrivent rangés à leur place et leur chapitre prend ce titre. <button type="button" class="mini" id="ordreDefaut">Rétablir l'ordre par défaut</button></small>
 
     <hr class="separateur">
 
@@ -887,9 +891,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.80';
+var VERSION = '2.81';
 var DATE_VERSION = '25/09/2026';
-var NOTES = 'Titres des chapitres toujours en blanc sur fond sombre, y compris après un déplacement (repère orange) ou une mise en évidence.';
+var NOTES = 'Classement automatique des devis par corps d\'état : maçonnerie, structure maison, toiture, plâtrerie-peinture, plomberie, électricité, façade ITE — titres renommés, bouton « Classer » pour les chantiers existants, ordre modifiable dans les paramètres.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -930,6 +934,13 @@ var params = {
   tauxMO:906,
   rendMontage:30,
   margeMontage:30,
+  ordreLots:'MAÇONNERIE : maçonnerie, gros oeuvre, gros-oeuvre, fondation, fondations, dallage, terrassement, vrd, soubassement\n'
+   +'STRUCTURE MAISON : structure maison, ossature, ossature metallique, structure metallique, charpente metallique, lsf, steel frame, sweelco\n'
+   +'TOITURE : toiture, couverture, charpente, zinguerie, tuile, ecran sous toiture, couvreur\n'
+   +'PLÂTRERIE-PEINTURE : platrerie, plaquiste, placo, cloison, cloisons, doublage, faux plafond, peinture, platrerie peinture\n'
+   +'PLOMBERIE : plomberie, sanitaire, sanitaires, plombier\n'
+   +'ÉLECTRICITÉ : electricite, electrique, electricien, courant fort, courant faible, vmc\n'
+   +'FAÇADE ITE : facade ite, ite, isolation thermique par l exterieur, isolation exterieure, facade, bardage, ravalement',
   margeMode:'majoration',
   sbUrl:'', sbCle:'', sbAuto:false
 };
@@ -997,7 +1008,7 @@ function sauveParams(){
   ecrisStockage(CLE_PARAMS, JSON.stringify({
     mode:params.mode, tvaDefaut:params.tvaDefaut, prefixe:params.prefixe,
     multiTaux:params.multiTaux, pied:params.pied, marche:params.marche,
-    margeDefaut:params.margeDefaut, margeMode:params.margeMode, tauxMO:params.tauxMO, rendMontage:params.rendMontage, margeMontage:params.margeMontage,
+    margeDefaut:params.margeDefaut, margeMode:params.margeMode, tauxMO:params.tauxMO, rendMontage:params.rendMontage, margeMontage:params.margeMontage, ordreLots:params.ordreLots,
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule
   }));
@@ -1017,6 +1028,7 @@ function chargeParams(){
     if(o.tauxMO!=null && isFinite(parseFloat(o.tauxMO)) && parseFloat(o.tauxMO)>0) params.tauxMO=parseFloat(o.tauxMO);
     if(o.rendMontage!=null && parseFloat(o.rendMontage)>0) params.rendMontage=parseFloat(o.rendMontage);
     if(o.margeMontage!=null && isFinite(parseFloat(o.margeMontage)) && parseFloat(o.margeMontage)>=0) params.margeMontage=parseFloat(o.margeMontage);
+    if(typeof o.ordreLots==='string' && o.ordreLots.trim()) params.ordreLots=o.ordreLots;
     if(typeof o.sbUrl==='string') params.sbUrl=o.sbUrl;
     if(typeof o.sbCle==='string') params.sbCle=o.sbCle;
     if(typeof o.sbAuto==='boolean') params.sbAuto=o.sbAuto;
@@ -1640,6 +1652,7 @@ function rendu(){
   majPastilleCoherence();
   var nd=d.lignes.filter(function(r){ return r.deplace; }).length;
   $('btnValideDepl').hidden=!nd;
+  $('btnClasser').hidden=(d.mode!=='st' || d._lecture);
   $('btnValideDepl').textContent='Valider les déplacements ('+nd+')';
   majBoutonAnnuler();
   majAllerChap(d); majBarreSel(); majCollants();
@@ -1785,6 +1798,65 @@ function effaceChantier(id){
 }
 function estVide(d){
   return !d.lignes.length && !d.entete.chantier && !d.entete.client && !d.texteBrut;
+}
+/* ================= CLASSEMENT PAR CORPS D'ÉTAT =================
+   Chaque chapitre de devis reçoit un rang d'après son lot (puis son titre, puis le nom
+   de l'entreprise). Un devis qui arrive se place avant le premier chapitre de rang
+   supérieur : l'ordre choisi à la main entre chapitres est respecté. */
+function normTxt(t){ return ' '+sansAccent(String(t||'').replace(/œ/gi,'oe').replace(/æ/gi,'ae')).replace(/[^a-z0-9]+/g,' ').trim()+' '; }
+function categories(){
+  return String(params.ordreLots||'').split(/\n+/).map(function(l,k){
+    var p=l.indexOf(':'); if(p<0) return null;
+    var titre=l.slice(0,p).trim(), mots=l.slice(p+1).split(',').map(function(m){ return normTxt(m).trim(); }).filter(Boolean);
+    return titre ? {rang:k+1, titre:titre, mots:mots} : null;
+  }).filter(Boolean);
+}
+function categorieTexte(t){
+  var n=normTxt(t); if(!n.trim()) return null;
+  var cs=categories();
+  for(var k=0;k<cs.length;k++){
+    if(normTxt(cs[k].titre)===n) return cs[k];
+    for(var q=0;q<cs[k].mots.length;q++) if(n.indexOf(' '+cs[k].mots[q]+' ')>-1) return cs[k];
+  }
+  return null;
+}
+function categorieChapitre(d,r){
+  var nom=r.intervenant||'';
+  return (nom && categorieTexte(lotDe(d,nom))) || categorieTexte(r.designation) || (nom && categorieTexte(nom)) || null;
+}
+function rangChapitre(d,r){ var c=categorieChapitre(d,r); return c ? c.rang : 999; }
+/* Range le devis « nom » à sa place et donne à son chapitre le titre de sa catégorie. */
+function classeIntervenant(d,nom){
+  if(!d || d.mode!=='st' || !nom) return null;
+  var ic=d.lignes.findIndex(function(r){ return r.type==='chapitre' && r.intervenant===nom; });
+  if(ic<0) return null;
+  var chap=d.lignes[ic], cat=categorieChapitre(d,chap);
+  var seulChap=d.lignes.filter(function(r){ return r.type==='chapitre' && r.intervenant===nom; }).length===1;
+  if(cat && seulChap) chap.designation=cat.titre;
+  var b=bloc(d,ic), morceau=d.lignes.splice(b.debut,b.fin-b.debut), rang=cat?cat.rang:999, pos=d.lignes.length;
+  for(var k=0;k<d.lignes.length;k++){
+    var r=d.lignes[k];
+    if(r.type==='chapitre' && rangChapitre(d,r)>rang){ pos=k; break; }
+  }
+  Array.prototype.splice.apply(d.lignes,[pos,0].concat(morceau));
+  return cat;
+}
+/* « Classer » : tout le chantier dans l'ordre standard (tri stable, les lots inconnus à la fin). */
+function classeChantier(d){
+  var tete=[], blocs=[], k=0;
+  while(k<d.lignes.length && d.lignes[k].type!=='chapitre'){ tete.push(d.lignes[k]); k++; }
+  while(k<d.lignes.length){ var b=bloc(d,k); blocs.push({lignes:d.lignes.slice(b.debut,b.fin), ordre:blocs.length}); k=b.fin; }
+  var inconnus=[], nbChap={};
+  d.lignes.forEach(function(r){ if(r.type==='chapitre' && r.intervenant) nbChap[r.intervenant]=(nbChap[r.intervenant]||0)+1; });
+  blocs.forEach(function(x){
+    var r=x.lignes[0], c=categorieChapitre(d,r);
+    x.rang=c?c.rang:999;
+    if(c && r.intervenant && nbChap[r.intervenant]===1) r.designation=c.titre;   /* un chapitre = un devis : il prend le titre de sa catégorie */
+    if(!c) inconnus.push(r.designation||'(sans titre)');
+  });
+  blocs.sort(function(a,b){ return (a.rang-b.rang)||(a.ordre-b.ordre); });
+  d.lignes=tete.concat.apply(tete,blocs.map(function(x){ return x.lignes; }));
+  return inconnus;
 }
 /* Import : ce qui vient d'arriver est replié. Un seul chapitre nouveau avec des
    sous-chapitres → le chapitre reste ouvert et ses sous-chapitres se replient,
@@ -2202,7 +2274,8 @@ function integreModeles(modeles,surface,ajuste){
         c.qte = c.entier ? Math.ceil(nombreFr(c.qte)*f) : Math.round(nombreFr(c.qte)*f*100)/100;
       lignes.push(c);
     });
-    var nom=ajouteIntervenant(d,{entete:{intervenant:m.intervenant||m.nom, lot:m.lot||'', nature:m.nature, total_ht:0}, lignes:lignes}, m.nom);
+    var nom=ajouteIntervenant(d,{entete:{intervenant:m.intervenant||m.nom, lot:m.lot||'', nature:m.nature, total_ht:0}, lignes:lignes, _sansClasser:seul}, m.nom);
+    delete d._noteMontage;
     if(nom){
       d.bibli[nom]={id:m.id, nom:m.nom, datePrix:m.datePrix, echelle:Math.round(f*100)/100};
       if(seul){
@@ -2215,6 +2288,7 @@ function integreModeles(modeles,surface,ajuste){
         for(var z=0;z<d.lignes.length;z++){
           if(d.lignes[z].type==='chapitre' && d.lignes[z].intervenant===nom){ d.lignes[z].designation=nom.toUpperCase(); break; }
         }
+        classeIntervenant(d,nom);
       }
     }
     var a=ageJours(m.datePrix); if(a!=null && a>180) vieux++;
@@ -4046,6 +4120,7 @@ async function traiteUn(f,prefixe,idx,total){
       var noteF = (xl.feuille && xl.nbFeuilles>1)
         ? 'feuille « '+xl.feuille+' » retenue sur '+xl.nbFeuilles
           +(xl.autres&&xl.autres.length?' (lignes aussi dans : '+xl.autres.join(', ')+')':'') : '';
+      if(cible._noteMontage){ noteF=(noteF?noteF+' ; ':'')+cible._noteMontage; delete cible._noteMontage; }
       return {lignes:cible.lignes.filter(function(x){return x.type==='ligne';}).length-nbAvant, repli:false, note:noteF};
     }
     info(prefixe+'Lecture du PDF…',base(10));
@@ -4737,6 +4812,12 @@ function ajouteIntervenant(d,res,nomFichier){
   if(a55(d,nom)) nt=regleTva(d).filter(function(t){ return t.indexOf(' '+nom+' :')>-1; });
   if(autoliqAttendue(d,nom)) nt.push('sous-traitance : '+nom+' facture de la TVA ('+tvaLues(d,nom).map(pct).join(', ')+') à DHC, son devis devrait être en autoliquidation');
   if(nt.length) d._noteMontage=(d._noteMontage?d._noteMontage+' ; ':'')+'⚠ '+nt.join(' ; ⚠ ');
+  /* rangement par corps d'état (sauf le montage d'un modèle seul, géré par l'appelant) */
+  if(!(res && res._sansClasser) && d.mode==='st'){
+    var cat=classeIntervenant(d,nom);
+    var nc = cat ? 'rangé en '+cat.rang+' — '+cat.titre : 'lot « '+(lot||'inconnu')+' » hors de l\'ordre standard : placé à la fin, déplacez-le si besoin';
+    d._noteMontage=(d._noteMontage?d._noteMontage+' ; ':'')+nc;
+  }
   return nom;
 }
 
@@ -5056,6 +5137,13 @@ $('btnExportDpgf').onclick=function(){
 };
 $('btnCoherence').onclick=function(){ dialogueCoherence(D()); };
 $('btnAnnuler').onclick=function(){ annuler(); };
+$('btnClasser').onclick=function(){
+  var d=D(); if(!d.lignes.length) return;
+  memorise(d,'classement par corps d\'état');
+  var inc=classeChantier(d);
+  rendu();
+  info('Chapitres rangés : '+categories().map(function(c){return c.titre;}).join(' › ')+'.'+(inc.length?' Hors de l\'ordre standard, placés à la fin : '+inc.join(', ')+'.':'')+' ↶ Annuler pour revenir.',100,inc.length?'avertit':'ok');
+};
 $('selVider').onclick=function(){ videSelection(); };
 $('selDeplacer').onclick=function(){ dialogueDeplacerVers(); };
 $('selOption').onclick=function(){
@@ -5432,6 +5520,10 @@ majAideMarge();
 $('tauxMO').value=String(params.tauxMO).replace('.',',');
 $('rendMontage').value=String(params.rendMontage).replace('.',',');
 $('margeMontage').value=String(params.margeMontage).replace('.',',');
+var ORDRE_DEFAUT=params.ordreLots;
+$('ordreLots').value=params.ordreLots;
+$('ordreLots').addEventListener('change',function(){ if(this.value.trim()){ params.ordreLots=this.value; sauveParams(); info('Ordre des corps d\'état enregistré : '+categories().map(function(c){return c.titre;}).join(' › ')+'.',100,'ok'); } });
+$('ordreDefaut').onclick=function(){ $('ordreLots').value=ORDRE_DEFAUT; params.ordreLots=ORDRE_DEFAUT; sauveParams(); info('Ordre par défaut rétabli.',100,'ok'); };
 $('margeMontage').addEventListener('blur',function(){
   var n=nombreFr(this.value); if(!isFinite(n)||n<0||this.value.trim()==='') n=30;
   params.margeMontage=Math.round(n*100)/100; this.value=String(params.margeMontage).replace('.',','); sauveParams();
