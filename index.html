@@ -274,6 +274,9 @@ td.c-act .poignee{cursor:grab}
 tr.tire td{opacity:.45;background:#fff4e0 !important}
 tr.cible td{box-shadow:inset 0 4px 0 #e07b00}
 tr.cible-bas td{box-shadow:inset 0 -4px 0 #e07b00}
+td.num input.sel{margin:0 4px 0 0;vertical-align:middle;cursor:pointer;width:14px;height:14px}
+tr.sel td{background:#dcebfb !important}
+tr.sel.r-chapitre td{background:#1f4f7a !important}
 tr.deplace td:first-child{box-shadow:inset 4px 0 0 #e07b00}
 tr.deplace td{background-image:linear-gradient(#fff7ec,#fff7ec)}
 .badge-depl{display:inline-block;margin:2px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;background:#ffe3bf;color:#8a4b00;vertical-align:middle}
@@ -281,8 +284,19 @@ button.depl{background:#ffe3bf;border-color:#e07b00;color:#8a4b00;font-weight:60
 .mg-slot{display:inline-block;width:34px;text-align:left}
 .mg-herit{font-size:10.5px;color:var(--encre-faible);margin-left:3px}
 .tab-inter input.mg::placeholder,.inter input.mg::placeholder{color:#6f6a60 !important;font-style:normal !important}
-.barre-tab{display:flex;gap:6px;justify-content:flex-end;margin-bottom:6px}
-td.num .plie{border:none;background:transparent;padding:0 4px 0 0;font-size:12px;line-height:1;cursor:pointer;color:inherit;opacity:.8}
+.barre-tab{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:0;padding:6px 0;
+  position:sticky;top:var(--h-maj,0px);z-index:20;background:var(--fond);border-bottom:1px solid var(--trait)}
+.barre-esp{flex:1}
+.barre-sel{display:inline-flex;gap:6px;align-items:center;background:#e6f0fb;border:1px solid #9bbbe0;border-radius:3px;padding:3px 8px;color:#1f4f7a;font-size:12.5px}
+.barre-sel[hidden]{display:none}
+#allerChap{font:inherit;font-size:12.5px;padding:4px 6px;max-width:320px}
+@media (min-width:1100px){
+  .tableau-cadre{overflow:visible}
+  #grille th{top:calc(var(--h-maj,0px) + var(--h-barre,0px))}
+}
+td.num .plie{border:none;background:transparent;padding:4px 6px 4px 2px;font-size:17px;line-height:1;cursor:pointer;color:inherit;opacity:.9}
+tr.r-chapitre td,tr.r-sous td{cursor:pointer}
+tr.r-chapitre td textarea,tr.r-sous td textarea{cursor:text}
 td.num .plie:hover{opacity:1;background:transparent}
 tr.r-chapitre td.num .plie{color:var(--taupe)}
 td.des .resume{flex:none;align-self:center;font-size:11.5px;font-weight:500;font-style:italic;white-space:nowrap;padding:0 8px;opacity:.85}
@@ -569,7 +583,16 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
 
     <hr class="separateur">
 
-    <div class="barre-tab">
+    <div class="barre-tab" id="barreTab">
+      <span class="barre-sel" id="barreSel" hidden>
+        <b id="selNb">0 sélectionné</b>
+        <button class="mini" id="selDeplacer" title="Choisir le chapitre ou sous-chapitre de destination">Déplacer vers…</button>
+        <button class="mini" id="selOption" title="Passer en option / réintégrer au devis">Option</button>
+        <button class="mini danger" id="selSupprimer">Supprimer</button>
+        <button class="mini" id="selVider" title="Tout désélectionner (Échap)">×</button>
+      </span>
+      <span class="barre-esp"></span>
+      <select id="allerChap" title="Afficher un seul chapitre et y aller"><option value="">Aller au chapitre…</option></select>
       <button class="mini" id="btnAnnuler" disabled title="Rien à annuler">↶ Annuler</button>
       <button class="mini depl" id="btnValideDepl" hidden title="Retirer la couleur des lignes déplacées">Valider les déplacements</button>
       <button class="mini" id="btnReplierTout" title="Replier tous les chapitres">Tout replier</button>
@@ -858,9 +881,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.73';
+var VERSION = '2.74';
 var DATE_VERSION = '25/09/2026';
-var NOTES = 'Glisser-déposer : la page défile vers le bas comme vers le haut (la barre de totaux s\'efface pendant le glisser), plus vite près du bord.';
+var NOTES = 'Barre d\'outils et en-têtes de colonnes fixés en haut quand on descend ; « Aller au chapitre… » et « Voir ce chapitre seul » ; clic sur le bandeau d\'un chapitre pour le déplier ; sélection multiple (cases à cocher, Maj + clic) pour déplacer, passer en option ou supprimer plusieurs lignes d\'un coup.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1537,6 +1560,7 @@ function lignesMasquees(d){
 }
 function rendu(){
   var d=D();
+  nettoieSelection(d);
   if(!d._lecture){ var nf=repareMO(d); if(nf) setTimeout(function(){ info(nf+(nf>1?' lignes de main-d\'œuvre séparées ont été intégrées':' ligne de main-d\'œuvre séparée a été intégrée')+' à leur ouvrage (ancien format). Total identique, à l\'arrondi des prix unitaires près : vérifiez avant export.',100,'ok'); },0); }
   renduOnglets(); renduEntete(); renduVariantes(); renduControle(); renduMarge(); renduRecapSt(); renduTeteTable();
   numerote(d);
@@ -1561,8 +1585,8 @@ function rendu(){
     var prefixe=(estLigne&&params.prefixe&&r.numLigne&&!d.dpgf)?'<span class="prefixe">'+r.numLigne+'.</span>':'';
     var ph=r.type==='chapitre'?'Intitulé du chapitre':r.type==='sous'?'Intitulé du sous-chapitre'
           :r.type==='texte'?'Commentaire libre':'Désignation de l\'ouvrage';
-    return '<tr class="r-'+r.type+(r.option?' r-option':'')+(refuse(d,r)?' r-refuse':'')+(r.deplace?' deplace':'')+'" data-id="'+r.id+'">'
-      +'<td class="num">'+(titre?'<button class="plie" data-a="plie" aria-expanded="'+(!replie)+'" title="'+(replie?'Déplier':'Replier')+'">'+(replie?'▸':'▾')+'</button>':'')+echappe(d.dpgf&&r.code?r.code:r.article)+'</td>'
+    return '<tr class="r-'+r.type+(r.option?' r-option':'')+(refuse(d,r)?' r-refuse':'')+(r.deplace?' deplace':'')+(SEL.ids[r.id]?' sel':'')+'" data-id="'+r.id+'">'
+      +'<td class="num"><input type="checkbox" class="sel" title="Sélectionner (Maj + clic : toute une plage)"'+(SEL.ids[r.id]?' checked':'')+'>'+(titre?'<button class="plie" data-a="plie" aria-expanded="'+(!replie)+'" title="'+(replie?'Déplier':'Replier')+'">'+(replie?'▸':'▾')+'</button>':'')+echappe(d.dpgf&&r.code?r.code:r.article)+'</td>'
       +'<td class="des"><div class="des-in">'+prefixe
         +'<textarea rows="1" data-c="designation" placeholder="'+ph+'">'+echappe(r.designation)+'</textarea>'
         +(r.deplace && !(i>0 && d.lignes[i-1].deplace)?'<span class="badge-depl" title="Déplacé — « Valider les déplacements » pour retirer la couleur">déplacé</span>':'')
@@ -1594,6 +1618,7 @@ function rendu(){
   $('btnValideDepl').hidden=!nd;
   $('btnValideDepl').textContent='Valider les déplacements ('+nd+')';
   majBoutonAnnuler();
+  majAllerChap(d); majBarreSel(); majCollants();
 }
 function affichePu(v){ var n=nombreFr(v); return n?eur(n):''; }
 function afficheQte(v){
@@ -2818,6 +2843,126 @@ $('btnDeplierTout').onclick=function(){
 };
 /* ------- insérer un élément au milieu du devis ------- */
 function fermeMenuIns(){ var m=document.getElementById('menuIns'); if(m) m.remove(); }
+/* Affiche un seul chapitre : les autres sont repliés, lui et ses sous-chapitres dépliés
+   (une option non retenue reste repliée), puis la page va dessus. */
+/* ======================= SÉLECTION MULTIPLE ======================= */
+var SEL={dossier:null, ids:{}, dernier:null};
+function selIds(){ return Object.keys(SEL.ids); }
+function niveauSel(r){ return (r.type==='ligne'||r.type==='texte') ? 'lignes' : r.type; }
+function nettoieSelection(d){
+  if(SEL.dossier!==d.id){ SEL={dossier:d.id, ids:{}, dernier:null}; }
+  var ex={}; d.lignes.forEach(function(r){ ex[r.id]=r; });
+  selIds().forEach(function(id){ if(!ex[id] || ex[id].type==='note') delete SEL.ids[id]; });
+}
+function blocsSelection(d){
+  var idx=[]; d.lignes.forEach(function(r,i){ if(SEL.ids[r.id]) idx.push(i); });
+  var blocs=[];
+  idx.forEach(function(i){
+    var b=blocMobile(d,i), der=blocs[blocs.length-1];
+    if(der && i<der.fin) return;                                /* déjà emporté par le bloc précédent */
+    blocs.push(b);
+  });
+  return blocs;
+}
+function majBarreSel(){
+  var d=D(), n=selIds().length, z=$('barreSel'); if(!z) return;
+  z.hidden=!n;
+  if(n){
+    var r0=trouve(selIds()[0]), niv=r0?niveauSel(r0):'lignes';
+    $('selNb').textContent=n+' '+(niv==='chapitre'?'chapitre':niv==='sous'?'sous-chapitre':'élément')+(n>1?'s':'')+' sélectionné'+(n>1?'s':'');
+  }
+  majCollants();
+}
+function basculeSelection(d,id,plage){
+  var r=trouve(id); if(!r || r.type==='note') return;
+  var niv=niveauSel(r), autres=selIds().map(trouve).filter(Boolean);
+  var ids=[id];
+  if(plage && SEL.dernier && SEL.dernier!==id){
+    var a=d.lignes.findIndex(function(x){ return x.id===SEL.dernier; }), b=d.lignes.findIndex(function(x){ return x.id===id; });
+    if(a>-1 && b>-1){
+      var M=lignesMasquees(d); ids=[];
+      for(var k=Math.min(a,b);k<=Math.max(a,b);k++){ var x=d.lignes[k]; if(!M.caches[k] && x.type!=='note' && niveauSel(x)===niv) ids.push(x.id); }
+    }
+  }
+  var ajout = plage ? true : !SEL.ids[id];
+  if(ajout && autres.length && niveauSel(autres[0])!==niv){
+    info('Sélection : soit des lignes et des textes, soit des titres de même niveau — pas de mélange. Videz la sélection (×) pour changer de niveau.',100,'avertit');
+    return;
+  }
+  ids.forEach(function(x){ if(ajout) SEL.ids[x]=1; else delete SEL.ids[x]; });
+  SEL.dernier=id;
+  Array.prototype.forEach.call($('corpsTable').querySelectorAll('tr[data-id]'),function(tr){
+    var on=!!SEL.ids[tr.getAttribute('data-id')]; tr.classList.toggle('sel',on);
+    var c=tr.querySelector('input.sel'); if(c) c.checked=on;
+  });
+  majBarreSel();
+}
+function videSelection(){ SEL.ids={}; SEL.dernier=null; rendu(); }
+/* Déplace tous les blocs sélectionnés à la position pos, dans leur ordre d'origine. */
+function deplaceGroupe(d,blocs,pos){
+  for(var q=0;q<blocs.length;q++) if(pos>blocs[q].debut && pos<blocs[q].fin) return false;
+  memorise(d,'déplacement de '+blocs.length+' éléments');
+  var pris={}, morceau=[], avant=0;
+  blocs.forEach(function(b){ for(var k=b.debut;k<b.fin;k++){ pris[k]=1; morceau.push(d.lignes[k]); if(k<pos) avant++; } });
+  d.lignes=d.lignes.filter(function(r,k){ return !pris[k]; });
+  pos-=avant;
+  morceau.forEach(function(r){ r.deplace=true; });
+  Array.prototype.splice.apply(d.lignes,[pos,0].concat(morceau));
+  return true;
+}
+function destinationGroupe(d,blocs,j,apres){
+  for(var q=0;q<blocs.length;q++) if(j>=blocs[q].debut && j<blocs[q].fin) return -1;
+  var b0=blocs[0], pos=destination(d,{debut:b0.debut,fin:b0.debut},j,apres,true);
+  for(q=0;q<blocs.length;q++) if(pos>blocs[q].debut && pos<blocs[q].fin) return -1;
+  return pos;
+}
+/* « Déplacer vers… » : liste des destinations possibles selon le niveau sélectionné */
+function dialogueDeplacerVers(){
+  var d=D(), blocs=blocsSelection(d); if(!blocs.length) return;
+  var niv=niveauSel(d.lignes[blocs[0].debut]), cibles=[];
+  d.lignes.forEach(function(r,i){
+    if(niv==='chapitre' && r.type==='chapitre') cibles.push({lib:'Après « '+(r.article||'')+' '+String(r.designation||'').slice(0,50)+' »', pos:bloc(d,i).fin, i:i});
+    if(niv==='sous' && r.type==='chapitre') cibles.push({lib:'À la fin du chapitre « '+(r.article||'')+' '+String(r.designation||'').slice(0,50)+' »', pos:bloc(d,i).fin, i:i});
+    if(niv==='lignes' && (r.type==='chapitre'||r.type==='sous')){
+      var b=bloc(d,i), p=b.fin;
+      if(r.type==='chapitre'){ for(var k=i+1;k<b.fin;k++){ if(d.lignes[k].type==='sous'){ p=k; break; } } }
+      cibles.push({lib:(r.type==='sous'?'      ↳ ':'')+(r.article||'')+' '+String(r.designation||'').slice(0,60), pos:p, i:i});
+    }
+  });
+  if(niv==='chapitre'){ var p0=d.lignes.findIndex(function(x){return x.type==='chapitre';}); cibles.unshift({lib:'En tête du devis', pos:p0<0?0:p0, i:-1}); }
+  cibles=cibles.filter(function(c){ return !blocs.some(function(b){ return c.i>=b.debut && c.i<b.fin; }); });
+  ouvreModale('Déplacer '+selIds().length+' élément'+(selIds().length>1?'s':'')+' vers…',
+    '<p class="note" style="margin-top:0">'+(niv==='lignes'?'Les lignes se placent à la fin des lignes du titre choisi, chacune avec ses commentaires et sa note.':niv==='sous'?'Les sous-chapitres se placent à la fin du chapitre choisi, avec leurs lignes.':'Les chapitres se placent avec tout leur contenu.')+'</p>'
+    +'<select id="selCible" size="12" style="width:100%;font:inherit;font-size:13px">'+cibles.map(function(c,k){ return '<option value="'+k+'">'+echappe(c.lib)+'</option>'; }).join('')+'</select>',
+    [{lib:'Annuler', action:function(){}},
+     {lib:'Déplacer', plein:true, action:function(){
+        var k=parseInt($('selCible').value,10); if(!(k>=0)) return false;
+        var c=cibles[k];
+        if(c.i>-1){ if(!d.replis) d.replis={}; d.replis[d.lignes[c.i].id]=false; }
+        if(!deplaceGroupe(d,blocsSelection(d),c.pos)){ info('Déplacement impossible à cet endroit.',100,'avertit'); return; }
+        rendu(); info(blocs.length+' élément'+(blocs.length>1?'s déplacés':' déplacé')+' — ↶ Annuler ou Ctrl+Z pour revenir en arrière.',100,'ok');
+     }}]);
+}
+function voirChapitreSeul(d,id){
+  if(!d.replis) d.replis={};
+  var dans=false;
+  d.lignes.forEach(function(r){
+    if(r.type==='chapitre'){ dans=(r.id===id); d.replis[r.id]=!dans; }
+    else if(r.type==='sous' && dans){ if(r.variante!=null && r.option) delete d.replis[r.id]; else d.replis[r.id]=false; }
+  });
+  rendu();
+  var tr=$('corpsTable').querySelector('tr[data-id="'+id+'"]');
+  if(tr){ var y=tr.getBoundingClientRect().top + window.scrollY - hautCollant() - 8; window.scrollTo({top:Math.max(0,y)}); tr.classList.add('eclair'); setTimeout(function(){ tr.classList.remove('eclair'); },1600); }
+}
+function majAllerChap(d){
+  var sel=$('allerChap'); if(!sel) return;
+  var sommes=calculeSommes(d), h='<option value="">Aller au chapitre…</option>';
+  d.lignes.forEach(function(r,i){
+    if(r.type!=='chapitre') return;
+    h+='<option value="'+r.id+'">'+echappe((r.article?r.article+'  ':'')+String(r.designation||'(sans titre)').slice(0,48))+' — '+eur(sommes[i]||0)+'</option>';
+  });
+  sel.innerHTML=h; sel.value='';
+}
 /* Contexte d'une position : le titre (sous-chapitre, sinon chapitre) qui la contient. */
 function titreDe(d,pos){
   for(var k=Math.min(pos,d.lignes.length)-1;k>=0;k--){
@@ -2896,8 +3041,8 @@ function sousDe(d,j){ for(var k=j;k>=0;k--){ var t=d.lignes[k].type; if(t==='sou
 function ligneDe(d,j){ for(var k=j;k>=0;k--){ var t=d.lignes[k].type; if(t==='ligne') return k; if(t!=='texte'&&t!=='note') return -1; } return -1; }
 /* Où tombe le bloc src si on le lâche sur la ligne j, moitié haute (apres=false) ou basse.
    Renvoie une position dans d.lignes, ou -1 si le dépôt n'a pas de sens. */
-function destination(d,src,j,apres){
-  if(j>=src.debut && j<src.fin) return -1;
+function destination(d,src,j,apres,groupe){
+  if(!groupe && j>=src.debut && j<src.fin) return -1;
   var t=d.lignes[src.debut].type, c=d.lignes[j], pos;
   if(t==='chapitre'){
     var cj=chapitreDe(d,j);
@@ -2928,7 +3073,7 @@ function destination(d,src,j,apres){
       else { var bl=blocMobile(d,lj); pos = apres ? bl.fin : bl.debut; }
     }
   }
-  if(pos>=src.debut && pos<=src.fin) return -1;             /* même place */
+  if(!groupe && pos>=src.debut && pos<=src.fin) return -1;             /* même place */
   return pos;
 }
 /* Déplace le bloc src à la position pos ; marque les lignes déplacées. */
@@ -2966,10 +3111,20 @@ function memorise(d,quoi){
   if(!d || d._lecture) return;
   var h=HIST[d.id]||(HIST[d.id]=[]), e=etatLignes(d);
   if(h.length && h[h.length-1].etat===e) return;
-  h.push({etat:e, quoi:quoi||'modification'});
+  h.push({etat:e, quoi:quoi||'modification', sel:(typeof SEL!=='undefined' && SEL.dossier===d.id)?Object.assign({},SEL.ids):{}});
   if(h.length>20) h.shift();
   majBoutonAnnuler();
 }
+/* hauteurs des éléments collants : la barre se cale sous le bandeau de mise à jour,
+   les en-têtes de colonnes sous la barre */
+function majCollants(){
+  var m=$('majBandeau'), b=$('barreTab');
+  var hm=(m && !m.hidden) ? m.offsetHeight : 0, hb=b ? b.offsetHeight : 0;
+  document.documentElement.style.setProperty('--h-maj',hm+'px');
+  document.documentElement.style.setProperty('--h-barre',hb+'px');
+}
+window.addEventListener('resize',majCollants);
+function hautCollant(){ var b=$('barreTab'); return b ? b.getBoundingClientRect().bottom + (($('enteteTable')||{}).offsetHeight||0) : 0; }
 function majBoutonAnnuler(){
   var b=$('btnAnnuler'); if(!b) return;
   var h=(D()&&HIST[D().id])||[];
@@ -2983,6 +3138,7 @@ function annuler(){
   if(!h.length){ info('Rien à annuler.',100,'avertit'); majBoutonAnnuler(); return; }
   var e=h.pop(), o=JSON.parse(e.etat);
   d.lignes=o.l; d.replis=o.r;
+  if(typeof SEL!=='undefined'){ SEL.dossier=d.id; SEL.ids=e.sel||{}; }
   rendu(); majBoutonAnnuler();
   info('Annulé : '+e.quoi+'.',100,'ok');
 }
@@ -3017,10 +3173,15 @@ $('corpsTable').addEventListener('dragstart',function(e){
   var p=e.target.closest('button[data-a="poignee"]'); if(!p) return;
   var tr=p.closest('tr'), d=D(), i=d.lignes.findIndex(function(x){ return x.id===tr.getAttribute('data-id'); });
   if(i<0) return;
-  blocTire=blocMobile(d,i);
-  for(var q=blocTire.debut;q<blocTire.fin;q++){
-    var rr=$('corpsTable').querySelector('tr[data-id="'+d.lignes[q].id+'"]'); if(rr) rr.classList.add('tire');
-  }
+  if(SEL.ids[d.lignes[i].id] && selIds().length>1){
+    var bl=blocsSelection(d);
+    blocTire={debut:bl[0].debut, fin:bl[0].fin, groupe:bl};
+  } else blocTire=blocMobile(d,i);
+  (blocTire.groupe||[blocTire]).forEach(function(bb){
+    for(var q=bb.debut;q<bb.fin;q++){
+      var rr=$('corpsTable').querySelector('tr[data-id="'+d.lignes[q].id+'"]'); if(rr) rr.classList.add('tire');
+    }
+  });
   try{ e.dataTransfer.setData('text/plain',String(i)); e.dataTransfer.effectAllowed='move'; }catch(er){}
   document.body.classList.add('glisse');
   if(!glisseBoucle) glisseBoucle=requestAnimationFrame(defilePendantGlisser);
@@ -3032,12 +3193,12 @@ $('corpsTable').addEventListener('dragover',function(e){
   Array.prototype.forEach.call($('corpsTable').querySelectorAll('.cible,.cible-bas'),function(x){ x.classList.remove('cible','cible-bas'); });
   var d=D(), j=d.lignes.findIndex(function(x){ return x.id===tr.getAttribute('data-id'); }); if(j<0) return;
   var bx=tr.getBoundingClientRect(), apres=(e.clientY>bx.top+bx.height/2);
-  var pos=destination(d,blocTire,j,apres);
+  var pos=blocTire.groupe ? destinationGroupe(d,blocTire.groupe,j,apres) : destination(d,blocTire,j,apres);
   if(pos<0){ e.dataTransfer.dropEffect='none'; return; }
   /* repère : trait au-dessus de la ligne qui suivra le bloc, sinon sous la dernière visible */
   var trs=$('corpsTable').querySelectorAll('tr[data-id]'), mis=false;
   for(var k=pos;k<d.lignes.length && !mis;k++){
-    if(k>=blocTire.debut && k<blocTire.fin) continue;
+    if((blocTire.groupe||[blocTire]).some(function(bb){ return k>=bb.debut && k<bb.fin; })) continue;
     var cible=$('corpsTable').querySelector('tr[data-id="'+d.lignes[k].id+'"]');
     if(cible){ cible.classList.add('cible'); mis=true; }
   }
@@ -3054,12 +3215,12 @@ $('corpsTable').addEventListener('drop',function(e){
   var d=D(), j=d.lignes.findIndex(function(x){ return x.id===tr.getAttribute('data-id'); });
   if(j<0){ finGlisser(); return; }
   var bx=tr.getBoundingClientRect(), apres=(e.clientY>bx.top+bx.height/2);
-  var src=blocTire, pos=destination(d,src,j,apres), id=d.lignes[src.debut].id;
+  var src=blocTire, pos=src.groupe ? destinationGroupe(d,src.groupe,j,apres) : destination(d,src,j,apres), id=d.lignes[src.debut].id;
   finGlisser();
   if(pos<0){ rendu(); info('Déplacement impossible à cet endroit : un chapitre ne se pose jamais à l\'intérieur d\'un autre, et un bloc ne se pose pas sur lui-même.',100,'avertit'); return; }
   var t=d.lignes[pos-1];
   if(t && (t.type==='chapitre'||t.type==='sous')){ if(!d.replis) d.replis={}; d.replis[t.id]=false; }   /* on voit où il est tombé */
-  deplaceBloc(d,src,pos);
+  if(src.groupe) deplaceGroupe(d,src.groupe,pos); else deplaceBloc(d,src,pos);
   rendu(); montreLigne(id);
   info('Bloc déplacé — ↶ Annuler ou Ctrl+Z pour revenir en arrière.',100,'ok');
 });
@@ -3069,6 +3230,16 @@ $('corpsTable').addEventListener('keydown',function(e){
   if(e.key==='Enter' && e.target.getAttribute('data-mo')){ e.preventDefault(); e.target.blur(); }
 });
 $('corpsTable').addEventListener('click',function(e){
+  /* clic sur le bandeau d'un chapitre ou d'un sous-chapitre (hors champ et bouton) : replier / déplier */
+  var tg=e.target, tag=tg.tagName;
+  if(!tg.closest('button') && tag!=='TEXTAREA' && tag!=='INPUT' && tag!=='SELECT' && !tg.closest('.badge-inter')){
+    var trb=tg.closest('tr.r-chapitre,tr.r-sous');
+    if(trb){
+      var dd=D(), rb=trouve(trb.getAttribute('data-id'));
+      if(rb){ if(!dd.replis) dd.replis={}; dd.replis[rb.id]=!estReplie(dd,rb); rendu(); }
+      return;
+    }
+  }
   var b=e.target.closest('button[data-a]'); if(!b) return;
   var d=D(), id=b.closest('tr').getAttribute('data-id');
   var i=d.lignes.findIndex(function(r){return r.id===id;}); if(i<0) return;
@@ -3146,6 +3317,7 @@ function menuActions(bouton,i){
     if(r.sansIA) ajoute('✓ Marquer comme vérifié (lu sans IA)',function(){ delete r.sansIA; rendu(); });
     ajoute('⧉ Dupliquer',function(){ var c=Object.assign({},r); c.id='l'+(++seq)+'_'+SESSION; delete c.mo; d.lignes.splice(i+1,0,c); rendu(); });
   }
+  if(r.type==='chapitre') ajoute('◉ Voir ce chapitre seul',function(){ voirChapitreSeul(d,r.id); });
   ajoute('× Supprimer',function(){ if(supprimeBloc(d,i)) rendu(); }, false, 'danger');
   document.body.appendChild(m);
   var br=bouton.getBoundingClientRect();
@@ -4834,6 +5006,30 @@ $('btnExportDpgf').onclick=function(){
 };
 $('btnCoherence').onclick=function(){ dialogueCoherence(D()); };
 $('btnAnnuler').onclick=function(){ annuler(); };
+$('selVider').onclick=function(){ videSelection(); };
+$('selDeplacer').onclick=function(){ dialogueDeplacerVers(); };
+$('selOption').onclick=function(){
+  var d=D(), blocs=blocsSelection(d); if(!blocs.length) return;
+  var tous=blocs.every(function(b){ return d.lignes[b.debut].option; });
+  memorise(d,'option sur la sélection');
+  blocs.forEach(function(b){ for(var k=b.debut;k<b.fin;k++) d.lignes[k].option=!tous; });
+  rendu(); info(tous?'Sélection réintégrée au devis.':'Sélection passée en option, hors total.',100,'ok');
+};
+$('selSupprimer').onclick=function(){
+  var d=D(), blocs=blocsSelection(d); if(!blocs.length) return;
+  var n=0, mt=0; blocs.forEach(function(b){ for(var k=b.debut;k<b.fin;k++){ n++; mt+=totalLigne(d,d.lignes[k]); } });
+  if(!confirm('Supprimer la sélection ?\n\n'+n+' élément'+(n>1?'s':'')+', soit '+eur(mt)+' HT.\n\nVous pourrez revenir en arrière avec ↶ Annuler ou Ctrl+Z.')) return;
+  memorise(d,'suppression de la sélection');
+  for(var q=blocs.length-1;q>=0;q--) d.lignes.splice(blocs[q].debut,blocs[q].fin-blocs[q].debut);
+  rendu(); info(n+' élément'+(n>1?'s supprimés':' supprimé')+' — ↶ Annuler ou Ctrl+Z pour les récupérer.',100,'avertit');
+};
+document.addEventListener('keydown',function(e){ if(e.key==='Escape' && selIds().length && $('modale').hidden){ videSelection(); } });
+$('corpsTable').addEventListener('click',function(e){
+  var c=e.target.closest('input.sel'); if(!c) return;
+  e.stopPropagation();
+  var tr=c.closest('tr'); basculeSelection(D(),tr.getAttribute('data-id'),e.shiftKey);
+},true);
+$('allerChap').onchange=function(){ var v=this.value; if(v) voirChapitreSeul(D(),v); this.value=''; };
 $('btnValideDepl').onclick=function(){ D().lignes.forEach(function(r){ delete r.deplace; }); rendu(); info('Déplacements validés.',100,'ok'); };
 $('btnJson').onclick=exporteJson;
 
