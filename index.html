@@ -452,7 +452,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
 <body>
 <div id="majBandeau" class="maj" hidden role="status">
   <div class="maj-in">
-    <span class="maj-t">Nouvelle version <b id="majNum"></b> disponible</span>
+    <span class="maj-t">Nouvelle version <b id="majNum"></b><span id="majDate"></span> disponible</span>
     <span class="maj-n" id="majNotes"></span>
     <button class="plein" id="majRecharger">Recharger</button>
     <button class="maj-plus" id="majPlusTard">Plus tard</button>
@@ -891,9 +891,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.81';
-var DATE_VERSION = '25/09/2026';
-var NOTES = 'Classement automatique des devis par corps d\'état : maçonnerie, structure maison, toiture, plâtrerie-peinture, plomberie, électricité, façade ITE — titres renommés, bouton « Classer » pour les chantiers existants, ordre modifiable dans les paramètres.';
+var VERSION = '2.82';
+var DATE_VERSION = '25/09/2026 11h32';   /* date et heure de livraison */
+var NOTES = 'Date et heure de chaque version affichées dans l\'en-tête, le bandeau de mise à jour et la vérification.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -5420,8 +5420,9 @@ $('btnPied').addEventListener('click',function(){ setTimeout(placeFleche,20); })
 setInterval(placeFleche,1500);
 
 /* ------------------------- version et mise à jour ------------------------ */
-$('versionTete').textContent='v'+VERSION;
-$('versionParam').textContent='Version '+VERSION+' — publiée le '+DATE_VERSION+'. '+NOTES;
+$('versionTete').textContent='v'+VERSION+' · '+DATE_VERSION;
+$('versionTete').title='Version '+VERSION+' publiée le '+DATE_VERSION;
+$('versionParam').textContent='Version '+VERSION+' — publiée le '+DATE_VERSION.replace(' ',' à ')+'. '+NOTES;
 
 function plusRecente(a,b){
   var x=String(a).split('.').map(Number), y=String(b).split('.').map(Number);
@@ -5446,14 +5447,16 @@ async function verifieVersion(manuel){
     var mv=/var VERSION\s*=\s*'([^']+)'/.exec(txt);
     if(!mv){ if(manuel) majEtatVersion('Contrôle impossible : version publiée illisible.','err'); return; }
     if(!plusRecente(mv[1],VERSION)){
-      if(manuel) majEtatVersion('Vous utilisez la dernière version : '+VERSION+'. Contrôle effectué à '+heureCourte()+'.','ok');
+      if(manuel) majEtatVersion('Vous utilisez la dernière version : '+VERSION+' du '+DATE_VERSION+'. Contrôle effectué à '+heureCourte()+'.','ok');
       return;
     }
     if(mv[1]===versionIgnoree && !manuel) return;
-    if(manuel) majEtatVersion('Version '+mv[1]+' disponible : le bandeau de mise à jour s\'affiche en haut de la page.','avertit');
+    var md=/var DATE_VERSION\s*=\s*'([^']+)'/.exec(txt), dv=md?md[1]:'';
+    if(manuel) majEtatVersion('Version '+mv[1]+(dv?' du '+dv:'')+' disponible : le bandeau de mise à jour s\'affiche en haut de la page.','avertit');
     versionIgnoree=null;
     var mn=/var NOTES\s*=\s*'((?:[^'\\]|\\.)*)'/.exec(txt);
     $('majNum').textContent=mv[1];
+    $('majDate').textContent=dv?' du '+dv:'';
     $('majNotes').textContent=mn?mn[1].replace(/\\'/g,"'"):'';
     $('majBandeau').dataset.version=mv[1];
     $('majBandeau').hidden=false;
