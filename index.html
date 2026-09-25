@@ -882,9 +882,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.76';
+var VERSION = '2.77';
 var DATE_VERSION = '25/09/2026';
-var NOTES = 'La liste de navigation s\'appelle « Afficher le chapitre… » et se masque pendant une sélection, pour ne plus la confondre avec « Déplacer vers… ».';
+var NOTES = 'Après un déplacement, une mise en option ou une suppression de la sélection, les cases se décochent : « Afficher le chapitre… » revient aussitôt.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2947,7 +2947,7 @@ function dialogueDeplacerVers(){
           var cp=chapitreDe(d,c.i); if(cp>-1) d.replis[d.lignes[cp].id]=false;     /* et son chapitre, sinon rien ne se voit */
         }
         if(!deplaceGroupe(d,blocsSelection(d),c.pos)){ info('Déplacement impossible à cet endroit.',100,'avertit'); return; }
-        rendu(); info(blocs.length+' élément'+(blocs.length>1?'s déplacés':' déplacé')+' — ↶ Annuler ou Ctrl+Z pour revenir en arrière.',100,'ok');
+        SEL.ids={}; rendu(); info(blocs.length+' élément'+(blocs.length>1?'s déplacés':' déplacé')+' — ↶ Annuler ou Ctrl+Z pour revenir en arrière.',100,'ok');
      }}]);
 }
 function voirChapitreSeul(d,id){
@@ -3227,7 +3227,7 @@ $('corpsTable').addEventListener('drop',function(e){
   if(pos<0){ rendu(); info('Déplacement impossible à cet endroit : un chapitre ne se pose jamais à l\'intérieur d\'un autre, et un bloc ne se pose pas sur lui-même.',100,'avertit'); return; }
   var t=d.lignes[pos-1];
   if(t && (t.type==='chapitre'||t.type==='sous') && d.lignes[src.debut].type!=='chapitre'){ if(!d.replis) d.replis={}; d.replis[t.id]=false; }   /* lignes, sous-chapitres : on voit où ils sont tombés */
-  if(src.groupe) deplaceGroupe(d,src.groupe,pos); else deplaceBloc(d,src,pos);
+  if(src.groupe){ deplaceGroupe(d,src.groupe,pos); SEL.ids={}; } else deplaceBloc(d,src,pos);
   rendu(); montreLigne(id);
   info('Bloc déplacé — ↶ Annuler ou Ctrl+Z pour revenir en arrière.',100,'ok');
 });
@@ -5020,7 +5020,7 @@ $('selOption').onclick=function(){
   var tous=blocs.every(function(b){ return d.lignes[b.debut].option; });
   memorise(d,'option sur la sélection');
   blocs.forEach(function(b){ for(var k=b.debut;k<b.fin;k++) d.lignes[k].option=!tous; });
-  rendu(); info(tous?'Sélection réintégrée au devis.':'Sélection passée en option, hors total.',100,'ok');
+  SEL.ids={}; rendu(); info(tous?'Sélection réintégrée au devis.':'Sélection passée en option, hors total.',100,'ok');
 };
 $('selSupprimer').onclick=function(){
   var d=D(), blocs=blocsSelection(d); if(!blocs.length) return;
@@ -5028,7 +5028,7 @@ $('selSupprimer').onclick=function(){
   if(!confirm('Supprimer la sélection ?\n\n'+n+' élément'+(n>1?'s':'')+', soit '+eur(mt)+' HT.\n\nVous pourrez revenir en arrière avec ↶ Annuler ou Ctrl+Z.')) return;
   memorise(d,'suppression de la sélection');
   for(var q=blocs.length-1;q>=0;q--) d.lignes.splice(blocs[q].debut,blocs[q].fin-blocs[q].debut);
-  rendu(); info(n+' élément'+(n>1?'s supprimés':' supprimé')+' — ↶ Annuler ou Ctrl+Z pour les récupérer.',100,'avertit');
+  SEL.ids={}; rendu(); info(n+' élément'+(n>1?'s supprimés':' supprimé')+' — ↶ Annuler ou Ctrl+Z pour les récupérer.',100,'avertit');
 };
 document.addEventListener('keydown',function(e){ if(e.key==='Escape' && selIds().length && $('modale').hidden){ videSelection(); } });
 $('corpsTable').addEventListener('click',function(e){
