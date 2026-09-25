@@ -882,9 +882,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.78';
+var VERSION = '2.79';
 var DATE_VERSION = '25/09/2026';
-var NOTES = 'Flèche du haut : un appui remonte chapitre par chapitre, un appui maintenu remonte tout en haut — comme la flèche du bas.';
+var NOTES = 'Un devis importé arrive replié (liste des chapitres et leurs totaux) ; chaque chantier est rouvert exactement comme vous l\'aviez laissé, replis compris, propres à chaque poste.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1559,9 +1559,27 @@ function lignesMasquees(d){
   });
   return {caches:caches, nb:nb};
 }
+/* Replis : enregistrés dès qu'ils changent, propres au poste. Un chantier du poste va
+   dans la sauvegarde locale (sans changer sa date de modification, donc sans le
+   republier) ; une copie consultée garde les siens dans le navigateur. */
+var CLE_REPLIS_LECTURE='dhc_vertuoza_replis_lecture'+ESPACE;
+function replisLecture(){ try{ return JSON.parse(lisStockage(CLE_REPLIS_LECTURE)||'{}')||{}; }catch(e){ return {}; } }
+function memoriseReplis(d){
+  if(!d) return;
+  var e=JSON.stringify(d.replis||{});
+  if(d._replisVus===e) return;
+  var premier=(d._replisVus===undefined);
+  d._replisVus=e;
+  if(premier) return;                              /* premier affichage : rien n'a changé */
+  if(d._lecture){
+    var m=replisLecture(); m[d._source]=d.replis||{};
+    ecrisStockage(CLE_REPLIS_LECTURE,JSON.stringify(m));
+  } else if(!estVide(d) || d._connu){ planifieSauvegarde(); }
+}
 function rendu(){
   var d=D();
   nettoieSelection(d);
+  memoriseReplis(d);
   if(!d._lecture){ var nf=repareMO(d); if(nf) setTimeout(function(){ info(nf+(nf>1?' lignes de main-d\'œuvre séparées ont été intégrées':' ligne de main-d\'œuvre séparée a été intégrée')+' à leur ouvrage (ancien format). Total identique, à l\'arrondi des prix unitaires près : vérifiez avant export.',100,'ok'); },0); }
   renduOnglets(); renduEntete(); renduVariantes(); renduControle(); renduMarge(); renduRecapSt(); renduTeteTable();
   numerote(d);
@@ -1763,6 +1781,21 @@ function effaceChantier(id){
 function estVide(d){
   return !d.lignes.length && !d.entete.chantier && !d.entete.client && !d.texteBrut;
 }
+/* Import : ce qui vient d'arriver est replié. Un seul chapitre nouveau avec des
+   sous-chapitres → le chapitre reste ouvert et ses sous-chapitres se replient,
+   pour voir la structure plutôt qu'une ligne unique. */
+function replieNouveaux(d,idsAvant){
+  if(!d || !d.lignes) return;
+  if(!d.replis) d.replis={};
+  var nouv=[]; d.lignes.forEach(function(r,i){ if(r.type==='chapitre' && !idsAvant[r.id]) nouv.push(i); });
+  if(!nouv.length) return;
+  if(nouv.length===1){
+    var b=bloc(d,nouv[0]), sous=[];
+    for(var k=b.debut+1;k<b.fin;k++) if(d.lignes[k].type==='sous') sous.push(d.lignes[k]);
+    if(sous.length){ d.replis[d.lignes[nouv[0]].id]=false; sous.forEach(function(x){ d.replis[x.id]=true; }); return; }
+  }
+  nouv.forEach(function(i){ d.replis[d.lignes[i].id]=true; });
+}
 function planifieSauvegarde(){
   if(!stockageOk) return;
   clearTimeout(minuteurSauve);
@@ -1866,7 +1899,7 @@ function suppressionsEnAttente(){
 function ecritSuppressions(l){ try{ localStorage.setItem('dhc_vertuoza_suppr'+ESPACE,JSON.stringify(l)); }catch(e){} }
 function copiePublique(d){
   var c=JSON.parse(JSON.stringify(d));
-  ['texteBrut','_sig','_connu','_pubMaj','_pubStatut','_lecture','_source'].forEach(function(k){ delete c[k]; });
+  ['texteBrut','_sig','_connu','_pubMaj','_pubStatut','_lecture','_source','replis','_replisVus'].forEach(function(k){ delete c[k]; });   /* replis : propres à chaque poste */
   c.margeModeSource=params.margeMode;
   return c;
 }
@@ -1931,6 +1964,7 @@ async function chargeEnLigne(){
 function ouvreEnLecture(rec){
   var d=JSON.parse(JSON.stringify(rec.devis));
   d._lecture=true; d._source=rec.id; d.id='lecture_'+rec.id; d.maj=rec.maj;
+  d.replis=replisLecture()[rec.id]||{};
   d.entete=d.entete||{}; d.lignes=d.lignes||[];
   var i=dossier.findIndex(function(x){ return x._source===rec.id; });
   if(i>-1) dossier[i]=d;                            /* rouvrir = rafraîchir */
@@ -2134,7 +2168,7 @@ function integreModeles(modeles,surface,ajuste){
   }
   if(surface>0 && !nombreFr(d.surface)) d.surface=surface;
   if(!d.bibli) d.bibli={};
-  var vieux=0;
+  var vieux=0, idsAvantM={}; d.lignes.forEach(function(r){ idsAvantM[r.id]=1; });
   modeles.forEach(function(m){
     var f = (ajuste && surface>0 && m.surfaceRef>0) ? surface/m.surfaceRef : 1;
     var lignes=[];
@@ -2180,6 +2214,7 @@ function integreModeles(modeles,surface,ajuste){
     }
     var a=ageJours(m.datePrix); if(a!=null && a>180) vieux++;
   });
+  replieNouveaux(d,idsAvantM);
   rendu();
   info(modeles.length+(modeles.length>1?' modèles intégrés':' modèle intégré')
     +(vieux?' — '+vieux+' avec des prix de plus de six mois, à faire actualiser.':'.'),100, vieux?'avertit':'ok');
@@ -3956,7 +3991,7 @@ async function traiteUn(f,prefixe,idx,total){
         else { cibleD=nouveauDevis(); dossier.push(cibleD); actif=dossier.length-1; }
         dps.forEach(function(x,j){
           var cd = j===0 ? cibleD : (function(){ var n=nouveauDevis(); dossier.push(n); return n; })();
-          appliqueDpgf(cd,x);
+          appliqueDpgf(cd,x); replieNouveaux(cd,{});
         });
         if(dps.length>1) actif=dossier.length-1;
         rendu();
@@ -3999,7 +4034,9 @@ async function traiteUn(f,prefixe,idx,total){
       if(!resX || (!(resX.lignes||[]).length && !(resX.variantes||[]).length)){
         return {lignes:0,repli:true,raison:repliX||'tableau Excel non reconnu'};
       }
+      var idsAvantX={}; cible.lignes.forEach(function(r){ idsAvantX[r.id]=1; });
       applique(cible,resX,f.name,ajout);
+      replieNouveaux(cible,idsAvantX);
       rendu();
       var noteF = (xl.feuille && xl.nbFeuilles>1)
         ? 'feuille « '+xl.feuille+' » retenue sur '+xl.nbFeuilles
@@ -4074,6 +4111,7 @@ async function traiteUn(f,prefixe,idx,total){
     }
     var idsAvant={}; cible.lignes.forEach(function(r){ idsAvant[r.id]=1; });
     applique(cible,res,f.name,ajout);
+    replieNouveaux(cible,idsAvant);
     if(repli || params.mode!=='ia'){
       var marque=0;
       cible.lignes.forEach(function(r){ if(!idsAvant[r.id] && (r.type==='chapitre'||(!marque && r.type!=='note'))){ r.sansIA=true; marque++; } });
