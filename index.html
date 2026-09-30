@@ -151,6 +151,8 @@ td.outils{width:122px;white-space:nowrap}
 td.outils button{margin-right:2px}
 td.des .des-in{display:flex;align-items:flex-start;gap:4px}
 td.des .des-in textarea{flex:1;min-width:0}
+/* étiquettes (déplacé, intervenant, marge, MO, TVA, QP) centrées verticalement dans la ligne */
+td.des .des-in>.badge-inter,td.des .des-in>.badge-mg,td.des .des-in>.badge-mo,td.des .des-in>.badge-depl,td.des .des-in>.badge-tva,td.des .des-in>.badge-qp{align-self:center;margin-top:0;margin-bottom:0}
 td.des .prefixe{color:var(--taupe-fonce);font-size:12px;padding-top:8px;flex:none}
 /* Les navigateurs récents dimensionnent seuls la zone sur son contenu */
 @supports (field-sizing:content){ td.des textarea{field-sizing:content;height:auto} }
@@ -897,9 +899,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.85';
-var DATE_VERSION = '30/09/2026 18h05';   /* date et heure de livraison */
-var NOTES = 'Majuscules / minuscules : désignations remises en « Majuscule puis minuscules » à l\'import et à l\'export (sigles, références, marques et accents du bâtiment conservés), majuscule en tête rétablie à la saisie, bouton « Aa » pour les chantiers existants.';
+var VERSION = '2.87';
+var DATE_VERSION = '30/09/2026 23h35';   /* date et heure de livraison */
+var NOTES = 'Export : le fichier porte le nom du chantier de l\'onglet affiché et la date ; les onglets inclus dans le classeur sont annoncés ; rappel si le chantier est vide. En consolidation, le client et le chantier ne sont plus repris des devis de sous-traitants.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4880,8 +4882,12 @@ function ajouteIntervenant(d,res,nomFichier){
   var base=nom, n=2;
   while(d.lignes.some(function(r){ return r.intervenant===nom; })) nom=base+' ('+(n++)+')';
 
-  if(!d.entete.chantier && e.chantier) d.entete.chantier=e.chantier;
-  if(!d.entete.client && e.client) d.entete.client=e.client;
+  /* consolidation : le client et le chantier d'un devis de sous-traitant sont les siens (son client, c'est DHC) —
+     on ne les reprend pas ; hors consolidation, ils remplissent les champs encore vides */
+  if(d.mode!=='st'){
+    if(!d.entete.chantier && e.chantier) d.entete.chantier=e.chantier;
+    if(!d.entete.client && e.client) d.entete.client=e.client;
+  }
   d.totalLu=(d.totalLu||0)+(nombreFr(e.total_ht)||0);
   if(!d.totauxLus) d.totauxLus={};
   d.totauxLus[nom]=nombreFr(e.total_ht)||0;
@@ -5161,9 +5167,23 @@ function feuilleDe(d){
   ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:derniere-1,c:8}});
   return ws;
 }
+/* Nom du fichier : chantier de l'onglet affiché (sinon client, sinon nom de l'onglet) + date du jour */
+function nomExport(liste){
+  var ref = liste.indexOf(D())>-1 ? D() : liste[0];
+  var base=((ref.entete.chantier||'').trim() || (ref.entete.client||'').trim() || ref.feuille || 'Devis')
+    .replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,60);
+  var j=new Date(), dt=('0'+j.getDate()).slice(-2)+'-'+('0'+(j.getMonth()+1)).slice(-2)+'-'+j.getFullYear();
+  return base+' — '+dt+(liste.length>1?' — '+liste.length+' devis':'')+'.xlsx';
+}
 function exporteXlsx(unSeul,force){
   var liste = unSeul ? [D()] : dossier.filter(function(d){return d.lignes.length;});
   if(!liste.length){ alert('Aucune ligne à exporter.'); return; }
+  if(!force){
+    var ref = liste.indexOf(D())>-1 ? D() : liste[0], avert=[];
+    if(!(ref.entete.chantier||'').trim()) avert.push('Le champ « Chantier » de « '+(ref.feuille||'ce devis')+' » est vide.');
+    if(liste.length>1) avert.push('Le classeur contiendra '+liste.length+' onglets : '+liste.map(function(d){ return '« '+(d.feuille||'Devis')+' »'; }).join(', ')+'.\nPour n\'exporter que le devis affiché, utilisez « Export Excel » sous le tableau.');
+    if(avert.length && !confirm(avert.join('\n\n')+'\n\nNom du fichier : '+nomExport(liste)+'\n\nExporter ?')) return;
+  }
   if(!force){
     var ko=liste.filter(function(d){ return controleCoherence(d).ecarts.length; });
     if(ko.length){
@@ -5197,13 +5217,9 @@ function exporteXlsx(unSeul,force){
     ['Prix unitaire :','Prix de la fourniture pour quantité 1'],['Prix total : ','Prix pour 1 x quantité'],['Commentaire : ','Commentaire lié au poste']]);
   wsl['!cols']=[{wch:18},{wch:60}];
   XLSX.utils.book_append_sheet(wb,wsl,'Légende');
-  /* le fichier porte le nom du chantier ; à défaut, celui de la feuille */
-  var chantier='';
-  for(var k=0;k<liste.length && !chantier;k++) chantier=(liste[k].entete.chantier||'').trim();
-  if(!chantier) chantier=(liste[0].entete.client||'').trim();
-  var base=(chantier||liste[0].feuille||'Devis').replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,60);
-  var nomFichier = base+(liste.length>1?' — '+liste.length+' devis':'')+'.xlsx';
+  var nomFichier=nomExport(liste);
   XLSX.writeFile(wb,nomFichier);
+  setTimeout(function(){ if(!/avant l'export|TVA/.test($('etatTexte').textContent||'')) info('Exporté : '+nomFichier,100,'ok'); },60);
 }
 function tsv(d){
   var aoa=matrice(d), exp=lignesExport(d);
