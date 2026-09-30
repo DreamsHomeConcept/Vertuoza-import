@@ -312,7 +312,7 @@ tr.r-chapitre td.des .resume{color:var(--taupe)}
 .bandeau-lecture[hidden]{display:none}
 body.lecture #secImport{display:none}
 body.lecture #pageDevis textarea:disabled,body.lecture #pageDevis input:disabled,body.lecture #pageDevis select:disabled{color:var(--encre);opacity:1;-webkit-text-fill-color:var(--encre)}
-body.lecture tr.r-chapitre td.des textarea:disabled{color:#fff;-webkit-text-fill-color:#fff}
+body.lecture #pageDevis tr.r-chapitre td.des textarea:disabled,body.lecture #pageDevis tr.r-chapitre input:disabled{color:#fff;-webkit-text-fill-color:#fff}   /* plus fort que la règle générale ci-dessus */
 .conso{display:flex;flex-wrap:wrap;gap:0;background:var(--nuit);color:#fff;border-radius:3px;border-bottom:3px solid var(--taupe);padding:12px 6px}
 .conso div{padding:0 14px;border-left:1px solid #2C3A50;font-size:12px;color:#A9B2BF}
 .conso div:first-child{border-left:none}
@@ -599,6 +599,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       </span>
       <span class="barre-esp"></span>
       <select id="allerChap" title="Afficher un seul chapitre pour le contrôler — ne modifie rien"><option value="">Afficher le chapitre…</option></select>
+      <button class="mini" id="btnCasse" title="Remettre les désignations en « Majuscule puis minuscules »">Aa</button>
       <button class="mini" id="btnClasser" title="Ranger les chapitres dans l'ordre des corps d'état (Paramètres)">Classer</button>
       <button class="mini" id="btnAnnuler" disabled title="Rien à annuler">↶ Annuler</button>
       <button class="mini depl" id="btnValideDepl" hidden title="Retirer la couleur des lignes déplacées">Valider les déplacements</button>
@@ -749,6 +750,11 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <label class="champ" for="ordreLots" style="margin-top:14px">Ordre des corps d'état dans un chantier</label>
     <textarea id="ordreLots" rows="7" spellcheck="false" style="width:100%;font:inherit;font-size:12.5px;line-height:1.5"></textarea>
     <small class="aide-champ">Une ligne par corps d'état, dans l'ordre voulu : <b>TITRE DU CHAPITRE : mots qui le reconnaissent</b> (lot du devis, titre, nom de l'entreprise). Les devis arrivent rangés à leur place et leur chapitre prend ce titre. <button type="button" class="mini" id="ordreDefaut">Rétablir l'ordre par défaut</button></small>
+    <label class="champ" for="sigles" style="margin-top:14px">Sigles gardés en majuscules</label>
+    <textarea id="sigles" rows="3" spellcheck="false" style="width:100%;font:inherit;font-size:12.5px;line-height:1.5"></textarea>
+    <label class="champ" for="marques" style="margin-top:10px">Marques gardées avec leur majuscule</label>
+    <textarea id="marques" rows="3" spellcheck="false" style="width:100%;font:inherit;font-size:12.5px;line-height:1.5"></textarea>
+    <small class="aide-champ">Séparés par des virgules. Les désignations importées tout en majuscules (ou mélangées) sont remises en « Majuscule puis minuscules » ; ces mots-là, les références avec chiffres (SD1500, BA13) et les accents courants du bâtiment (béton, étanchéité…) sont conservés. <button type="button" class="mini" id="casseDefaut">Rétablir les listes par défaut</button></small>
 
     <hr class="separateur">
 
@@ -891,9 +897,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.82';
-var DATE_VERSION = '25/09/2026 11h32';   /* date et heure de livraison */
-var NOTES = 'Date et heure de chaque version affichées dans l\'en-tête, le bandeau de mise à jour et la vérification.';
+var VERSION = '2.85';
+var DATE_VERSION = '30/09/2026 18h05';   /* date et heure de livraison */
+var NOTES = 'Majuscules / minuscules : désignations remises en « Majuscule puis minuscules » à l\'import et à l\'export (sigles, références, marques et accents du bâtiment conservés), majuscule en tête rétablie à la saisie, bouton « Aa » pour les chantiers existants.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -921,6 +927,8 @@ var ESPACE = (function(){
 var CLE_STOCKAGE = 'dhc_vertuoza_cle'+ESPACE;
 var CLE_PARAMS   = 'dhc_vertuoza_params'+ESPACE;
 
+var SIGLES_DEF='EPDM, RAL, PVC, OSB, PSE, XPS, EPS, ITE, ITI, VMC, DTU, BE, PMR, LSF, HT, TTC, TVA, NF, CE, CTA, PAC, BBC, RT, RE, VRD, PER, PEHD, PU, MDF, CLT, LVL, BLC, KVH, HEA, HEB, IPN, IPE, UPN, DOE, SPS, PPSPS, ERP, WC, LED, GRDF, EDF, CCTP, DPGF, DQE, BPU, ACQPA, PV, ABF, PLU';
+var MARQUES_DEF='Knauf, Vgards, Placo, Placoplatre, Siniat, Isover, Rockwool, Ursa, Sika, Weber, Sweelco, Velux, Legrand, Schneider, Hager, Grohe, Geberit, Kingspan, Soprema, Fermacell, Lafarge, Wienerberger, Monier, Edilians, Terreal, Enedis, Atlantic, Daikin, Aldes, Somfy, Technal, Recticel, Efisol, Siplast, Onduline, Parexlanko, Fischer, Hilti, Simpson, Würth, Protektor, Technoprotection';
 var params = {
   mode:'ia',
   cle:CFG.apiKey||'',
@@ -934,6 +942,8 @@ var params = {
   tauxMO:906,
   rendMontage:30,
   margeMontage:30,
+  sigles:SIGLES_DEF,
+  marques:MARQUES_DEF,
   ordreLots:'MAÇONNERIE : maçonnerie, gros oeuvre, gros-oeuvre, fondation, fondations, dallage, terrassement, vrd, soubassement\n'
    +'STRUCTURE MAISON : structure maison, ossature, ossature metallique, structure metallique, charpente metallique, lsf, steel frame, sweelco\n'
    +'TOITURE : toiture, couverture, charpente, zinguerie, tuile, ecran sous toiture, couvreur\n'
@@ -1008,7 +1018,7 @@ function sauveParams(){
   ecrisStockage(CLE_PARAMS, JSON.stringify({
     mode:params.mode, tvaDefaut:params.tvaDefaut, prefixe:params.prefixe,
     multiTaux:params.multiTaux, pied:params.pied, marche:params.marche,
-    margeDefaut:params.margeDefaut, margeMode:params.margeMode, tauxMO:params.tauxMO, rendMontage:params.rendMontage, margeMontage:params.margeMontage, ordreLots:params.ordreLots,
+    margeDefaut:params.margeDefaut, margeMode:params.margeMode, tauxMO:params.tauxMO, rendMontage:params.rendMontage, margeMontage:params.margeMontage, ordreLots:params.ordreLots, sigles:params.sigles, marques:params.marques,
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule
   }));
@@ -1029,6 +1039,8 @@ function chargeParams(){
     if(o.rendMontage!=null && parseFloat(o.rendMontage)>0) params.rendMontage=parseFloat(o.rendMontage);
     if(o.margeMontage!=null && isFinite(parseFloat(o.margeMontage)) && parseFloat(o.margeMontage)>=0) params.margeMontage=parseFloat(o.margeMontage);
     if(typeof o.ordreLots==='string' && o.ordreLots.trim()) params.ordreLots=o.ordreLots;
+    if(typeof o.sigles==='string') params.sigles=o.sigles;
+    if(typeof o.marques==='string') params.marques=o.marques;
     if(typeof o.sbUrl==='string') params.sbUrl=o.sbUrl;
     if(typeof o.sbCle==='string') params.sbCle=o.sbCle;
     if(typeof o.sbAuto==='boolean') params.sbAuto=o.sbAuto;
@@ -1653,6 +1665,7 @@ function rendu(){
   var nd=d.lignes.filter(function(r){ return r.deplace; }).length;
   $('btnValideDepl').hidden=!nd;
   $('btnClasser').hidden=(d.mode!=='st' || d._lecture);
+  $('btnCasse').hidden=!!(d._lecture || d.dpgf);
   $('btnValideDepl').textContent='Valider les déplacements ('+nd+')';
   majBoutonAnnuler();
   majAllerChap(d); majBarreSel(); majCollants();
@@ -1799,6 +1812,88 @@ function effaceChantier(id){
 function estVide(d){
   return !d.lignes.length && !d.entete.chantier && !d.entete.client && !d.texteBrut;
 }
+/* ================= MAJUSCULES / MINUSCULES =================
+   Règle DHC : « Première lettre en majuscule, le reste en minuscules ».
+   Un texte tout en majuscules, ou mélangé (un mot entier en majuscules hors sigle), est réécrit mot à mot ; les sigles,
+   les références avec chiffres, les marques et les accents courants sont préservés.
+   Un texte déjà en minuscules n'est touché qu'à sa première lettre. */
+var ACCENTS_BTP={beton:'béton',betons:'bétons',etancheite:'étanchéité',etanche:'étanche',etanches:'étanches',electricite:'électricité',electrique:'électrique',electriques:'électriques',electricien:'électricien',
+  releve:'relevé',releves:'relevés',ecartement:'écartement',evacuation:'évacuation',evacuations:'évacuations',element:'élément',elements:'éléments',echafaudage:'échafaudage',echafaudages:'échafaudages',
+  epaisseur:'épaisseur',ep:'ép',platre:'plâtre',platrerie:'plâtrerie',facade:'façade',facades:'façades',maconnerie:'maçonnerie',depose:'dépose',demolition:'démolition',fenetre:'fenêtre',fenetres:'fenêtres',
+  cloture:'clôture',clotures:'clôtures',controle:'contrôle',bache:'bâche',baches:'bâches',batiment:'bâtiment',reseau:'réseau',reseaux:'réseaux',securite:'sécurité',systeme:'système',systemes:'systèmes',
+  prealable:'préalable',preparation:'préparation',protege:'protégé',protegee:'protégée',isole:'isolé',isolee:'isolée',laque:'laqué',laquee:'laquée',galvanise:'galvanisé',galvanisee:'galvanisée',
+  traite:'traité',traitee:'traitée',traites:'traités',arme:'armé',armee:'armée',acces:'accès',metallique:'métallique',metalliques:'métalliques',ventile:'ventilé',ventilee:'ventilée',specifique:'spécifique',
+  geotextile:'géotextile',geomembrane:'géomembrane',deblai:'déblai',deblais:'déblais',equipement:'équipement',equipements:'équipements',tole:'tôle',toles:'tôles',cable:'câble',cables:'câbles',
+  reglage:'réglage',reglages:'réglages',soude:'soudé',soudee:'soudée',pret:'prêt',prete:'prête',tete:'tête',tetes:'têtes',debord:'débord',debords:'débords',faitage:'faîtage',faitiere:'faîtière',faitieres:'faîtières',
+  gouttiere:'gouttière',gouttieres:'gouttières',egout:'égout',egouts:'égouts',ecran:'écran',ecrans:'écrans',operation:'opération',generale:'générale',general:'général',generaux:'généraux',
+  deplacement:'déplacement',deplacements:'déplacements',etude:'étude',etudes:'études',stabilite:'stabilité',conformite:'conformité',reception:'réception',verification:'vérification',resistance:'résistance',
+  legere:'légère',leger:'léger',entree:'entrée',entrees:'entrées',tremie:'trémie',tremies:'trémies',evier:'évier',faience:'faïence',eclairage:'éclairage',reglementaire:'réglementaire',energie:'énergie',
+  energetique:'énergétique',telephone:'téléphone',differentiel:'différentiel',deja:'déjà',recuperation:'récupération',realisation:'réalisation',repartition:'répartition',renovation:'rénovation',
+  degre:'degré',degres:'degrés',hauteur:'hauteur',precadre:'précadre',precadres:'précadres',scellement:'scellement',chape:'chape',decoupe:'découpe',decoupes:'découpes',denivele:'dénivelé',
+  exterieur:'extérieur',exterieure:'extérieure',exterieurs:'extérieurs',exterieures:'extérieures',interieur:'intérieur',interieure:'intérieure',interieurs:'intérieurs',interieures:'intérieures',
+  superieur:'supérieur',superieure:'supérieure',inferieur:'inférieur',inferieure:'inférieure',beneficiaire:'bénéficiaire',degradation:'dégradation',etaiement:'étaiement',etais:'étais',
+  menuiserie:'menuiserie',decaissement:'décaissement',decapage:'décapage',demoussage:'démoussage',demontage:'démontage',remise:'remise',etat:'état',chaudiere:'chaudière',thermostatique:'thermostatique',
+  cheneau:'chéneau',cheneaux:'chéneaux',lucarne:'lucarne',mediane:'médiane',ossature:'ossature',plancher:'plancher',premiere:'première',derniere:'dernière',pieces:'pièces',piece:'pièce',
+  metre:'mètre',metres:'mètres',unite:'unité',unites:'unités',quantite:'quantité',quantites:'quantités',matiere:'matière',materiau:'matériau',materiaux:'matériaux',materiel:'matériel'};
+var CASSE_LISTES=null;
+function listesCasse(){
+  if(CASSE_LISTES) return CASSE_LISTES;
+  var sg={}, mq={};
+  String(params.sigles||'').split(/[,;\n]+/).forEach(function(x){ x=x.trim(); if(x) sg[x.toUpperCase()]=1; });
+  String(params.marques||'').split(/[,;\n]+/).forEach(function(x){ x=x.trim(); if(x) mq[x.toLowerCase()]=x; });
+  return (CASSE_LISTES={sigles:sg, marques:mq});
+}
+var RE_MAJ=/\p{Lu}/u, RE_MIN=/\p{Ll}/u, RE_LETTRE=/\p{L}/u;
+function majTete(t){
+  t=String(t==null?'':t);
+  var m=/\p{L}/u.exec(t); if(!m) return t;
+  if(/\d/.test(t.slice(0,m.index))) return t;                 /* « 2 couches… » : on ne touche pas */
+  return t.slice(0,m.index)+m[0].toUpperCase()+t.slice(m.index+1);
+}
+function motCasse(p,L){
+  if(!RE_LETTRE.test(p)) return p;
+  var up=p.toUpperCase(), lo=p.toLowerCase();
+  if(L.sigles[up]) return up;
+  if(L.marques[lo]) return L.marques[lo];
+  var sa=sansAccent(lo);
+  if(ACCENTS_BTP[sa] && sa===lo) return ACCENTS_BTP[sa];
+  return lo;
+}
+function aCorrigerCasse(t){
+  if(!RE_MAJ.test(t)) return false;
+  if(!RE_MIN.test(t)) return true;                              /* tout en majuscules */
+  var L=listesCasse(), mots=t.split(/[\s\/]+/).filter(function(w){ var l=w.replace(/[^\p{L}]/gu,''); return l.length>=3 && !/\d/.test(w) && !L.sigles[l.toUpperCase()]; });
+  if(!mots.length) return false;
+  var maj=mots.filter(function(w){ var l=w.replace(/[^\p{L}]/gu,''); return l===l.toUpperCase(); }).length;
+  return maj>0;                                                 /* au moins un mot entier en majuscules : texte mélangé */
+}
+function normaliseCasse(t){
+  t=String(t==null?'':t); if(!t.trim()) return t;
+  if(aCorrigerCasse(t)){
+    var L=listesCasse();
+    t=t.split(/(\s+)/).map(function(tok){
+      if(/^\s+$/.test(tok) || !RE_LETTRE.test(tok)) return tok;
+      /* référence : lettres suivies de chiffres (SD1500, P3-10N, BA13, C25/30) */
+      if(/^[(\[]?\p{L}{1,4}\d/u.test(tok)) return tok.toUpperCase();
+      var x=tok.split(/([^\p{L}]+)/u).map(function(p){ return motCasse(p,L); }).join('');
+      return x.replace(/(^|[^\p{L}])([a-z])=/gu,function(_,a,b){ return a+b.toUpperCase()+'='; });   /* R=3,80 ; U=1,3 */
+    }).join('');
+  }
+  return majTete(t);
+}
+/* Applique la règle aux désignations (lignes, sous-chapitres, textes). Renvoie le nombre de corrections. */
+function casseLignes(d,filtre){
+  if(!d || !d.lignes || d.dpgf) return 0;                       /* un DPGF garde la rédaction du maître d'œuvre */
+  var n=0;
+  d.lignes.forEach(function(r){
+    if(filtre && !filtre(r)) return;
+    if(r.type!=='ligne' && r.type!=='sous' && r.type!=='texte') return;
+    var a=String(r.designation||''), b=normaliseCasse(a);
+    if(b!==a){ r.designation=b; n++; }
+  });
+  return n;
+}
+
 /* ================= CLASSEMENT PAR CORPS D'ÉTAT =================
    Chaque chapitre de devis reçoit un rang d'après son lot (puis son titre, puis le nom
    de l'entreprise). Un devis qui arrive se place avant le premier chapitre de rang
@@ -1863,6 +1958,7 @@ function classeChantier(d){
    pour voir la structure plutôt qu'une ligne unique. */
 function replieNouveaux(d,idsAvant){
   if(!d || !d.lignes) return;
+  casseLignes(d,function(r){ return !idsAvant[r.id]; });
   if(!d.replis) d.replis={};
   var nouv=[]; d.lignes.forEach(function(r,i){ if(r.type==='chapitre' && !idsAvant[r.id]) nouv.push(i); });
   if(!nouv.length) return;
@@ -2916,6 +3012,14 @@ $('corpsTable').addEventListener('input',function(e){
   else diffuse();
 });
 $('corpsTable').addEventListener('change',function(e){
+  if(e.target.getAttribute('data-c')==='designation'){
+    var rr=trouve(e.target.closest('tr').getAttribute('data-id'));
+    if(rr && rr.type!=='chapitre' && rr.type!=='note' && !D().dpgf){
+      var mt=majTete(e.target.value);
+      if(mt!==e.target.value){ e.target.value=mt; rr.designation=mt; planifieSauvegarde(); }
+    }
+    return;
+  }
   if(e.target.getAttribute('data-mo')==='jours'){
     var d=D(), n=trouve(e.target.closest('tr').getAttribute('data-id')), c=n&&cibleNote(d,n);
     if(!c || !c.mo) return;
@@ -3407,6 +3511,27 @@ function margeLigne(d,i){
   else { var n=nombreFr(v); if(!isFinite(n)||n<0){ alert('Marge invalide.'); return; } r.marge=Math.round(n*100)/100; }
   rendu();
 }
+/* Main-d'oeuvre DHC saisie à la main sur une ligne : jours x taux journalier des paramètres,
+   ajoutés au prix de la ligne SANS marge (le taux journalier est déjà un prix de vente).
+   Une note interne non exportée s'affiche sous la ligne (créée par repareMO au rendu). */
+function moLigne(d,i){
+  var r=d.lignes[i]; if(!r || r.type!=='ligne') return;
+  var taux = r.mo ? nombreFr(r.mo.taux) : params.tauxMO;
+  var actuel = r.mo ? String(nombreFr(r.mo.jours)).replace('.',',') : '';
+  var v=prompt('Main-d\'œuvre DHC à intégrer au prix de « '+(r.designation||'cette ligne')+' », en jours.\n'
+    +'Taux : '+eur(taux)+' HT / jour, sans marge. Elle reste en note interne et n\'apparaît pas dans l\'export.'
+    +(r.mo?'\nLaisser vide ou 0 pour la retirer.':''), actuel);
+  if(v===null) return;
+  var j=nombreFr(v);
+  if(v.trim()==='' || !(j>0)){
+    if(r.mo){ delete r.mo; rendu(); info('Main-d\'œuvre retirée de « '+(r.designation||'la ligne')+' ».',100,'ok'); }
+    else if(v.trim()!=='') alert('Nombre de jours invalide.');
+    return;
+  }
+  r.mo={jours:Math.round(j*100)/100, taux:taux, marge:0, manuelle:true};
+  rendu(); montreLigne(r.id);
+  info('« '+(r.designation||'Ligne')+' » : '+String(r.mo.jours).replace('.',',')+' j × '+eur(taux)+' = '+eur(moDeb(r))+' HT de main-d\'œuvre ajoutés au prix, sans marge. Prix unitaire de vente : '+eur(puVente(d,r))+'.',100,'ok');
+}
 function menuActions(bouton,i){
   fermeMenuIns();
   var d=D(), r=d.lignes[i], m=document.createElement('div'); m.id='menuIns'; m.className='menu-ins';
@@ -3428,6 +3553,11 @@ function menuActions(bouton,i){
     if(r.type==='ligne') ajoute(typeMarche(r)==='QP'?'Repasser en quantité forfaitaire (QF)':'Passer en quantité présumée (QP)',function(){
       r.marche = typeMarche(r)==='QP' ? 'QF' : 'QP'; rendu();
     });
+    if(r.type==='ligne' && !r.mo) ajoute('⚒ Ajouter de la main-d\'œuvre…',function(){ moLigne(d,i); });
+    if(r.type==='ligne' && r.mo && r.mo.manuelle){
+      ajoute('⚒ Modifier la main-d\'œuvre ('+String(nombreFr(r.mo.jours)).replace('.',',')+' j)…',function(){ moLigne(d,i); });
+      ajoute('Retirer la main-d\'œuvre',function(){ delete r.mo; rendu(); info('Main-d\'œuvre retirée de « '+(r.designation||'la ligne')+' ».',100,'ok'); });
+    }
     if(r.type==='ligne') ajoute('% Marge de cette ligne…'+(r.marge!=null&&r.marge!==''?' ('+String(r.marge).replace('.',',')+' %)':''),function(){ margeLigne(d,i); });
     var titre=(r.type==='chapitre'||r.type==='sous');
     ajoute(r.option?'Intégrer au devis':'Passer en option'+(titre?' (tout le bloc)':''),function(){
@@ -4913,8 +5043,9 @@ function htmlNote(d,n){
   var deb=moDeb(c), vte=moVente(d,c), m=parseFloat(c.mo.marge); if(!isFinite(m)) m=parseFloat(margeDe(d,c))||0;
   return '<span class="note-int"><b>Note interne, non exportée</b> — dont main-d\'œuvre : '
     +'<input type="text" class="mo-j" data-mo="jours" inputmode="decimal" value="'+String(nombreFr(c.mo.jours)).replace('.',',')+'"> jours × '
-    +eur(nombreFr(c.mo.taux))+' = <b>'+eur(deb)+' HT</b> de coût'
-    +(d.margeActive?' · '+eur(vte)+' HT à la vente (marge '+String(m).replace('.',',')+' %)':'')+'</span>';
+    +eur(nombreFr(c.mo.taux))+' = <b>'+eur(deb)+' HT</b>'+(c.mo.manuelle?'':' de coût')
+    +(c.mo.manuelle ? ' · ajoutée au prix de la ligne sans marge'
+      : (d.margeActive?' · '+eur(vte)+' HT à la vente (marge '+String(m).replace('.',',')+' %)':''))+'</span>';
 }
 function dialogueMontage(d,source){
   var m=(d.montages||{})[source]||{}, met=(d.metres||{})[source]||{};
@@ -4960,7 +5091,8 @@ function designationExport(r){
   if(r.type==='chapitre') return String(r.designation||'').toUpperCase();   /* chapitres toujours en majuscules */
   /* titre d'option importé (« Option 1 — 29 210,00 € ») : le montant du fournisseur ne part pas chez le client */
   if(r.type==='sous' && r.variante!=null) return String(r.designation||'').replace(/\s*[—–-]\s*[\d\s\u202f\u00a0.,]+\s*€\s*$/,'');
-  return (r.type==='ligne'&&params.prefixe&&r.numLigne) ? r.numLigne+'.'+r.designation : r.designation;
+  var des = (r.type==='ligne'||r.type==='sous'||r.type==='texte') ? normaliseCasse(r.designation) : r.designation;   /* filet de sécurité (copies consultées) */
+  return (r.type==='ligne'&&params.prefixe&&r.numLigne) ? r.numLigne+'.'+des : des;
 }
 /* Un texte libre placé juste sous une ligne chiffrée en est le détail de composition :
    à l'export il rejoint la désignation, dans la même cellule. Seul, sous un chapitre,
@@ -4973,7 +5105,7 @@ function lignesExport(d){
   l.forEach(function(r){
     if(r.type==='chapitre'||r.type==='sous') parent=r.article;
     if(r.type==='texte' && dernier && dernier.type==='ligne' && String(r.designation||'').trim()){
-      dernier.detail=(dernier.detail?dernier.detail+'\n':'')+String(r.designation).trim();
+      dernier.detail=(dernier.detail?dernier.detail+'\n':'')+normaliseCasse(String(r.designation).trim());
       return;
     }
     var c=Object.assign({},r); delete c.detail;
@@ -5040,6 +5172,15 @@ function exporteXlsx(unSeul,force){
       return;
     }
   }
+  /* majuscules / minuscules : vérifiées à chaque export, corrigées dans le chantier */
+  var corr=0;
+  liste.forEach(function(d){
+    if(d._lecture || d.dpgf) return;
+    var avant=JSON.stringify(d.lignes.map(function(r){return r.designation;}));
+    var copie=d.lignes.map(function(r){ return {type:r.type, designation:r.designation}; }), n=casseLignes({lignes:copie});
+    if(n){ memorise(d,'correction majuscules/minuscules'); corr+=casseLignes(d); }
+  });
+  if(corr){ rendu(); setTimeout(function(){ info(corr+(corr>1?' désignations remises':' désignation remise')+' en « Majuscule puis minuscules » avant l\'export (↶ Annuler pour revenir).',100,'ok'); },30); }
   /* le modèle Vertuoza n'a pas de colonne TVA : un taux réduit se règle dans Vertuoza */
   var reduits=liste.filter(function(d){ return d.lignes.some(function(r){ return r.type==='ligne' && !r.option && r.tva!=null && r.tva!==d.tva; }); });
   if(reduits.length) setTimeout(function(){ info('⚠ Le modèle Vertuoza n\'a pas de colonne TVA : dans Vertuoza, réglez à la main le taux des lignes à TVA particulière (5,5 % en rénovation) — '+reduits.map(function(d){return d.feuille;}).join(', ')+'.',100,'avertit'); },50);
@@ -5137,6 +5278,15 @@ $('btnExportDpgf').onclick=function(){
 };
 $('btnCoherence').onclick=function(){ dialogueCoherence(D()); };
 $('btnAnnuler').onclick=function(){ annuler(); };
+$('btnCasse').onclick=function(){
+  var d=D(); if(!d.lignes.length) return;
+  if(d.dpgf){ info('DPGF : la rédaction du maître d\'œuvre est conservée telle quelle.',100,'avertit'); return; }
+  var copie=d.lignes.map(function(r){ return {type:r.type, designation:r.designation}; }), n=casseLignes({lignes:copie});
+  if(!n){ info('Rien à corriger : toutes les désignations sont déjà en « Majuscule puis minuscules ».',100,'ok'); return; }
+  memorise(d,'correction majuscules/minuscules');
+  casseLignes(d); rendu();
+  info(n+(n>1?' désignations corrigées':' désignation corrigée')+'. ↶ Annuler pour revenir.',100,'ok');
+};
 $('btnClasser').onclick=function(){
   var d=D(); if(!d.lignes.length) return;
   memorise(d,'classement par corps d\'état');
@@ -5523,7 +5673,10 @@ majAideMarge();
 $('tauxMO').value=String(params.tauxMO).replace('.',',');
 $('rendMontage').value=String(params.rendMontage).replace('.',',');
 $('margeMontage').value=String(params.margeMontage).replace('.',',');
-var ORDRE_DEFAUT=params.ordreLots;
+var ORDRE_DEFAUT=params.ordreLots, SIGLES_DEFAUT=SIGLES_DEF, MARQUES_DEFAUT=MARQUES_DEF;
+$('sigles').value=params.sigles; $('marques').value=params.marques;
+['sigles','marques'].forEach(function(k){ $(k).addEventListener('change',function(){ params[k]=this.value; CASSE_LISTES=null; sauveParams(); info((k==='sigles'?'Sigles':'Marques')+' enregistrés.',100,'ok'); }); });
+$('casseDefaut').onclick=function(){ params.sigles=SIGLES_DEFAUT; params.marques=MARQUES_DEFAUT; $('sigles').value=SIGLES_DEFAUT; $('marques').value=MARQUES_DEFAUT; CASSE_LISTES=null; sauveParams(); info('Listes par défaut rétablies.',100,'ok'); };
 $('ordreLots').value=params.ordreLots;
 $('ordreLots').addEventListener('change',function(){ if(this.value.trim()){ params.ordreLots=this.value; sauveParams(); info('Ordre des corps d\'état enregistré : '+categories().map(function(c){return c.titre;}).join(' › ')+'.',100,'ok'); } });
 $('ordreDefaut').onclick=function(){ $('ordreLots').value=ORDRE_DEFAUT; params.ordreLots=ORDRE_DEFAUT; sauveParams(); info('Ordre par défaut rétabli.',100,'ok'); };
