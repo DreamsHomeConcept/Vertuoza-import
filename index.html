@@ -542,6 +542,10 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
         <input type="text" id="fSurface" inputmode="decimal" placeholder="ex. 110">
       </div>
       <div>
+        <label class="champ" for="fHsp">Hauteur sous plafond (m)</label>
+        <input type="text" id="fHsp" inputmode="decimal" placeholder="ex. 2,50">
+      </div>
+      <div>
         <label class="champ" for="fTva">TVA de ce devis</label>
         <select id="fTva">
           <option value="10">10 % — rénovation</option>
@@ -746,7 +750,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <div class="p-court">
         <label class="champ" for="margeMontage">Marge du montage</label>
         <div class="unite-champ"><input type="text" id="margeMontage" inputmode="decimal"><span>%</span></div>
-        <small class="aide-champ">Toujours en majoration du coût journalier, quelle que soit la marge du dossier.</small>
+        <small class="aide-champ">Montage d'ossature et main-d'œuvre ajoutée sur une ligne : toujours en majoration du coût journalier, quelle que soit la marge du dossier.</small>
       </div>
     </div>
     <label class="champ" for="ordreLots" style="margin-top:14px">Ordre des corps d'état dans un chantier</label>
@@ -899,9 +903,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.87';
-var DATE_VERSION = '30/09/2026 23h35';   /* date et heure de livraison */
-var NOTES = 'Export : le fichier porte le nom du chantier de l\'onglet affiché et la date ; les onglets inclus dans le classeur sont annoncés ; rappel si le chantier est vide. En consolidation, le client et le chantier ne sont plus repris des devis de sous-traitants.';
+var VERSION = '2.88';
+var DATE_VERSION = '01/10/2026 12h13';   /* date et heure de livraison */
+var NOTES = 'Main-d\'œuvre ajoutée sur une ligne : majorée de la marge du montage (30 %). Nouveau champ « Hauteur sous plafond » ; surface réalisée et hauteur sous plafond reprises automatiquement dans un premier chapitre « INFORMATIONS CHANTIER ».';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1096,6 +1100,7 @@ function moDeb(r){ return (r && r.mo) ? (nombreFr(r.mo.jours)||0)*(nombreFr(r.mo
 function moVente(d,r){
   var x=moDeb(r); if(!x) return 0;
   if(!d || !d.margeActive) return x;
+  if(r.mo.manuelle) return x*(1+(nombreFr(params.margeMontage)||0)/100);   /* MO DHC saisie à la main : marge du montage */
   var m=parseFloat(r.mo.marge);
   if(!isFinite(m)) return x*coefficient(d,r);          /* main-d'oeuvre d'un modèle : même marge que l'ouvrage */
   return x*(1+m/100);                                   /* montage : sa marge propre, en majoration */
@@ -1184,6 +1189,7 @@ function renduEntete(){
   $('fOrigine').value=d.origine||'concurrent';
   $('fType').value=d.typeProjet||'';
   if(document.activeElement!==$('fSurface')) $('fSurface').value=d.surface?String(d.surface).replace('.',','):'';
+  if(document.activeElement!==$('fHsp')) $('fHsp').value=d.hsp?String(d.hsp).replace('.',','):'';
   $('blocOrigine').style.display = (d.mode==='st')?'none':'';
   $('blocRetenu').style.display  = (d.mode==='st')?'none':'';
   $('fRetenu').checked = d.retenu!==false;
@@ -1611,6 +1617,11 @@ function rendu(){
   var d=D();
   nettoieSelection(d);
   memoriseReplis(d);
+  if(!d._lecture){
+    var nm=0; d.lignes.forEach(function(r){ if(r.mo && r.mo.manuelle && r.mo.marge===0){ r.mo.marge=null; nm++; } });
+    if(nm) setTimeout(function(){ info(nm+(nm>1?' lignes avec main-d\'œuvre ajoutée à la main ont été recalculées':' ligne avec main-d\'œuvre ajoutée à la main a été recalculée')+' : la main-d\'œuvre est désormais majorée de la marge du montage ('+String(params.margeMontage).replace('.',',')+' %).',100,'avertit'); },0);
+    majInfosChantier(d);
+  }
   if(!d._lecture){ var nf=repareMO(d); if(nf) setTimeout(function(){ info(nf+(nf>1?' lignes de main-d\'œuvre séparées ont été intégrées':' ligne de main-d\'œuvre séparée a été intégrée')+' à leur ouvrage (ancien format). Total identique, à l\'arrondi des prix unitaires près : vérifiez avant export.',100,'ok'); },0); }
   renduOnglets(); renduEntete(); renduVariantes(); renduControle(); renduMarge(); renduRecapSt(); renduTeteTable();
   numerote(d);
@@ -1638,7 +1649,7 @@ function rendu(){
     return '<tr class="r-'+r.type+(r.option?' r-option':'')+(refuse(d,r)?' r-refuse':'')+(r.deplace?' deplace':'')+(SEL.ids[r.id]?' sel':'')+'" data-id="'+r.id+'">'
       +'<td class="num"><input type="checkbox" class="sel" title="Sélectionner (Maj + clic : toute une plage)"'+(SEL.ids[r.id]?' checked':'')+'>'+(titre?'<button class="plie" data-a="plie" aria-expanded="'+(!replie)+'" title="'+(replie?'Déplier':'Replier')+'">'+(replie?'▸':'▾')+'</button>':'')+echappe(d.dpgf&&r.code?r.code:r.article)+'</td>'
       +'<td class="des"><div class="des-in">'+prefixe
-        +'<textarea rows="1" data-c="designation" placeholder="'+ph+'">'+echappe(r.designation)+'</textarea>'
+        +'<textarea rows="1" data-c="designation" placeholder="'+ph+'"'+(r.auto?' readonly title="Rempli automatiquement depuis les champs Surface et Hauteur sous plafond du devis"':'')+'>'+echappe(r.designation)+'</textarea>'
         +(r.deplace && !(i>0 && d.lignes[i-1].deplace)?'<span class="badge-depl" title="Déplacé — « Valider les déplacements » pour retirer la couleur">déplacé</span>':'')
         +(r.sansIA?'<span class="badge-tva ko" title="Lu sans l\'IA : découpage approximatif. Menu ⋯ → Marquer comme vérifié">lu sans IA — à vérifier</span>':'')
         +(r.type==='chapitre'&&d.mode==='st'&&r.intervenant?'<span class="badge-inter" title="Intervenant — non exporté">'+echappe(r.intervenant)+'</span>':'')
@@ -1814,6 +1825,38 @@ function effaceChantier(id){
 function estVide(d){
   return !d.lignes.length && !d.entete.chantier && !d.entete.client && !d.texteBrut;
 }
+/* ================= INFORMATIONS CHANTIER =================
+   Surface réalisée et hauteur sous plafond, tirées des champs du devis, dans un premier
+   chapitre « INFORMATIONS CHANTIER » (exporté vers Vertuoza comme un titre suivi de deux textes).
+   Les lignes suivent les champs : modifiées avec eux, retirées quand ils sont vides. */
+function libInfos(d){
+  var out=[], s=nombreFr(d.surface), h=nombreFr(d.hsp);
+  if(s>0) out.push({auto:'surface', designation:'Surface réalisée : '+s.toLocaleString('fr-FR',{maximumFractionDigits:2})+' m²'});
+  if(h>0) out.push({auto:'hsp', designation:'Hauteur sous plafond : '+h.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' m'});
+  return out;
+}
+function majInfosChantier(d){
+  if(!d || !d.lignes || d.dpgf || d._lecture) return false;
+  var voulu=libInfos(d);
+  var avant=JSON.stringify(d.lignes.filter(function(r){ return r.auto; }).map(function(r){ return [r.auto,r.designation,d.lignes.indexOf(r)]; }));
+  var chap=d.lignes.find(function(r){ return r.auto==='infos'; });
+  var anciens={}; d.lignes.forEach(function(r){ if(r.auto==='surface'||r.auto==='hsp') anciens[r.auto]=r; });
+  d.lignes=d.lignes.filter(function(r){ return !r.auto; });
+  if(voulu.length && d.lignes.length){
+    if(!chap) chap=nouvelleLigne('chapitre',{designation:'INFORMATIONS CHANTIER'});
+    chap.auto='infos'; chap.designation='INFORMATIONS CHANTIER'; chap.intervenant=''; chap.option=false;
+    var tete=[chap].concat(voulu.map(function(v){
+      var r=anciens[v.auto]||nouvelleLigne('texte',{});
+      r.auto=v.auto; r.type='texte'; r.designation=v.designation; r.intervenant=''; r.option=false;
+      return r;
+    }));
+    d.lignes=tete.concat(d.lignes);
+    if(d.replis && d.replis[chap.id]===undefined) d.replis[chap.id]=false;
+  }
+  var apres=JSON.stringify(d.lignes.filter(function(r){ return r.auto; }).map(function(r){ return [r.auto,r.designation,d.lignes.indexOf(r)]; }));
+  return avant!==apres;
+}
+
 /* ================= MAJUSCULES / MINUSCULES =================
    Règle DHC : « Première lettre en majuscule, le reste en minuscules ».
    Un texte tout en majuscules, ou mélangé (un mot entier en majuscules hors sigle), est réécrit mot à mot ; les sigles,
@@ -1921,7 +1964,7 @@ function categorieChapitre(d,r){
   var nom=r.intervenant||'';
   return (nom && categorieTexte(lotDe(d,nom))) || categorieTexte(r.designation) || (nom && categorieTexte(nom)) || null;
 }
-function rangChapitre(d,r){ var c=categorieChapitre(d,r); return c ? c.rang : 999; }
+function rangChapitre(d,r){ if(r.auto==='infos') return 0; var c=categorieChapitre(d,r); return c ? c.rang : 999; }
 /* Range le devis « nom » à sa place et donne à son chapitre le titre de sa catégorie. */
 function classeIntervenant(d,nom){
   if(!d || d.mode!=='st' || !nom) return null;
@@ -1946,8 +1989,9 @@ function classeChantier(d){
   var inconnus=[], nbChap={};
   d.lignes.forEach(function(r){ if(r.type==='chapitre' && r.intervenant) nbChap[r.intervenant]=(nbChap[r.intervenant]||0)+1; });
   blocs.forEach(function(x){
-    var r=x.lignes[0], c=categorieChapitre(d,r);
-    x.rang=c?c.rang:999;
+    var r=x.lignes[0], c=r.auto==='infos' ? null : categorieChapitre(d,r);
+    x.rang = r.auto==='infos' ? 0 : (c?c.rang:999);
+    if(r.auto==='infos') return;
     if(c && r.intervenant && nbChap[r.intervenant]===1) r.designation=c.titre;   /* un chapitre = un devis : il prend le titre de sa catégorie */
     if(!c) inconnus.push(r.designation||'(sans titre)');
   });
@@ -3521,7 +3565,7 @@ function moLigne(d,i){
   var taux = r.mo ? nombreFr(r.mo.taux) : params.tauxMO;
   var actuel = r.mo ? String(nombreFr(r.mo.jours)).replace('.',',') : '';
   var v=prompt('Main-d\'œuvre DHC à intégrer au prix de « '+(r.designation||'cette ligne')+' », en jours.\n'
-    +'Taux : '+eur(taux)+' HT / jour, sans marge. Elle reste en note interne et n\'apparaît pas dans l\'export.'
+    +'Coût : '+eur(taux)+' HT / jour, majoré de la marge du montage ('+String(params.margeMontage).replace('.',',')+' %). Elle reste en note interne et n\'apparaît pas dans l\'export.'
     +(r.mo?'\nLaisser vide ou 0 pour la retirer.':''), actuel);
   if(v===null) return;
   var j=nombreFr(v);
@@ -3530,9 +3574,9 @@ function moLigne(d,i){
     else if(v.trim()!=='') alert('Nombre de jours invalide.');
     return;
   }
-  r.mo={jours:Math.round(j*100)/100, taux:taux, marge:0, manuelle:true};
+  r.mo={jours:Math.round(j*100)/100, taux:taux, marge:null, manuelle:true};
   rendu(); montreLigne(r.id);
-  info('« '+(r.designation||'Ligne')+' » : '+String(r.mo.jours).replace('.',',')+' j × '+eur(taux)+' = '+eur(moDeb(r))+' HT de main-d\'œuvre ajoutés au prix, sans marge. Prix unitaire de vente : '+eur(puVente(d,r))+'.',100,'ok');
+  info('« '+(r.designation||'Ligne')+' » : '+String(r.mo.jours).replace('.',',')+' j × '+eur(taux)+' = '+eur(moDeb(r))+' HT de coût, '+eur(moVente(d,r))+' HT à la vente (marge '+String(params.margeMontage).replace('.',',')+' %), ajoutés au prix. Prix unitaire de vente : '+eur(puVente(d,r))+'.',100,'ok');
 }
 function menuActions(bouton,i){
   fermeMenuIns();
@@ -3812,7 +3856,11 @@ $('fType').addEventListener('change',function(){
 });
 $('fSurface').addEventListener('input',function(){
   D().surface=nombreFr(this.value)||0;
-  majTotaux(); renduRecapSt();
+  rendu(); renduRecapSt();
+});
+$('fHsp').addEventListener('input',function(){
+  D().hsp=nombreFr(this.value)||0;
+  rendu();
 });
 $('fOrigine').addEventListener('change',function(){ D().origine=this.value; renduEntete(); });
 $('fRetenu').addEventListener('change',function(){ D().retenu=this.checked; });
@@ -5049,8 +5097,8 @@ function htmlNote(d,n){
   var deb=moDeb(c), vte=moVente(d,c), m=parseFloat(c.mo.marge); if(!isFinite(m)) m=parseFloat(margeDe(d,c))||0;
   return '<span class="note-int"><b>Note interne, non exportée</b> — dont main-d\'œuvre : '
     +'<input type="text" class="mo-j" data-mo="jours" inputmode="decimal" value="'+String(nombreFr(c.mo.jours)).replace('.',',')+'"> jours × '
-    +eur(nombreFr(c.mo.taux))+' = <b>'+eur(deb)+' HT</b>'+(c.mo.manuelle?'':' de coût')
-    +(c.mo.manuelle ? ' · ajoutée au prix de la ligne sans marge'
+    +eur(nombreFr(c.mo.taux))+' = <b>'+eur(deb)+' HT</b> de coût'
+    +(c.mo.manuelle ? ' · '+eur(vte)+' HT à la vente (marge du montage '+String(params.margeMontage).replace('.',',')+' %)'
       : (d.margeActive?' · '+eur(vte)+' HT à la vente (marge '+String(m).replace('.',',')+' %)':''))+'</span>';
 }
 function dialogueMontage(d,source){
