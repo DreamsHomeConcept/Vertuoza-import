@@ -909,9 +909,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.89';
-var DATE_VERSION = '05/10/2026 15h07';   /* date et heure de livraison */
-var NOTES = 'Ouvrages : étoile ☆ sur chaque ligne chiffrée, bouton « ★ Bibliothèque » pour enregistrer les lignes étoilées (celles d\'un même chapitre forment un seul ouvrage), entrée « ★ Ouvrage de la bibliothèque… » dans le menu + pour les réinsérer à l\'endroit voulu.';
+var VERSION = '2.90';
+var DATE_VERSION = '05/10/2026 16h59';   /* date et heure de livraison */
+var NOTES = 'Sécurité : l\'ouverture des PDF est protégée contre les fichiers piégés, la lecture des devis reste identique.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4645,7 +4645,7 @@ function pageJuridique(t){
 }
 async function lirePdf(f,surAvancement){
   var buf=await f.arrayBuffer();
-  var pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  var pdf=await pdfjsLib.getDocument({data:buf, isEvalSupported:false}).promise;   /* empêche un PDF piégé d'exécuter du code (CVE-2024-4367) */
   var pages=[];
   for(var p=1;p<=pdf.numPages;p++){
     var page=await pdf.getPage(p);
