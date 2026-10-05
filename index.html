@@ -79,6 +79,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .grille-param .p-cle{flex:1 1 320px;max-width:520px}
 .grille-param .p-court{flex:0 1 220px}
 .grille-param .p-moyen{flex:0 1 270px}
+.resp-ligne{display:flex;gap:8px;align-items:center;margin-bottom:6px;max-width:780px}
+.resp-ligne input{flex:1 1 0;min-width:0}
 .unite-champ{display:flex;align-items:stretch}
 .unite-champ input{flex:1;min-width:0;text-align:right;border-radius:2px 0 0 2px}
 .unite-champ span{display:flex;align-items:center;padding:0 10px;border:1px solid var(--trait);border-left:none;border-radius:0 2px 2px 0;
@@ -516,6 +518,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
           <option value="client">Devis client ou concurrent</option>
           <option value="st">Consolidation intervenants (sous-traitants et fournisseurs)</option>
         </select>
+        <button type="button" class="mini" id="btnVersClient" hidden style="margin-top:6px" title="Crée une copie en devis client, à côté : la consolidation reste intacte">→ Passer en devis client</button>
       </div>
       <div id="blocOrigine">
         <label class="champ" for="fOrigine">Origine du devis</label>
@@ -791,6 +794,19 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
 
     <hr class="separateur">
 
+    <h3 class="st">Devis client PDF</h3>
+    <p class="note" style="margin-top:0">Saisis une fois ici : la fenêtre « Devis client PDF » ne demande plus que le client et les adresses.</p>
+    <label class="champ">Responsables (au choix dans le devis)</label>
+    <div id="respListe"></div>
+    <p style="margin:6px 0 12px"><button type="button" class="mini" id="respAjout">+ Ajouter un responsable</button></p>
+    <div class="grille-param">
+      <div class="p-moyen"><label class="champ" for="pIban">IBAN</label><input type="text" id="pIban" spellcheck="false"></div>
+      <div class="p-court"><label class="champ" for="pBic">Code BIC</label><input type="text" id="pBic" spellcheck="false"></div>
+      <div class="p-moyen"><label class="champ" for="pAcomptes">Acomptes (un par ligne)</label><textarea id="pAcomptes" rows="3"></textarea></div>
+    </div>
+
+    <hr class="separateur">
+
     <h3 class="st">Base de prix (Supabase)</h3>
     <p class="aide">Chaque devis archivé alimente l'historique des prix : désignation, unité, quantité, prix reçu, émetteur et date. Le prix enregistré est toujours le <strong>déboursé</strong>, jamais le prix marge incluse.</p>
     <div class="grille">
@@ -919,9 +935,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.92';
-var DATE_VERSION = '05/10/2026 21h44';   /* date et heure de livraison */
-var NOTES = 'Nouveau : marge par chapitre ou sous-chapitre (menu ⋯ du titre), appliquée à toutes ses lignes sauf celles qui ont leur propre marge.';
+var VERSION = '2.93';
+var DATE_VERSION = '05/10/2026 23h56';   /* date et heure de livraison */
+var NOTES = 'Nouveau : bouton « → Passer en devis client » dans un dossier en consolidation (copie à côté, consolidation intacte) ; fenêtre « Devis client PDF » allégée : responsable au choix dans une liste, coordonnées, IBAN et acomptes saisis une fois dans Paramètres.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -975,7 +991,8 @@ var params = {
    +'FAÇADE ITE : facade ite, ite, isolation thermique par l exterieur, isolation exterieure, facade, bardage, ravalement',
   margeMode:'majoration',
   sbUrl:'', sbCle:'', sbAuto:false,
-  devisProchain:'', devisResp:'', devisEmail:'', devisTel:'', devisIban:'', devisBic:'', devisAcomptes:''
+  devisProchain:'', devisResp:'', devisEmail:'', devisTel:'', devisIban:'', devisBic:'', devisAcomptes:'',
+  devisResps:[]          /* responsables proposés dans le devis client : {nom, email, tel} */
 };
 var dossier = [];      /* liste de devis */
 var actif = 0;
@@ -1045,7 +1062,7 @@ function sauveParams(){
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule,
     devisProchain:params.devisProchain, devisResp:params.devisResp, devisEmail:params.devisEmail, devisTel:params.devisTel,
-    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes
+    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps
   }));
 }
 function chargeParams(){
@@ -1073,6 +1090,11 @@ function chargeParams(){
     if(typeof o.cleConsult==='string') params.cleConsult=o.cleConsult;
     if(typeof o.biblioSeule==='boolean') params.biblioSeule=o.biblioSeule;
     ['devisProchain','devisResp','devisEmail','devisTel','devisIban','devisBic','devisAcomptes'].forEach(function(k){ if(typeof o[k]==='string') params[k]=o[k]; });
+    if(Array.isArray(o.devisResps)) params.devisResps=o.devisResps.filter(function(r){ return r && typeof r.nom==='string'; })
+      .map(function(r){ return {nom:r.nom, email:String(r.email||''), tel:String(r.tel||'')}; });
+    /* poste réglé en 2.91 : son responsable unique devient le premier de la liste */
+    if(!params.devisResps.length && params.devisResp.trim())
+      params.devisResps=[{nom:params.devisResp.trim(), email:params.devisEmail, tel:params.devisTel}];
   }catch(e){}
 }
 function chargeCle(){
@@ -1244,6 +1266,7 @@ function renduEntete(){
     : (d.origine==='fournisseur') ? 'Devis retenu (commandé)' : 'Devis retenu (contracté)';   /* en mode ST, chaque intervenant est un sous-traitant */
   $('btnArchive').textContent = d.archive?'Archivé ✓ — archiver à nouveau':'Archiver dans la base de prix';
   $('btnBiblio').hidden = (d.mode==='st');
+  $('btnVersClient').hidden = (d.mode!=='st');
   $('btnExportDpgf').hidden = !d.dpgf;
   $('brut').textContent=d.texteBrut||'';
   $('detBrut').style.display=d.texteBrut?'block':'none';
@@ -2252,7 +2275,7 @@ function appliqueLecture(){
     b.innerHTML='<b>Consultation — lecture seule.</b> Chantier géré par le chef de chantier · dernière modification '
       +quand(D().maj)+'. Pour des chiffres à jour, rouvrez-le depuis la page Chantiers.';
     Array.prototype.forEach.call(document.querySelectorAll('#pageDevis input, #pageDevis select, #pageDevis textarea, #pageDevis button'),function(el){
-      if(el.closest('.onglets') || el.id==='btnExportDevis' || el.id==='btnDevisPdf' || el.id==='btnExportDpgf' || el.getAttribute('data-a')==='plie'
+      if(el.closest('.onglets') || el.id==='btnExportDevis' || el.id==='btnDevisPdf' || el.id==='btnExportDpgf' || el.id==='btnVersClient' || el.getAttribute('data-a')==='plie'
          || el.id==='btnReplierTout' || el.id==='btnDeplierTout') return;
       if(!el.disabled){ el.disabled=true; el.setAttribute('data-ro','1'); }
     });
@@ -4062,6 +4085,22 @@ $('fMode').addEventListener('change',function(){
   rendu();
 });
 
+/* Consolidation → devis client : copie à côté, mêmes lignes et mêmes prix de vente ;
+   la consolidation n'est pas touchée. Depuis un chantier consulté, la copie devient modifiable. */
+function versDevisClient(){
+  var src=D(); if(!src) return;
+  var c=JSON.parse(JSON.stringify(src));
+  Object.keys(c).forEach(function(k){ if(k.charAt(0)==='_') delete c[k]; });
+  c.id='d'+(++seqD)+'_'+SESSION; c.statut='en_cours'; c.maj=Date.now();
+  c.mode='client'; c.origine='client'; c.retenu=false; c.archive=false;
+  c.feuille=('Client '+(src.feuille||'Devis')).slice(0,31);
+  c.entete=c.entete||{}; c.lignes=c.lignes||[];
+  dossier.splice(actif+1,0,c); actif=actif+1;
+  location.hash='#devis'; rendu();
+  info('Devis client créé dans l\'onglet « '+c.feuille+' » : mêmes lignes, même total HT ('+eur(totalHt(c))+'). La consolidation reste intacte.',100,'ok');
+}
+$('btnVersClient').onclick=versDevisClient;
+
 /* --------------------------- navigation 2 pages -------------------------- */
 function montre(page){
   var param = page==='parametres', ch = page==='chantiers', bi = page==='bibliotheque', autre = param||ch||bi;
@@ -5587,41 +5626,41 @@ function dialogueDevisPdf(force){
   var e=d.entete||{};
   var champ=function(id,lib,val,ph){ return '<div><label class="champ" for="'+id+'">'+lib+'</label><input type="text" id="'+id+'" value="'+echappe(val||'')+'"'+(ph?' placeholder="'+echappe(ph)+'"':'')+'></div>'; };
   var zone=function(id,lib,val,ph){ return '<div><label class="champ" for="'+id+'">'+lib+'</label><textarea id="'+id+'" rows="3"'+(ph?' placeholder="'+echappe(ph)+'"':'')+'>'+echappe(val||'')+'</textarea></div>'; };
-  var manque=!params.devisResp || !params.devisIban;
+  var resps=params.devisResps.filter(function(r){ return r.nom; });
+  var choisi=e.responsable||params.devisResp||'';
+  if(!resps.some(function(r){ return r.nom===choisi; })) choisi=resps.length?resps[0].nom:'';
+  var manque=[];
+  if(!resps.length) manque.push('les responsables');
+  if(!params.devisIban) manque.push('l\'IBAN');
   var corps='<div class="grille">'
     +champ('pdNum','N° du devis',e.numero||prochainNumero())
     +champ('pdDate','Date',e.date||aujourdhuiFr(),'jj/mm/aaaa')
+    +'<div><label class="champ" for="pdResp">Responsable</label><select id="pdResp">'
+    +(resps.length?resps.map(function(r){ return '<option'+(r.nom===choisi?' selected':'')+'>'+echappe(r.nom)+'</option>'; }).join(''):'<option value="">—</option>')
+    +'</select></div>'
     +champ('pdClient','Client',e.client,'Mme. Prénom NOM')
     +champ('pdRef','Référence (nom du chantier)',e.chantier)
+    +'<div></div>'
     +zone('pdAdrClient','Adresse du client',e.adresseClient,'Numéro et rue\nCode postal VILLE')
     +zone('pdAdrChantier','Adresse du chantier',e.adresseChantier,'Vide : même adresse que le client')
-    +zone('pdAcomptes','Acomptes (un par ligne)',params.devisAcomptes||ACOMPTES_DEF)
     +'</div>'
-    +'<details'+(manque?' open':'')+'><summary>Coordonnées de l\'entreprise (gardées sur ce poste)</summary>'
-    +'<div class="grille" style="margin-top:8px">'
-    +champ('pdResp','Responsable',params.devisResp,'Prénom NOM')
-    +champ('pdEmail','E-mail',params.devisEmail)
-    +champ('pdTel','Téléphone',params.devisTel)
-    +champ('pdIban','IBAN',params.devisIban)
-    +champ('pdBic','Code BIC',params.devisBic)
-    +'</div></details>'
-    +'<p class="note">Le numéro suivant est proposé automatiquement. Les conditions générales de vente sont ajoutées en dernière page.</p>';
+    +(manque.length?'<p class="note" style="color:#8a5a00">À compléter une fois dans Paramètres › Devis client PDF : '+manque.join(' et ')+'.</p>':'')
+    +'<p class="note">Le numéro suivant est proposé automatiquement. Coordonnées, IBAN et acomptes viennent des Paramètres. Les conditions générales de vente sont ajoutées en dernière page.</p>';
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
     {lib:'Annuler', action:function(){}},
     {lib:'Créer le PDF', plein:true, action:function(){
       var v=function(id){ return String($(id).value||'').trim(); };
+      var r=resps.find(function(x){ return x.nom===v('pdResp'); })||{nom:'',email:'',tel:''};
       var o={numero:v('pdNum'), date:v('pdDate'), client:v('pdClient'), reference:v('pdRef'),
              adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'),
-             acomptes:lisAcomptes($('pdAcomptes').value),
-             resp:v('pdResp'), email:v('pdEmail'), tel:v('pdTel'), iban:v('pdIban'), bic:v('pdBic')};
+             acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
+             resp:r.nom, email:r.email, tel:r.tel, iban:params.devisIban, bic:params.devisBic};
       if(!o.numero){ alert('Indiquez le numéro du devis.'); $('pdNum').focus(); return false; }
       if(!o.client){ alert('Indiquez le nom du client.'); $('pdClient').focus(); return false; }
-      params.devisResp=o.resp; params.devisEmail=o.email; params.devisTel=o.tel;
-      params.devisIban=o.iban; params.devisBic=o.bic; params.devisAcomptes=$('pdAcomptes').value.trim();
-      sauveParams();
+      if(o.resp){ params.devisResp=o.resp; sauveParams(); }
       if(!d._lecture){
         d.entete.numero=o.numero; d.entete.date=o.date; d.entete.client=o.client; d.entete.chantier=o.reference;
-        d.entete.adresseClient=o.adresseClient; d.entete.adresseChantier=v('pdAdrChantier');
+        d.entete.adresseClient=o.adresseClient; d.entete.adresseChantier=v('pdAdrChantier'); d.entete.responsable=o.resp;
         if(d===D()){ $('fClient').value=o.client; $('fChantier').value=o.reference; $('fDate').value=o.date; }
         diffuse();
       }
@@ -6328,6 +6367,35 @@ $('tauxMO').addEventListener('blur',function(){
   var n=nombreFr(this.value); if(!(n>0)) n=906;
   params.tauxMO=Math.round(n*100)/100; this.value=String(params.tauxMO).replace('.',','); sauveParams();
 });
+/* devis client PDF : responsables, IBAN, BIC, acomptes */
+function renduResps(){
+  var l=params.devisResps;
+  $('respListe').innerHTML=l.length ? l.map(function(r,i){
+    return '<div class="resp-ligne">'
+      +'<input type="text" data-r="'+i+'" data-k="nom" placeholder="Prénom NOM" aria-label="Nom" value="'+echappe(r.nom)+'">'
+      +'<input type="text" data-r="'+i+'" data-k="email" placeholder="E-mail" aria-label="E-mail" value="'+echappe(r.email)+'">'
+      +'<input type="text" data-r="'+i+'" data-k="tel" placeholder="Téléphone" aria-label="Téléphone" value="'+echappe(r.tel)+'">'
+      +'<button type="button" class="mini" data-resp-suppr="'+i+'" title="Retirer ce responsable">✕</button></div>';
+  }).join('') : '<p class="note" style="margin:0 0 4px">Aucun responsable : ajoutez-en au moins un.</p>';
+}
+renduResps();
+$('respListe').addEventListener('change',function(e){
+  var t=e.target, i=+t.getAttribute('data-r'), k=t.getAttribute('data-k');
+  if(!k || !params.devisResps[i]) return;
+  params.devisResps[i][k]=t.value.trim(); sauveParams();
+});
+$('respListe').addEventListener('click',function(e){
+  var b=e.target.closest('[data-resp-suppr]'); if(!b) return;
+  params.devisResps.splice(+b.getAttribute('data-resp-suppr'),1); sauveParams(); renduResps();
+});
+$('respAjout').onclick=function(){
+  params.devisResps.push({nom:'',email:'',tel:''}); renduResps();
+  var ch=$('respListe').querySelectorAll('input[data-k="nom"]'); ch[ch.length-1].focus();
+};
+$('pIban').value=params.devisIban; $('pBic').value=params.devisBic; $('pAcomptes').value=params.devisAcomptes||ACOMPTES_DEF;
+$('pIban').addEventListener('change',function(){ params.devisIban=this.value.trim(); sauveParams(); });
+$('pBic').addEventListener('change',function(){ params.devisBic=this.value.trim(); sauveParams(); });
+$('pAcomptes').addEventListener('change',function(){ params.devisAcomptes=this.value.trim(); if(!params.devisAcomptes) this.value=ACOMPTES_DEF; sauveParams(); });
 $('sbUrl').value=params.sbUrl; $('sbCle').value=params.sbCle; $('sbAuto').checked=params.sbAuto;
 majEtatSb();
 $('cleEdition').value=params.cleEdition||''; $('cleConsult').value=params.cleConsult||'';
