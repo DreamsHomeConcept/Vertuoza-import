@@ -919,9 +919,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.91';
-var DATE_VERSION = '05/10/2026 21h08';   /* date et heure de livraison */
-var NOTES = 'Nouveau : bouton « Devis client PDF » sous le tableau, pour créer le devis DHC prêt à envoyer (numéro, totaux, acomptes, conditions générales) ; l\'export Vertuoza reste inchangé.';
+var VERSION = '2.92';
+var DATE_VERSION = '05/10/2026 21h44';   /* date et heure de livraison */
+var NOTES = 'Nouveau : marge par chapitre ou sous-chapitre (menu ⋯ du titre), appliquée à toutes ses lignes sauf celles qui ont leur propre marge.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1095,8 +1095,35 @@ function tauxDe(d,r){ return r.tva==null?d.tva:r.tva; }
 /* Marge. Deux lectures possibles d'un « 30 % », d'où le mode :
    - majoration : prix de vente = déboursé x 1,30
    - vente      : la marge représente 30 % du prix de vente, soit déboursé / 0,70 */
+function margeFixee(x){ return !!(x && x.marge!=null && x.marge!=='' && isFinite(parseFloat(x.marge))); }
+/* Position d'une ligne dans d.lignes, retrouvée aussi pour une copie (export, contrôle) par son identifiant.
+   Les positions sont gardées en cache et recalculées dès qu'elles ne correspondent plus (ajout, déplacement). */
+function positionLigne(d,r){
+  var c=d._posLignes, i;
+  if(r.id!=null){
+    if(c && c.lignes===d.lignes){ i=c.pos[r.id]; if(i!=null && d.lignes[i] && d.lignes[i].id===r.id) return i; }
+    var pos={}; d.lignes.forEach(function(x,k){ if(x.id!=null) pos[x.id]=k; });
+    Object.defineProperty(d,'_posLignes',{value:{lignes:d.lignes,pos:pos},configurable:true,writable:true,enumerable:false});
+    i=pos[r.id]; return i!=null ? i : -1;
+  }
+  return d.lignes.indexOf(r);
+}
+/* Marge posée sur le sous-chapitre puis le chapitre qui contiennent la ligne r (null sinon). */
+function margeTitre(d,r){
+  if(!d || !d.lignes || !r || r.type!=='ligne') return null;
+  var i=positionLigne(d,r); if(i<0) return null;
+  var vuSous=false;
+  for(var k=i-1;k>=0;k--){
+    var t=d.lignes[k].type;
+    if(t==='sous' && !vuSous){ vuSous=true; if(margeFixee(d.lignes[k])) return parseFloat(d.lignes[k].marge); }
+    if(t==='chapitre') return margeFixee(d.lignes[k]) ? parseFloat(d.lignes[k].marge) : null;
+  }
+  return null;
+}
+/* Priorité : ligne, sous-chapitre, chapitre, intervenant, devis. */
 function margeDe(d,r){
-  if(r && r.marge!=null && r.marge!=='' && isFinite(parseFloat(r.marge))) return parseFloat(r.marge);   /* marge propre à la ligne */
+  if(margeFixee(r)) return parseFloat(r.marge);   /* marge propre à la ligne */
+  var mt=margeTitre(d,r); if(mt!=null) return mt;   /* marge du sous-chapitre ou du chapitre */
   if(r && r.intervenant && d.marges && d.marges[r.intervenant]!=null) return d.marges[r.intervenant];
   return d.marge;
 }
@@ -1675,6 +1702,7 @@ function rendu(){
         +(r.type==='chapitre'&&d.mode==='st'&&r.intervenant?'<span class="badge-inter" title="Intervenant — non exporté">'+echappe(r.intervenant)+'</span>':'')
         +(estLigne&&typeMarche(r)==='QP'?'<span class="badge-qp" title="Quantité présumée — exportée en TM = QP">QP</span>':'')
         +(estLigne&&r.marge!=null&&r.marge!==''?'<span class="badge-mg" title="Marge propre à cette ligne">marge '+String(r.marge).replace('.',',')+' %</span>':'')
+        +(titre&&margeFixee(r)?'<span class="badge-mg" title="Marge appliquée à toutes les lignes de ce '+(r.type==='chapitre'?'chapitre':'sous-chapitre')+', sauf celles qui ont leur propre marge">marge '+String(r.marge).replace('.',',')+' %</span>':'')
         +(estLigne&&r.mo?'<span class="badge-mo" title="Main-d\'œuvre DHC incluse dans le prix">+ MO '+eur(moDeb(r))+'</span>':'')
         +(estLigne&&!d._lecture&&!d.dpgf?'<button class="etoile'+(r.etoile?' on':'')+'" data-a="etoile" title="'+(r.etoile?'Marqué pour la bibliothèque — cliquer pour retirer':'Marquer cet ouvrage pour la bibliothèque')+'">'+(r.etoile?'★':'☆')+'</button>':'')
         +(replie?'<span class="resume">'+(refuse(d,r)?'refusé · ':'')+(r.type==='sous'&&r.variante!=null&&r.option?'non retenue · ':'')+M.nb[i]+' ligne'+(M.nb[i]>1?'s':'')+' masquée'+(M.nb[i]>1?'s':'')+'</span>':'')
@@ -3683,6 +3711,7 @@ function transformeLigne(d,i,t){
   if(r.type==='ligne' && t!=='ligne' && (nombreFr(r.pu) || r.mo)){
     if(!confirm('Transformer cette ligne chiffrée en '+NOMS_TYPES[t].toLowerCase()+' efface son prix'+(r.mo?' et la main-d\'œuvre qui y est intégrée':'')+'. Continuer ?')) return false;
   }
+  if((r.type==='chapitre'||r.type==='sous') && t!=='chapitre' && t!=='sous') delete r.marge;   /* la marge d'un titre ne devient pas celle d'une ligne */
   if(r.type==='ligne' && t!=='ligne'){
     r.pu=''; r.qte=''; delete r.mo; delete r.marge;
     d.lignes=d.lignes.filter(function(x){ return !(x.type==='note' && x.cible===r.id); });
@@ -3695,7 +3724,23 @@ function margeLigne(d,i){
   var r=d.lignes[i]; if(!r || r.type!=='ligne') return;
   var actuelle = (r.marge!=null&&r.marge!=='') ? String(r.marge).replace('.',',') : '';
   var v=prompt('Marge propre à cette ligne, en %'+(d.margeActive?'':' (la marge est désactivée sur ce devis : elle ne s\'appliquera qu\'une fois activée)')
-    +'.\nLaisser vide pour revenir à la marge de l\'intervenant ou du devis ('+String(margeDe(d,{intervenant:r.intervenant})).replace('.',',')+' %).', actuelle);
+    +'.\nLaisser vide pour revenir à la marge du chapitre, de l\'intervenant ou du devis ('+String(margeTitre(d,r)!=null?margeTitre(d,r):margeDe(d,{intervenant:r.intervenant})).replace('.',',')+' %).', actuelle);
+  if(v===null) return;
+  if(v.trim()===''){ delete r.marge; }
+  else { var n=nombreFr(v); if(!isFinite(n)||n<0){ alert('Marge invalide.'); return; } r.marge=Math.round(n*100)/100; }
+  rendu();
+}
+/* Marge d'un chapitre ou d'un sous-chapitre : toutes ses lignes la prennent, sauf celles qui ont leur propre marge. */
+function margeChapitre(d,i){
+  var r=d.lignes[i]; if(!r || (r.type!=='chapitre' && r.type!=='sous')) return;
+  var nom=(r.type==='chapitre'?'ce chapitre':'ce sous-chapitre');
+  var actuelle = margeFixee(r) ? String(r.marge).replace('.',',') : '';
+  var b=bloc(d,i), propres=0;
+  for(var z=b.debut+1;z<b.fin;z++) if(d.lignes[z].type==='ligne' && margeFixee(d.lignes[z])) propres++;
+  var v=prompt('Marge de '+nom+', en %'+(d.margeActive?'':' (la marge est désactivée sur ce devis : elle ne s\'appliquera qu\'une fois activée)')
+    +'.\nElle s\'applique à toutes ses lignes'+(r.type==='chapitre'?' (sous-chapitres compris)':'')
+    +(propres?', sauf '+propres+(propres>1?' lignes qui gardent leur marge propre':' ligne qui garde sa marge propre'):'')+'.'
+    +'\nLaisser vide pour revenir à la marge '+(r.type==='sous'?'du chapitre, ':'')+'de l\'intervenant ou du devis.', actuelle);
   if(v===null) return;
   if(v.trim()===''){ delete r.marge; }
   else { var n=nombreFr(v); if(!isFinite(n)||n<0){ alert('Marge invalide.'); return; } r.marge=Math.round(n*100)/100; }
@@ -3750,6 +3795,7 @@ function menuActions(bouton,i){
     }
     if(r.type==='ligne') ajoute('% Marge de cette ligne…'+(r.marge!=null&&r.marge!==''?' ('+String(r.marge).replace('.',',')+' %)':''),function(){ margeLigne(d,i); });
     var titre=(r.type==='chapitre'||r.type==='sous');
+    if(titre) ajoute('% Marge de ce '+(r.type==='chapitre'?'chapitre':'sous-chapitre')+'…'+(margeFixee(r)?' ('+String(r.marge).replace('.',',')+' %)':''),function(){ margeChapitre(d,i); });
     ajoute(r.option?'Intégrer au devis':'Passer en option'+(titre?' (tout le bloc)':''),function(){
       var etat=!r.option;
       if(titre){ var bl=bloc(d,i); for(var z=bl.debut;z<bl.fin;z++) d.lignes[z].option=etat; } else r.option=etat;
