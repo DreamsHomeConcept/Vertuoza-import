@@ -148,6 +148,11 @@ td.qte,td.pu{width:104px} td.unite{width:116px} td.marche{width:100px} td.tvl{wi
 td.loc{width:190px} td.loc input{font-size:12.5px}
 td.total{width:116px;text-align:right;font-weight:600;white-space:nowrap;padding-right:10px}
 td.outils{width:122px;white-space:nowrap}
+button.etoile{border:0;background:none;color:#b9b0a0;font-size:17px;line-height:1;cursor:pointer;padding:0 3px;align-self:center;flex:none}
+button.etoile:hover{color:#e0a800}
+button.etoile.on{color:#e0a800}
+.ouv-grp{border:1px solid var(--trait);border-radius:4px;padding:10px 12px;margin-bottom:10px}
+.ouv-grp small{display:block;color:var(--encre-faible);margin-top:4px}
 td.outils button{margin-right:2px}
 td.des .des-in{display:flex;align-items:flex-start;gap:4px}
 td.des .des-in textarea{flex:1;min-width:0}
@@ -605,6 +610,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       </span>
       <span class="barre-esp"></span>
       <select id="allerChap" title="Afficher un seul chapitre pour le contrôler — ne modifie rien"><option value="">Afficher le chapitre…</option></select>
+      <button class="mini depl" id="btnOuvrages" hidden title="Enregistrer les lignes étoilées dans la bibliothèque">★ Bibliothèque</button>
       <button class="mini" id="btnCasse" title="Remettre les désignations en « Majuscule puis minuscules »">Aa</button>
       <button class="mini" id="btnClasser" title="Ranger les chapitres dans l'ordre des corps d'état (Paramètres)">Classer</button>
       <button class="mini" id="btnAnnuler" disabled title="Rien à annuler">↶ Annuler</button>
@@ -903,9 +909,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.88';
-var DATE_VERSION = '01/10/2026 12h13';   /* date et heure de livraison */
-var NOTES = 'Main-d\'œuvre ajoutée sur une ligne : majorée de la marge du montage (30 %). Nouveau champ « Hauteur sous plafond » ; surface réalisée et hauteur sous plafond reprises automatiquement dans un premier chapitre « INFORMATIONS CHANTIER ».';
+var VERSION = '2.89';
+var DATE_VERSION = '05/10/2026 15h07';   /* date et heure de livraison */
+var NOTES = 'Ouvrages : étoile ☆ sur chaque ligne chiffrée, bouton « ★ Bibliothèque » pour enregistrer les lignes étoilées (celles d\'un même chapitre forment un seul ouvrage), entrée « ★ Ouvrage de la bibliothèque… » dans le menu + pour les réinsérer à l\'endroit voulu.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1656,6 +1662,7 @@ function rendu(){
         +(estLigne&&typeMarche(r)==='QP'?'<span class="badge-qp" title="Quantité présumée — exportée en TM = QP">QP</span>':'')
         +(estLigne&&r.marge!=null&&r.marge!==''?'<span class="badge-mg" title="Marge propre à cette ligne">marge '+String(r.marge).replace('.',',')+' %</span>':'')
         +(estLigne&&r.mo?'<span class="badge-mo" title="Main-d\'œuvre DHC incluse dans le prix">+ MO '+eur(moDeb(r))+'</span>':'')
+        +(estLigne&&!d._lecture&&!d.dpgf?'<button class="etoile'+(r.etoile?' on':'')+'" data-a="etoile" title="'+(r.etoile?'Marqué pour la bibliothèque — cliquer pour retirer':'Marquer cet ouvrage pour la bibliothèque')+'">'+(r.etoile?'★':'☆')+'</button>':'')
         +(replie?'<span class="resume">'+(refuse(d,r)?'refusé · ':'')+(r.type==='sous'&&r.variante!=null&&r.option?'non retenue · ':'')+M.nb[i]+' ligne'+(M.nb[i]>1?'s':'')+' masquée'+(M.nb[i]>1?'s':'')+'</span>':'')
         +'</div></td>'
       +(d.dpgf?'<td class="loc">'+(estLigne?'<input type="text" data-c="localisation" value="'+echappe(r.localisation||'')+'" placeholder="Localisation">':'')+'</td>':'')
@@ -1678,6 +1685,8 @@ function rendu(){
   var nd=d.lignes.filter(function(r){ return r.deplace; }).length;
   $('btnValideDepl').hidden=!nd;
   $('btnClasser').hidden=(d.mode!=='st' || d._lecture);
+  var nEt=d.lignes.filter(function(r){ return r.etoile && r.type==='ligne'; }).length;
+  $('btnOuvrages').hidden=!nEt || !!d._lecture; $('btnOuvrages').textContent='★ Bibliothèque ('+nEt+')';
   $('btnCasse').hidden=!!(d._lecture || d.dpgf);
   $('btnValideDepl').textContent='Valider les déplacements ('+nd+')';
   majBoutonAnnuler();
@@ -2216,7 +2225,7 @@ function appliqueLecture(){
    Un modèle est un vrai devis enregistré une fois pour être réutilisé :
    devis type (neuf, rénovation) ou prix habituels d'un intervenant.
    Inséré dans un dossier, il devient un intervenant comme un autre. */
-var CATEGORIES={neuf:'Devis type — neuf', renovation:'Devis type — rénovation', intervenant:'Prix d\'un intervenant'};
+var CATEGORIES={neuf:'Devis type — neuf', renovation:'Devis type — rénovation', intervenant:'Prix d\'un intervenant', ouvrage:'Ouvrages'};
 function lisModeles(){
   return new Promise(function(ok){
     if(!BASE) return ok([]);
@@ -2337,6 +2346,119 @@ async function dialogueEnregistrement(d,nom){
 }
 $('btnBiblio').onclick=function(){ dialogueEnregistrement(D(), null); };
 
+/* ---------------------------- ouvrages ----------------------------
+   Lignes étoilées → ouvrages de la bibliothèque. Les lignes étoilées d'un même chapitre
+   forment UN ouvrage (elles restent liées) ; chaque ligne emporte ses textes de détail. */
+function groupesOuvrages(d){
+  var grp=[], parChap={}, chap=null;
+  for(var i=0;i<d.lignes.length;i++){
+    var r=d.lignes[i];
+    if(r.type==='chapitre'){ chap=r; continue; }
+    if(r.type!=='ligne' || !r.etoile) continue;
+    var cle=chap?chap.id:'_';
+    if(!parChap[cle]){ parChap[cle]={chapitre:chap, lignes:[], sources:[]}; grp.push(parChap[cle]); }
+    var g=parChap[cle];
+    var l={type:'ligne', designation:r.designation, unite:r.unite||'', qte:nombreFr(r.qte), pu:puAchat(r)};
+    if(r.marche) l.marche=r.marche;
+    if(r.mo && nombreFr(r.mo.jours)>0){ l.jours=nombreFr(r.mo.jours); if(r.mo.manuelle) l.moManuelle=true; }
+    g.lignes.push(l); g.sources.push(r);
+    for(var k=i+1;k<d.lignes.length;k++){
+      var x=d.lignes[k];
+      if(x.type==='note') continue;
+      if(x.type!=='texte') break;
+      if(String(x.designation||'').trim()) g.lignes.push({type:'texte', designation:x.designation});
+    }
+  }
+  grp.forEach(function(g){
+    var des=g.sources.map(function(r){ return String(r.designation||'').trim(); }).filter(Boolean);
+    g.nom = des.length===1 ? des[0] : (g.chapitre ? normaliseCasse(String(g.chapitre.designation||'').toLowerCase())+' — ' : '')+des.join(' + ');
+    g.nom = g.nom.length>90 ? g.nom.slice(0,88)+'…' : g.nom;
+  });
+  return grp;
+}
+async function dialogueOuvrages(d){
+  if(!stockageOk){ info('La bibliothèque a besoin de la sauvegarde locale, indisponible dans ce navigateur.',0,'err'); return; }
+  var grp=groupesOuvrages(d); if(!grp.length) return;
+  var existants=await lisModeles(), dateDef=dateIso(d.entete.date)||new Date().toISOString().slice(0,10);
+  ouvreModale('Enregistrer les ouvrages dans la bibliothèque',
+     '<p class="note" style="margin-top:0">Les lignes étoilées d\'un même chapitre forment un seul ouvrage : elles seront toujours réinsérées ensemble. Prix enregistrés : prix d\'achat (la marge s\'applique dans le chantier où l\'ouvrage est réutilisé).</p>'
+    +grp.map(function(g,k){
+      var n=g.lignes.filter(function(l){return l.type==='ligne';}).length, tot=g.lignes.reduce(function(t,l){ return t+(l.type==='ligne'?l.qte*puEffectif(l):0); },0);
+      return '<div class="ouv-grp"><label class="case" style="margin:0 0 6px"><input type="checkbox" class="ouv-ok" data-k="'+k+'" checked><span>'+(g.chapitre?'Chapitre « '+echappe(g.chapitre.designation)+' »':'Hors chapitre')+'</span></label>'
+        +'<label class="champ" for="ouvNom'+k+'">Nom de l\'ouvrage</label><input type="text" id="ouvNom'+k+'" value="'+echappe(g.nom)+'">'
+        +'<small>'+n+' ligne'+(n>1?'s':'')+' : '+echappe(g.sources.map(function(r){return r.designation;}).join(' · '))+' — '+eur(tot)+' de déboursé</small></div>';
+    }).join('')
+    +'<div class="grille"><div><label class="champ" for="ouvDate">Date des prix</label><input type="date" id="ouvDate" value="'+dateDef+'"></div></div>',
+    [{lib:'Annuler', action:function(){}},
+     {lib:'Enregistrer', plein:true, action:function(){
+        var choix=[];
+        grp.forEach(function(g,k){
+          if(!document.querySelector('.ouv-ok[data-k="'+k+'"]').checked) return;
+          var n=$('ouvNom'+k).value.trim(); choix.push({g:g, nom:n});
+        });
+        if(!choix.length){ alert('Cochez au moins un ouvrage.'); return false; }
+        if(choix.some(function(c){ return !c.nom; })){ alert('Donnez un nom à chaque ouvrage.'); return false; }
+        for(var z=0;z<choix.length;z++){
+          var meme=existants.find(function(m){ return m.nom.toLowerCase()===choix[z].nom.toLowerCase(); });
+          if(meme && meme.protege && !posteBibliothecaire()){ alert('« '+meme.nom+' » est un modèle de référence de la bibliothèque : choisissez un autre nom.'); return false; }
+          if(meme && !confirm('Un modèle « '+meme.nom+' » existe déjà. Le remplacer ?')) return false;
+          choix[z].meme=meme;
+        }
+        var dp=$('ouvDate').value||dateDef;
+        Promise.all(choix.map(function(c){
+          var g=c.g, inter=(g.sources[0]&&g.sources[0].intervenant)||'';
+          var m={ id: c.meme?c.meme.id:('m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
+            nom:c.nom, categorie:'ouvrage', intervenant:'', lot:(inter?lotDe(d,inter):'')||(g.chapitre?g.chapitre.designation:''),
+            chapitre:g.chapitre?g.chapitre.designation:'', nature:'dhc', surfaceRef:0, datePrix:dp,
+            cree:c.meme?c.meme.cree:Date.now(), maj:Date.now(), lignes:g.lignes, protege:posteBibliothecaire() };
+          return ecrisModele(m).then(function(){ g.sources.forEach(function(r){ delete r.etoile; }); });
+        })).then(function(){
+          planifieSync(); rendu();
+          info(choix.length+(choix.length>1?' ouvrages enregistrés':' ouvrage enregistré')+' dans la bibliothèque : '+choix.map(function(c){return '« '+c.nom+' »';}).join(', ')+'.',100,'ok');
+        });
+     }}]);
+}
+$('btnOuvrages').onclick=function(){ dialogueOuvrages(D()); };
+/* réinsertion à l'endroit choisi (menu +) : les lignes d'un ouvrage arrivent ensemble */
+async function dialogueInsertionOuvrage(d,i){
+  var liste=(await lisModeles()).filter(function(m){ return m.categorie==='ouvrage'; }).sort(function(a,b){ return a.nom.localeCompare(b.nom,'fr'); });
+  if(!liste.length){ info('Aucun ouvrage dans la bibliothèque. Pour en ajouter : étoile ☆ sur une ligne, puis « ★ Bibliothèque ».',100,'avertit'); return; }
+  ouvreModale('Insérer un ouvrage de la bibliothèque',
+     '<div class="mod-liste">'+liste.map(function(m){
+        var a=ageJours(m.datePrix), nb=(m.lignes||[]).filter(function(x){return x.type==='ligne';}).length;
+        return '<label class="mod-item"><input type="checkbox" value="'+m.id+'"><span><b>'+echappe(m.nom)+'</b><small>'
+          +(m.chapitre?echappe(m.chapitre)+' · ':'')+nb+' ligne'+(nb>1?'s':'')+' · <span class="'+(a!=null&&a>180?'vieux':'')+'">prix de '+echappe(libelleDatePrix(m.datePrix))+(a!=null&&a>180?' — à actualiser':'')+'</span></small></span>'
+          +'<span class="m">'+eur(deboursModele(m))+'</span></label>';
+      }).join('')+'</div>'
+    +'<p class="note">Les quantités de la bibliothèque sont reprises : corrigez-les ensuite à la main.</p>',
+    [{lib:'Annuler', action:function(){}},
+     {lib:'Insérer', plein:true, action:function(){
+        var ids=Array.prototype.map.call($('modCorps').querySelectorAll('.mod-liste input:checked'),function(c){return c.value;});
+        if(!ids.length){ alert('Cochez au moins un ouvrage.'); return false; }
+        var r=d.lignes[i];
+        var pos = (r && (r.type==='chapitre'||r.type==='sous')) ? i+1 : bloc(d,i).fin;
+        if(r && (r.type==='chapitre'||r.type==='sous')){ if(!d.replis) d.replis={}; d.replis[r.id]=false; }
+        memorise(d,'insertion d\'un ouvrage');
+        var premiere=null, n=0;
+        liste.filter(function(m){ return ids.indexOf(m.id)>-1; }).forEach(function(m){
+          (m.lignes||[]).forEach(function(l){
+            if(l.type!=='ligne' && l.type!=='texte') return;
+            var neuve=insereLigne(d,l.type,pos,r);
+            pos=d.lignes.indexOf(neuve)+1;
+            neuve.designation=l.designation||'';
+            if(l.type==='ligne'){
+              neuve.unite=l.unite||''; neuve.qte=nombreFr(l.qte); neuve.pu=nombreFr(l.pu); if(l.marche) neuve.marche=l.marche;
+              if(nombreFr(l.jours)>0) neuve.mo={jours:nombreFr(l.jours), taux:params.tauxMO, marge:null, manuelle:!!l.moManuelle};
+              n++;
+            }
+            if(!premiere) premiere=neuve;
+          });
+        });
+        rendu(); if(premiere) montreLigne(premiere.id);
+        info(n+(n>1?' lignes insérées':' ligne insérée')+' depuis la bibliothèque. Vérifiez les quantités.',100,'ok');
+     }}]);
+}
+
 /* ---------------------------- insérer des modèles ---------------------------- */
 async function dialogueInsertion(){
   var liste=await lisModeles();
@@ -2411,6 +2533,8 @@ function integreModeles(modeles,surface,ajuste){
         c.pu=nombreFr(c.pu); delete c.jours; delete c.mo;
         /* MO au coût journalier du jour ; elle suit la surface comme la quantité */
         if(j>0) c.mo={jours:Math.round(j*(echelle?f:1)*100)/100, taux:params.tauxMO, marge:null};
+        if(c.mo && c.moManuelle) c.mo.manuelle=true;
+        delete c.moManuelle;
       }
       if(echelle)
         c.qte = c.entier ? Math.ceil(nombreFr(c.qte)*f) : Math.round(nombreFr(c.qte)*f*100)/100;
@@ -3288,6 +3412,11 @@ function menuInsertion(bouton,i){
     };
     m.appendChild(b);
   });
+  if(!d.dpgf){
+    var bo=document.createElement('button'); bo.textContent='★ Ouvrage de la bibliothèque…';
+    bo.onclick=function(){ fermeMenuIns(); dialogueInsertionOuvrage(d,i); };
+    m.appendChild(bo);
+  }
   document.body.appendChild(m);
   var r=bouton.getBoundingClientRect();
   m.style.top=(r.bottom+window.scrollY+4)+'px';
@@ -3515,6 +3644,7 @@ $('corpsTable').addEventListener('click',function(e){
   var d=D(), id=b.closest('tr').getAttribute('data-id');
   var i=d.lignes.findIndex(function(r){return r.id===id;}); if(i<0) return;
   var a=b.getAttribute('data-a');
+  if(a==='etoile'){ d.lignes[i].etoile=!d.lignes[i].etoile; if(!d.lignes[i].etoile) delete d.lignes[i].etoile; rendu(); return; }
   if(a==='haut'){ if(!deplaceVoisin(d,i,-1)) return; }
   else if(a==='bas'){ if(!deplaceVoisin(d,i,1)) return; }
   else if(a==='sup'){ if(!supprimeBloc(d,i)) return; }
