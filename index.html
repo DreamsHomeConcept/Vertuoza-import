@@ -122,6 +122,11 @@ button.mini.plein:hover{background:var(--nuit-clair)}
 .unite-champ input{flex:1;min-width:0;text-align:right;border-radius:2px 0 0 2px}
 .unite-champ span{display:flex;align-items:center;padding:0 10px;border:1px solid var(--trait);border-left:none;border-radius:0 2px 2px 0;
   background:var(--taupe-voile);font-size:12.5px;color:var(--encre-faible);white-space:nowrap}
+/* étiquette placée avant le chiffre (« R ≥ », « Uw ≤ ») : bordure à gauche, l'arrondi passe à gauche */
+.unite-champ span:first-child{border-left:1px solid var(--trait);border-radius:2px 0 0 2px}
+.unite-champ span+input{border-radius:0}
+.unite-champ span+input:last-child{border-radius:0 2px 2px 0}
+.unite-champ span:has(+input){border-right:none}
 .aide-champ{display:block;margin-top:5px;font-size:11.5px;line-height:1.4;color:var(--encre-faible)}
 .case{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.45;margin:0 0 10px}
 .case input{margin-top:3px}
@@ -317,7 +322,7 @@ tr.eclair td{background:#fff3c4 !important;transition:background .4s}
 .badge-tva.ko{background:#f8e1df;color:#9b2c24}
 button.badge-tva{border:0;cursor:pointer;font-family:inherit}
 button.badge-tva.neutre{background:#efe9df;color:#6b5a3e}
-.explic55{margin:12px 0 0;border:1px solid var(--trait);border-radius:4px;padding:8px 12px;background:#fcfaf6;font-size:13px;line-height:1.5;max-width:900px}
+.explic55{margin:12px 0 0;border:1px solid var(--trait);border-radius:4px;padding:8px 12px;background:#fcfaf6;font-size:13px;line-height:1.5;box-sizing:border-box;max-width:100%}
 .explic55 summary{cursor:pointer;font-weight:600}
 .explic55 p{margin:8px 0 4px}
 .explic55 ul{margin:2px 0 4px;padding-left:20px}
@@ -1091,9 +1096,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.26';
-var DATE_VERSION = '06/10/2026 23h51';   /* date et heure de livraison */
-var NOTES = 'Paramètres › Prix et marges : encadré « Comprendre R et U » sous les seuils de la TVA à 5,5 %.';
+var VERSION = '3.27';
+var DATE_VERSION = '07/10/2026 00h05';   /* date et heure de livraison */
+var NOTES = 'Paramètres › Prix et marges : encadré « Comprendre R et U » aligné sur les champs des seuils, bordures complètes autour de « R ≥ », « Ud ≤ », « Uw ≤ ».';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4496,6 +4501,7 @@ function ongletParam(id){
   });
   ecrisStockage(CLE_ONG_PARAM,id);
   if(id==='cgv') setTimeout(ajusteCgvTous,0);
+  if(id==='prix') setTimeout(aligneExplic55,0);
 }
 $('ongParam').onclick=function(e){ var b=e.target.closest('button[data-ong]'); if(b) ongletParam(b.getAttribute('data-ong')); };
 ongletParam(lisStockage(CLE_ONG_PARAM)||'societe');
@@ -4505,7 +4511,7 @@ function montre(page){
   var param = page==='parametres', ch = page==='chantiers', bi = page==='bibliotheque', autre = param||ch||bi;
   $('pageDevis').hidden = autre;
   $('pageParam').hidden = !param;
-  if(param) setTimeout(ajusteCgvTous,0);
+  if(param) setTimeout(function(){ ajusteCgvTous(); aligneExplic55(); },0);
   $('pageChantiers').hidden = !ch;
   $('pageBiblio').hidden = !bi;
   $('btnBiblioPage').textContent = bi?'Revenir aux devis':'Bibliothèque';
@@ -7290,8 +7296,16 @@ function bandeauCgv(l){
 }
 /* le champ texte s'agrandit avec son contenu : tout le texte reste visible, sans défilement */
 function ajusteCgv(t){ if(t.hidden || !t.offsetParent) return; t.style.height='auto'; t.style.height=(t.scrollHeight+2)+'px'; }
+/* encadré « Comprendre R et U » : même largeur que la rangée de champs au-dessus */
+function aligneExplic55(){
+  var e=document.querySelector('.explic55'); if(!e || !e.offsetParent) return;
+  var g=e.previousElementSibling; if(!g) return;
+  var d=e.getBoundingClientRect().left, f=0;
+  Array.prototype.forEach.call(g.children,function(c){ f=Math.max(f,c.getBoundingClientRect().right); });
+  e.style.width=f>d?Math.round(f-d)+'px':'';
+}
 function ajusteCgvTous(){ var l=document.getElementById('cgvListe'); if(l) Array.prototype.forEach.call(l.querySelectorAll('textarea'),ajusteCgv); }
-window.addEventListener('resize',function(){ clearTimeout(ajusteCgvTous.t); ajusteCgvTous.t=setTimeout(ajusteCgvTous,150); });
+window.addEventListener('resize',function(){ clearTimeout(ajusteCgvTous.t); ajusteCgvTous.t=setTimeout(function(){ ajusteCgvTous(); aligneExplic55(); },150); });
 function renduCgv(){
   var l=cgvBrouillon(), nums=numerosEditeur(l);
   $('cgvListe').innerHTML=l.map(function(a,i){ return articleCgv(a,i,l.length,nums[i]); }).join('') || '<p class="note">Aucun article : le devis n\'aura pas de conditions générales.</p>';
