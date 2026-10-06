@@ -1029,9 +1029,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.20';
-var DATE_VERSION = '06/10/2026 21h34';   /* date et heure de livraison */
-var NOTES = 'Onglet CGV : chaque modification reste en attente jusqu\'à « Valider » (ajouts en vert, suppressions barrées en rouge), bouton « Tout valider », et bouton « Exporter les CGV (PDF) » pour télécharger les CGV validées.';
+var VERSION = '3.21';
+var DATE_VERSION = '06/10/2026 21h49';   /* date et heure de livraison */
+var NOTES = 'Devis client PDF : le nom du client et les adresses tapés en majuscules sortent remis en forme (ex. « 52 cours Aristide Brillant, 69300 Caluire »).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6001,7 +6001,30 @@ function eurPdf(n){ return eur(Math.round((isFinite(n)?n:0)*100)/100).replace(/[
 function nbPdf(n){ return (isFinite(n)?n:0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/[  ]/g,' '); }
 function tvaPdf(t){ return String(t).replace('.',',')+'%'; }
 
+/* nom et adresses tapés en MAJUSCULES → « 52 cours Aristide Brillant / 69300 Caluire » sur le PDF ;
+   seuls les mots entièrement en majuscules sont remis en forme, le reste est laissé tel quel */
+var VOIES=/^(rue|ruelle|cours|avenue|av|bd|boulevard|chemin|impasse|allée|allee|place|route|quai|square|passage|sentier|montée|montee|lotissement|résidence|residence|hameau|lieu-dit|faubourg|esplanade|promenade|rond-point|voie|traverse|parvis|cité|cite|domaine|clos|bis|ter|quater)$/i;
+var PETITS=/^(de|du|des|la|le|les|et|en|sur|sous|aux|au|à|d|l)$/i;
+var SIGLES=/^(CEDEX|BP|CS|ZA|ZI|ZAC|ZAE|SCI|SARL|SAS|SASU|EURL|SA|SNC|EARL|GAEC|HLM|RN|RD|CH|II|III|IV|VI|VII|VIII|IX|XI|XII)$/;
+/* debut : premier mot de la ligne ; apresNum : premier mot après le code postal (« 69300 La Tour-de-Salvagny ») */
+function casseMot(m,debut,apresNum,adresse){
+  if(m.length<2 || /[a-zà-ÿ]/.test(m) || !/[A-ZÀ-Ý]/.test(m) || /\d/.test(m) || SIGLES.test(m)) return m;
+  return m.split(/([-'’])/).map(function(x,k){
+    if(x==='-'||x==='\''||x==='’') return x;
+    var bas=x.toLowerCase();
+    if(k>0 || (!debut && !apresNum)){ if(PETITS.test(bas)) return bas; }
+    if((k>0 || !debut) && adresse && VOIES.test(bas)) return bas;
+    return bas.charAt(0).toUpperCase()+bas.slice(1);
+  }).join('');
+}
+function casseTexte(t,adresse){
+  return String(t||'').split('\n').map(function(l){
+    var n=0, num=false;
+    return l.replace(/[^\s,]+/g,function(m){ var r=casseMot(m,n===0,num && n===1,adresse); num=n===0 && /^\d{5}$/.test(m); n++; return r; });
+  }).join('\n');
+}
 async function genereDevisPdf(d,o,apercu){
+  o=Object.assign({},o,{client:casseTexte(o.client,false), adresseClient:casseTexte(o.adresseClient,true), adresseChantier:casseTexte(o.adresseChantier,true)});
   await chargeLibsPdf();
   var J=window.jspdf.jsPDF, doc=new J({unit:'mm',format:'a4',compress:true});
   doc.addFileToVFS('Montserrat-Regular.ttf',RES_PDF.policeNormale); doc.addFont('Montserrat-Regular.ttf','Montserrat','normal');
