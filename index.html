@@ -70,7 +70,7 @@ button.mini:hover{background:var(--taupe-pale);border-color:var(--taupe)}
 .panneau h2 .droite{float:right;font-weight:400;font-size:12.5px;color:var(--encre-faible)}
 .grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 label.champ{display:block;font-size:12px;color:var(--encre-faible);margin-bottom:4px}
-input[type=text],input[type=password],select,textarea{width:100%;font:inherit;padding:7px 8px;
+input[type=text],input[type=password],input[type=date],select,textarea{width:100%;font:inherit;padding:7px 8px;
   border:1px solid var(--trait);border-radius:2px;background:#fff;color:var(--encre);font-variant-numeric:tabular-nums}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-offset:-1px;border-color:var(--taupe)}
 .grille-param{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-start;margin-bottom:12px}
@@ -982,8 +982,8 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.08';
-var DATE_VERSION = '06/10/2026 17h32';   /* date et heure de livraison */
+var VERSION = '3.09';
+var DATE_VERSION = '06/10/2026 17h35';   /* date et heure de livraison */
 var NOTES = 'Nouveau : onglet « Société » dans Paramètres (identité, siège, contact, identifiants légaux, assurance) ; l\'en-tête et le pied du devis PDF s\'en remplissent, adresse écrite « 5 rue de l\'Industrie, 74000 Annecy ».';
 /* =================================================================== */
 (function(){
@@ -6027,7 +6027,7 @@ async function genereDevisPdf(d,o,apercu){
     }
     normal(8.6); doc.text('Page '+p+'/'+nbPages,W-M,H-8,{align:'right'});
   }
-  var nom=(o.numero+(o.client?' '+o.client:''))   /* ex. « 2026-209 Mr Collet Jean Marc.pdf » */.replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,90)+'.pdf';
+  var nom=((o.client?o.client+' ':'')+o.numero)   /* ex. « Mr Collet Jean Marc 2026-209.pdf » */.replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,90)+'.pdf';
   if(apercu) return doc.output('bloburl');
   doc.save(nom);
   return nom;
