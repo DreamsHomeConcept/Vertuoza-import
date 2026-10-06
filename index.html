@@ -1014,9 +1014,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.17';
-var DATE_VERSION = '06/10/2026 20h54';   /* date et heure de livraison */
-var NOTES = 'Devis PDF : le texte des conditions particulières occupe toute la largeur, justifié à gauche et à droite ; mots-clés {CLIENT} et {ADRESSE_CHANTIER} remplacés automatiquement.';
+var VERSION = '3.18';
+var DATE_VERSION = '06/10/2026 21h03';   /* date et heure de livraison */
+var NOTES = 'Conditions particulières : pour enregistrer une condition, il faut cocher Particulier, Professionnel ou les deux.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6997,6 +6997,7 @@ function editeCondPart(i){
        var n={nom:$('cpNom').value.trim(), texte:$('cpTexte').value.replace(/\s+$/,''),
               types:Array.prototype.filter.call(document.querySelectorAll('[data-cp-type]'),function(x){ return x.checked; }).map(function(x){ return x.getAttribute('data-cp-type'); })};
        if(!n.nom){ alert('Indiquez le nom de la condition.'); $('cpNom').focus(); return false; }
+       if(!n.types.length){ alert('Cochez Particulier, Professionnel ou les deux.'); return false; }
        modifCondParts(function(l){ if(nouveau) l.push(n); else l[i]=n; });
      }}]);
 }
