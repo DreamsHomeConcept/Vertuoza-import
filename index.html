@@ -5825,7 +5825,8 @@ async function genereDevisPdf(d,o){
   if(y>H-basPage-70){ doc.addPage(); y=20; }
   var styleT={font:'Montserrat',fontSize:8.4,textColor:ENCRE,cellPadding:{top:1.6,bottom:1.6,left:2,right:2},halign:'center'};
   window.autoTable(doc,{
-    startY:y, margin:{left:72,right:W-130}, tableWidth:58, theme:'plain', styles:styleT,
+    startY:y, margin:{left:56,right:W-130}, tableWidth:74, theme:'plain', styles:styleT,
+    columnStyles:{0:{cellWidth:18},1:{cellWidth:28},2:{cellWidth:28}},
     head:[['Taux TVA','Base HT','Total TVA']], headStyles:{fillColor:TAUPE,textColor:NUIT,fontStyle:'normal'},
     body:ventil.map(function(v){ return [tvaPdf(v.taux),eurPdf(v.ht),eurPdf(v.tva)]; }),
     foot:[['TOTAL',eurPdf(ht),eurPdf(tva)]], footStyles:{fillColor:NUIT,textColor:[255,255,255],fontStyle:'normal'}, showFoot:'lastPage'
