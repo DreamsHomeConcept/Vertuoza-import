@@ -1096,9 +1096,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.28';
-var DATE_VERSION = '07/10/2026 00h38';   /* date et heure de livraison */
-var NOTES = 'Devis PDF : « DHC » suivi de l’année en cours devant le numéro de page, sur les pages des CGV uniquement.';
+var VERSION = '3.29';
+var DATE_VERSION = '07/10/2026 00h52';   /* date et heure de livraison */
+var NOTES = 'CGV : coordonnées de Dreams Home Concept (adresse, contact@, N° Tva, Siret, sans téléphone) après le dernier article ; e-mail modifiable dans Paramètres › Société.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -5986,7 +5986,7 @@ var LIBS_PDF=[
 var SOCIETE_DEF={
   nom:'Dreams Home Concept', nomAbrege:'Dreams Home Concept',
   rue:'5 rue de l\'Industrie', cp:'74000', ville:'Annecy', pays:'France',
-  email:'d.degroutte@dreamshomeconcept.com', tel:'06 63 15 03 84', web:'www.dreamsconcept.com',
+  email:'d.degroutte@dreamshomeconcept.com', emailCgv:'contact@dreamshomeconcept.com', tel:'06 63 15 03 84', web:'www.dreamsconcept.com',
   tva:'FR60938913456', siret:'938 913 456 00019', rcs:'938 913 456', villeRcs:'Annecy', capital:'5 000', ape:'4321A',
   assureur:'APRIL / ERGO', garantie:'Garantie décennale', assRue:'12 bis rue de la Victoire', assCp:'75009', assVille:'Paris', assPays:'France',
   zone:'France',
@@ -6648,6 +6648,18 @@ function pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,acompte){
       doc.text(w.m,x,l.y); x+=w.l+esp;
     });
   });
+  /* coordonnées de la société après le dernier article (sans téléphone) : colonne de droite si la gauche finit la page */
+  var blocS=[so.rue,[so.cp,so.ville].filter(Boolean).join(' '),so.emailCgv,so.tva?'N° Tva : '+so.tva:'',so.siret?'Siret : '+so.siret:''].filter(Boolean);
+  if(plan.length && so.nom){
+    var der=plan[plan.length-1], bh=4.3+blocS.length*4, bp=der.page, bc, by;
+    if(der.col===0){ bc=1; by=bp===0?haut:16; }
+    else { bc=1; by=der.y+ih+6; if(by+bh>bas){ bp++; bc=0; by=16; } }
+    while(doc.getNumberOfPages()<page0+bp) doc.addPage();
+    doc.setPage(page0+bp); doc.setTextColor.apply(doc,ENCRE);
+    var bx=M+bc*(cw+gout);
+    gras(8.6); doc.text(so.nom,bx,by); by+=4.3; normal(8.4);
+    blocS.forEach(function(t){ doc.text(t,bx,by); by+=4; });
+  }
   /* lien « Retour au sommaire » en bas de chaque page des CGV */
   if(somm.length) for(var pg=page0;pg<=doc.getNumberOfPages();pg++){
     doc.setPage(pg); normal(8.6); doc.setTextColor.apply(doc,NUIT);
@@ -7390,7 +7402,7 @@ $('cgvDefaut').onclick=function(){
 var SOC_CHAMPS=[
   ['Identité',[['nom','Société','p-moyen'],['nomAbrege','Nom abrégé','p-moyen']]],
   ['Adresse du siège social',[['rue','Rue','p-moyen'],['cp','Code postal','p-court'],['ville','Ville','p-court'],['pays','Pays','p-court']]],
-  ['Coordonnées de contact',[['email','Adresse e-mail','p-moyen'],['tel','Téléphone','p-court'],['web','Site web','p-moyen']]],
+  ['Coordonnées de contact',[['email','Adresse e-mail','p-moyen'],['emailCgv','E-mail en fin de CGV','p-moyen'],['tel','Téléphone','p-court'],['web','Site web','p-moyen']]],
   ['Identifiants légaux',[['tva','N° Tva','p-court'],['siret','Siret','p-court'],['rcs','RCS','p-court'],['villeRcs','Ville RCS','p-court'],['capital','Capital social (€)','p-court'],['ape','Code APE','p-court']]],
   ['Assurance',[['assureur','Nom de l\'assureur','p-moyen'],['garantie','Garantie','p-moyen'],['zone','Zone de couverture','p-court'],
                 ['assRue','Rue de l\'assureur','p-moyen'],['assCp','Code postal','p-court'],['assVille','Ville','p-court'],['assPays','Pays','p-court']]],
