@@ -962,9 +962,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.98';
-var DATE_VERSION = '06/10/2026 10h46';   /* date et heure de livraison */
-var NOTES = 'Devis client PDF : cadre client en face de l\'adresse Dreams Home Concept, en-tête du tableau et bandeaux de chapitres et d\'options en gras, sous-totaux et tableau de TVA sans montants coupés.';
+var VERSION = '2.99';
+var DATE_VERSION = '06/10/2026 10h52';   /* date et heure de livraison */
+var NOTES = 'Contrôle de cohérence : nouveau bouton « Voir le devis » qui ferme la fenêtre et ouvre le tableau sur la première ligne à problème.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1672,16 +1672,29 @@ function dialogueCoherence(d,apresExport){
   var corps = (r.ecarts.length ? '<p class="note" style="color:#9b2c24;font-weight:600;margin-top:0">'+r.ecarts.length+(r.ecarts.length>1?' écarts de calcul':' écart de calcul')+' — à corriger avant d\'envoyer le devis :</p><ul class="coh">'+r.ecarts.map(function(x){ return li(x,'ko'); }).join('')+'</ul>'
       : '<p class="note" style="color:#23633a;font-weight:600;margin-top:0">✓ Totaux cohérents : chapitres, sous-chapitres, total HT, tableau des intervenants et export Vertuoza concordent au centime ('+eur(totalHt(d))+' HT).</p>')
     +(r.alertes.length ? '<p class="note" style="margin-bottom:4px">À vérifier :</p><ul class="coh">'+r.alertes.map(function(x){ return li(x,'moyen'); }).join('')+'</ul>' : '');
-  var boutons=[{lib:'Fermer', action:function(){}}];
-  if(apresExport) boutons=[{lib:'Corriger d\'abord', action:function(){}},{lib:'Exporter quand même', plein:true, action:function(){ apresExport(); }}];
+  /* « Voir le devis » : ferme la fenêtre et ouvre le tableau sur la première ligne à problème */
+  var premier=r.ecarts.concat(r.alertes).filter(function(x){ return x.id; })[0];
+  var voirDevis={lib:'Voir le devis', action:function(){ voirLigneCoherence(premier?premier.id:null); }};
+  var boutons=[voirDevis,{lib:'Fermer', action:function(){}}];
+  if(apresExport) boutons=[{lib:'Corriger d\'abord', action:function(){}},voirDevis,{lib:'Exporter quand même', plein:true, action:function(){ apresExport(); }}];
   ouvreModale('Contrôle de cohérence — '+(d.feuille||'devis'), corps, boutons);
   Array.prototype.forEach.call($('modCorps').querySelectorAll('button[data-coh]'),function(b){
-    b.onclick=function(){
-      var id=b.getAttribute('data-coh'), dd=D(), idx=dd.lignes.findIndex(function(x){ return x.id===id; });
-      if(idx>-1 && dd.replis){ for(var k=idx;k>=0;k--){ var t=dd.lignes[k]; if(t.type==='sous'||t.type==='chapitre'){ dd.replis[t.id]=false; if(t.type==='chapitre') break; } } }
-      fermeModale(); location.hash='#devis'; rendu(); montreLigne(id);
-    };
+    b.onclick=function(){ voirLigneCoherence(b.getAttribute('data-coh')); };
   });
+}
+function voirLigneCoherence(id){
+  var dd=D(), idx=id?dd.lignes.findIndex(function(x){ return x.id===id; }):-1;
+  if(idx>-1 && dd.replis){ for(var k=idx;k>=0;k--){ var t=dd.lignes[k]; if(t.type==='sous'||t.type==='chapitre'){ dd.replis[t.id]=false; if(t.type==='chapitre') break; } } }
+  var aller=function(){
+    if(idx>-1) montreLigne(id);
+    else { var tb=$('corpsTable'); if(tb && tb.scrollIntoView) tb.scrollIntoView({block:'start'}); }
+  };
+  fermeModale();
+  /* changer de page remonte en haut : on attend ce changement avant d'aller à la ligne */
+  if(location.hash!=='#devis'){
+    window.addEventListener('hashchange',function f(){ window.removeEventListener('hashchange',f); aller(); });
+    location.hash='#devis'; rendu();
+  } else { rendu(); aller(); }
 }
 function lignesMasquees(d){
   var caches={}, nb={}, chap=-1, chapR=false, sous=-1, sousR=false;
