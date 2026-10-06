@@ -1096,9 +1096,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.27';
-var DATE_VERSION = '07/10/2026 00h05';   /* date et heure de livraison */
-var NOTES = 'Paramètres › Prix et marges : encadré « Comprendre R et U » aligné sur les champs des seuils, bordures complètes autour de « R ≥ », « Ud ≤ », « Uw ≤ ».';
+var VERSION = '3.28';
+var DATE_VERSION = '07/10/2026 00h38';   /* date et heure de livraison */
+var NOTES = 'Devis PDF : « DHC » suivi de l’année en cours devant le numéro de page, sur les pages des CGV uniquement.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6487,7 +6487,7 @@ async function genereDevisPdf(d,o,apercu){
       var lp=[]; piedSociete().forEach(function(l){ lp=lp.concat(doc.splitTextToSize(l,W-2*M)); });
       lp.forEach(function(l,i){ doc.text(l,W/2,H-20+i*3.3,{align:'center'}); });
     }
-    normal(8.6); doc.text('Page '+p+'/'+nbPages,W-M,H-8,{align:'right'});
+    normal(8.6); doc.text((p>=debutCgv?'DHC '+new Date().getFullYear()+'   ·   ':'')+'Page '+p+'/'+nbPages,W-M,H-8,{align:'right'});
   }
   var nom=((o.client?o.client+' ':'')+o.numero)   /* ex. « Mr Collet Jean Marc 2026-209.pdf » */.replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,90)+'.pdf';
   if(apercu) return doc.output('bloburl');
@@ -6509,7 +6509,7 @@ async function pdfCgvSeules(fichier){
   var ac=lisAcomptes(params.devisAcomptes||ACOMPTES_DEF);
   pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,ac.length?ac[0].pc:30);
   var n=doc.getNumberOfPages();
-  for(var p=1;p<=n;p++){ doc.setPage(p); doc.setTextColor.apply(doc,ENCRE); normal(8.6); doc.text('Page '+p+'/'+n,210-14,297-8,{align:'right'}); }
+  for(var p=1;p<=n;p++){ doc.setPage(p); doc.setTextColor.apply(doc,ENCRE); normal(8.6); doc.text('DHC '+new Date().getFullYear()+'   ·   Page '+p+'/'+n,210-14,297-8,{align:'right'}); }
   if(fichier){ doc.save(fichier); return fichier; }
   return doc.output('bloburl');
 }
