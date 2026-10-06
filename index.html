@@ -73,12 +73,19 @@ label.champ{display:block;font-size:12px;color:var(--encre-faible);margin-bottom
 input[type=text],input[type=password],input[type=date],select,textarea{width:100%;font:inherit;padding:7px 8px;
   border:1px solid var(--trait);border-radius:2px;background:#fff;color:var(--encre);font-variant-numeric:tabular-nums}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-offset:-1px;border-color:var(--taupe)}
+.garde-carte{display:flex;gap:18px;align-items:flex-start;border:1px solid var(--trait);border-radius:3px;padding:12px 14px;margin-bottom:12px}
+.garde-carte canvas{width:150px;height:212px;border:1px solid var(--trait);background:#f3f1ec;cursor:crosshair;flex:0 0 auto}
+.garde-carte .gc-champs{flex:1 1 auto;min-width:0}
+.garde-carte .gc-champs .grille-param{margin-bottom:8px}
 .grille-param{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-start;margin-bottom:12px}
 .grille-param>div{min-width:0}
 .grille-param .p-methode{flex:0 1 230px}
 .grille-param .p-cle{flex:1 1 320px;max-width:520px}
 .grille-param .p-court{flex:0 1 220px}
 .grille-param .p-moyen{flex:0 1 270px}
+.sous-ong{display:flex;gap:2px;margin:6px 0 14px;border-bottom:1px solid var(--trait)}
+.sous-ong button{padding:6px 12px;border:1px solid var(--trait);border-bottom:none;border-radius:3px 3px 0 0;background:var(--taupe-voile);font:inherit;font-size:12.5px;cursor:pointer;color:inherit}
+.sous-ong button.actif{background:var(--papier);font-weight:600;color:var(--nuit);margin-bottom:-1px;border-bottom:1px solid var(--papier)}
 .ong-param{display:flex;gap:2px;flex-wrap:wrap;padding:10px 16px 0;border-bottom:1px solid var(--trait);background:var(--taupe-voile)}
 .ong-param button{padding:8px 12px;border:1px solid var(--trait);border-bottom:none;border-radius:3px 3px 0 0;
   background:#EFEBE3;font-size:13px;color:var(--encre);position:relative;top:1px}
@@ -756,6 +763,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <button type="button" role="tab" data-ong="cgv">CGV</button>
     <button type="button" role="tab" data-ong="prix">Prix et marges</button>
     <button type="button" role="tab" data-ong="pdf">Devis</button>
+    <button type="button" role="tab" data-ong="garde">Page de garde</button>
     <button type="button" role="tab" data-ong="export">Export Vertuoza</button>
     <button type="button" role="tab" data-ong="classement">Classement</button>
     <button type="button" role="tab" data-ong="partage">Partage et base de prix</button>
@@ -916,6 +924,11 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <div class="vue-param" data-vue="pdf">
     <h3 class="st">Devis client PDF</h3>
     <p class="note" style="margin-top:0">Saisis une fois ici : la fenêtre « Devis client PDF » ne demande plus que le client et les adresses.</p>
+    <div class="sous-ong" id="sousOngPdf" role="tablist">
+      <button type="button" role="tab" data-sous="coord">Responsables, banque et paiement</button>
+      <button type="button" role="tab" data-sous="conds">Conditions particulières</button>
+    </div>
+    <div class="sous-vue" data-sous-vue="coord">
     <label class="champ">Responsables (au choix dans le devis)</label>
     <div id="respListe"></div>
     <p style="margin:6px 0 12px"><button type="button" class="mini" id="respAjout">+ Ajouter un responsable</button></p>
@@ -931,13 +944,23 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <div class="grille-param">
       <div class="p-moyen"><label class="champ" for="pAcomptes">Acomptes (un par ligne)</label><textarea id="pAcomptes" rows="3"></textarea></div>
     </div>
-    <h3 class="st" style="margin-top:18px">Conditions particulières</h3>
-    <p class="note" style="margin-top:0">Textes préenregistrés à ajouter au devis client, sous les méthodes de paiement. Un texte lié à un type de client est coché automatiquement dans le devis de ce type de client ; les autres se cochent à la main. Dans le texte, <code>{CLIENT}</code> est remplacé par le nom du client et <code>{ADRESSE_CHANTIER}</code> par l'adresse du chantier.</p>
+    </div>
+    <div class="sous-vue" data-sous-vue="conds">
+        <p class="note" style="margin-top:0">Textes préenregistrés à ajouter au devis client, sous les méthodes de paiement. Un texte lié à un type de client est coché automatiquement dans le devis de ce type de client ; les autres se cochent à la main. Dans le texte, <code>{CLIENT}</code> est remplacé par le nom du client et <code>{ADRESSE_CHANTIER}</code> par l'adresse du chantier.</p>
     <div class="cp-bloc">
     <div class="cp-barre"><input type="search" id="cpRecherche" placeholder="Rechercher…" aria-label="Rechercher une condition"><button type="button" class="mini" id="cpNouveau">+ Nouveau</button></div>
     <table class="cp-table"><thead><tr><th>Nom</th><th>Conditions particulières</th><th>Ajout automatique</th><th></th></tr></thead><tbody id="cpListe"></tbody></table>
     </div>
     <p style="margin:6px 0 0"><button type="button" class="mini" id="cpDefaut">Rétablir la bibliothèque d'origine</button></p>
+    </div>
+    </div>
+
+    <div class="vue-param" data-vue="garde">
+    <h3 class="st">Pages de garde du devis</h3>
+    <p class="note" style="margin-top:0">Importe ta page de couverture complète (image JPG / PNG ou PDF, format A4), sans le nom du client. La phrase ci-dessous est écrite par-dessus, <code>{CLIENT}</code> étant remplacé par le nom du client. Clique sur l'aperçu pour placer la phrase. La page de garde se choisit dans la fenêtre « Devis client PDF » ; elle est proposée d'après les chapitres du devis (mots-clés).</p>
+    <div id="gardeListe"></div>
+    <input type="file" id="gardeFichier" accept=".pdf,application/pdf,image/jpeg,image/png" hidden>
+    <p class="note" id="gardeEtat"></p>
     </div>
 
     <div class="vue-param" data-vue="cgv">
@@ -1096,9 +1119,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.30';
-var DATE_VERSION = '07/10/2026 01h02';   /* date et heure de livraison */
-var NOTES = 'Devis PDF : petit espace entre le bandeau d’un chapitre et celui du sous-titre qui le suit.';
+var VERSION = '3.31';
+var DATE_VERSION = '07/10/2026 01h32';   /* date et heure de livraison */
+var NOTES = 'Pages de garde du devis (onglet Page de garde : 4 modèles importés, phrase « Devis personnalisé pour {CLIENT} », proposée d’après les chapitres) ; onglet Devis en deux sous-onglets.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1155,6 +1178,7 @@ var params = {
   devisProchain:'', devisResp:'', devisEmail:'', devisTel:'', devisIban:'', devisBic:'', devisAcomptes:'',
   devisResps:[],         /* responsables proposés dans le devis client : {nom, email, tel} */
   seuils55:{combles:6, murs:3.7, uw1:1.3, sw1:0.3, uw2:1.7, sw2:0.36, ud:1.7},   /* TVA 5,5 % : performances minimales */
+  gardes:null,   /* pages de garde : réglages (les images sont dans IndexedDB, id « garde:… ») */
   condParts:null,   /* conditions particulières du devis client ; null = bibliothèque d'origine (COND_PARTS_DEF) */
   devisPaiements:['Virement bancaire'],   /* méthodes de paiement du devis client ; la première est la méthode par défaut */
   devisComptes:[]        /* comptes bancaires du devis client : {banque, iban, bic} ; le premier est le compte par défaut */
@@ -1227,7 +1251,7 @@ function sauveParams(){
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule,
     devisProchain:params.devisProchain, devisResp:params.devisResp, devisEmail:params.devisEmail, devisTel:params.devisTel,
-    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe, cgv:params.cgv, condParts:params.condParts, seuils55:params.seuils55
+    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe, cgv:params.cgv, condParts:params.condParts, seuils55:params.seuils55, gardes:params.gardes
   }));
 }
 /* copie des réglages d'un poste à l'autre : jamais les clés ni le compteur de devis */
@@ -1236,7 +1260,7 @@ function exporteReglages(){
   sauveParams();
   var o={}; try{ o=JSON.parse(lisStockage(CLE_PARAMS)||'{}'); }catch(e){}
   REGLAGES_LOCAUX.forEach(function(k){ delete o[k]; });
-  var f={type:'dhc-reglages', version:VERSION, date:new Date().toISOString(), params:o};
+  var f={type:'dhc-reglages', version:VERSION, date:new Date().toISOString(), params:o, gardes:Object.assign({},GARDE_IMG)};   /* images des pages de garde */
   var blob=new Blob([JSON.stringify(f,null,1)],{type:'application/json'}), a=document.createElement('a');
   var j=new Date(), nom='Reglages DHC '+j.getFullYear()+'-'+pad2(j.getMonth()+1)+'-'+pad2(j.getDate())+'.json';
   a.href=URL.createObjectURL(blob); a.download=nom; document.body.appendChild(a); a.click();
@@ -1253,8 +1277,10 @@ function importeReglages(fichier){
     var n=JSON.parse(JSON.stringify(f.params));
     REGLAGES_LOCAUX.forEach(function(k){ delete n[k]; if(actuel[k]!==undefined) n[k]=actuel[k]; });
     ecrisStockage(CLE_PARAMS, JSON.stringify(n));
+    var imgs=f.gardes && typeof f.gardes==='object' ? Object.keys(f.gardes).filter(function(k){ return /^data:image\/(jpeg|png);base64,/.test(String(f.gardes[k])); }) : [];
     e.className='etat-sync ok'; e.textContent='Réglages importés. La page se recharge…';
-    setTimeout(function(){ location.reload(); },600);
+    Promise.all(imgs.map(function(k){ return ecrisModele({id:'garde:'+k, type:'garde', image:f.gardes[k]}); }))
+      .then(function(){ setTimeout(function(){ location.reload(); },600); });
   };
   lu.readAsText(fichier);
 }
@@ -1299,6 +1325,7 @@ function chargeParams(){
     if(Array.isArray(o.condParts)) params.condParts=o.condParts.filter(function(c){ return c && typeof c==='object'; })
       .map(function(c){ var x={nom:String(c.nom||''), texte:String(c.texte||''), types:Array.isArray(c.types)?c.types.filter(function(t){ return TYPES_CLIENT[t]; }):[]};
         if(typeof c.auto==='string') x.auto=c.auto; return x; });
+    if(Array.isArray(o.gardes)) params.gardes=o.gardes.filter(function(g){ return g && typeof g==='object' && typeof g.id==='string'; });
     if(Array.isArray(o.devisPaiements)) params.devisPaiements=o.devisPaiements.filter(function(x){ return typeof x==='string'; });
     /* poste réglé avant 3.04 : son IBAN unique devient le premier compte */
     if(!params.devisComptes.length && (params.devisIban.trim()||params.devisBic.trim()))
@@ -2650,7 +2677,7 @@ var CATEGORIES={neuf:'Devis type — neuf', renovation:'Devis type — rénovati
 function lisModeles(){
   return new Promise(function(ok){
     if(!BASE) return ok([]);
-    try{ var q=magasin('readonly','modeles').getAll(); q.onsuccess=function(){ ok(q.result||[]); }; q.onerror=function(){ ok([]); }; }
+    try{ var q=magasin('readonly','modeles').getAll(); q.onsuccess=function(){ ok((q.result||[]).filter(function(m){ return m.type!=='garde'; })); }; q.onerror=function(){ ok([]); }; }
     catch(e){ ok([]); }
   });
 }
@@ -4506,6 +4533,17 @@ function ongletParam(id){
 $('ongParam').onclick=function(e){ var b=e.target.closest('button[data-ong]'); if(b) ongletParam(b.getAttribute('data-ong')); };
 ongletParam(lisStockage(CLE_ONG_PARAM)||'societe');
 
+/* sous-onglets de Paramètres › Devis (Responsables, banque et paiement puis Conditions particulières) */
+var CLE_SOUS_PDF='dhc_vertuoza_souspdf'+ESPACE;
+function sousOngletPdf(id){
+  if(!document.querySelector('[data-sous-vue="'+id+'"]')) id='coord';
+  Array.prototype.forEach.call(document.querySelectorAll('[data-sous-vue]'),function(v){ v.hidden=v.getAttribute('data-sous-vue')!==id; });
+  Array.prototype.forEach.call(document.querySelectorAll('#sousOngPdf button'),function(b){ var on=b.getAttribute('data-sous')===id; b.classList.toggle('actif',on); b.setAttribute('aria-selected',on?'true':'false'); });
+  ecrisStockage(CLE_SOUS_PDF,id);
+}
+$('sousOngPdf').onclick=function(e){ var b=e.target.closest('button[data-sous]'); if(b) sousOngletPdf(b.getAttribute('data-sous')); };
+sousOngletPdf(lisStockage(CLE_SOUS_PDF)||'coord');
+
 /* --------------------------- navigation 2 pages -------------------------- */
 function montre(page){
   var param = page==='parametres', ch = page==='chantiers', bi = page==='bibliotheque', autre = param||ch||bi;
@@ -6093,6 +6131,9 @@ function dialogueDevisPdf(force){
     +'<div><label class="champ" for="pdType">Type de client</label><select id="pdType">'
     +Object.keys(TYPES_CLIENT).map(function(t){ return '<option value="'+t+'"'+(t===typeClient(e)?' selected':'')+'>'+TYPES_CLIENT[t]+'</option>'; }).join('')
     +'</select></div>'
+    +'<div><label class="champ" for="pdGarde">Page de garde</label><select id="pdGarde" title="Proposée d\'après les chapitres du devis"><option value="">Aucune</option>'
+    +gardes().filter(function(g){ return GARDE_IMG[g.id]; }).map(function(g){ return '<option value="'+g.id+'"'+(g.id===gardeAuto(d)?' selected':'')+'>'+echappe(g.nom)+'</option>'; }).join('')
+    +'</select></div>'
     +'</div>'
     +'<div class="cp-cases" id="pdConds"></div>'
     +(manque.length?'<p class="note" style="color:#8a5a00">À compléter une fois dans Paramètres › Devis : '+manque.join(' et ')+'.</p>':'')
@@ -6115,7 +6156,7 @@ function dialogueDevisPdf(force){
             adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'), demarrage:frDate(v('pdDemarrage')),
             acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
             resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:pm,
-            typeClient:v('pdType')||'part', conds:lisConds()};
+            typeClient:v('pdType')||'part', conds:lisConds(), garde:v('pdGarde')};
   };
   setTimeout(function(){ cases(condsDevis(e,d)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value},d)); }; },0);
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
@@ -6132,7 +6173,7 @@ function dialogueDevisPdf(force){
         ouvreModale('Contrôle CGV / devis — '+pb.length+' point'+(pb.length>1?'s':'')+' à vérifier',
           '<p>Les conditions générales et le devis ne concordent pas :</p><ul>'+pb.map(function(x){ return '<li>'+echappe(x)+'</li>'; }).join('')+'</ul>'
           +'<p class="note">Corrigez dans Paramètres › CGV (ou Société, Devis), ou créez le PDF tel quel.</p>',[
-          {lib:'Corriger', action:function(){ ongletParam(/acompte.*100|total/i.test(pb.join(' '))&&pb.length===1?'pdf':'cgv'); location.hash='#parametres'; }},
+          {lib:'Corriger', action:function(){ ongletParam(/acompte.*100|total/i.test(pb.join(' '))&&pb.length===1?'pdf':'cgv'); if(ongletParamActif==='pdf') sousOngletPdf('coord'); location.hash='#parametres'; }},
           {lib:'Créer quand même', plein:true, action:function(){ creeDevisPdf(d,o,adrCh); }}
         ]);
         return false;
@@ -6294,6 +6335,11 @@ async function genereDevisPdf(d,o,apercu){
   var gras=function(t){ doc.setFont('Montserrat','bold'); if(t) doc.setFontSize(t); };
   var normal=function(t){ doc.setFont('Montserrat','normal'); if(t) doc.setFontSize(t); };
   doc.setTextColor.apply(doc,ENCRE);
+
+  /* page de garde choisie : page 1, le devis commence à la suivante */
+  var garde=o.garde && GARDE_IMG[o.garde] ? gardes().find(function(g){ return g.id===o.garde; }) : null;
+  if(garde){ dessineGardePdf(doc,garde,o.client); doc.addPage(); doc.setTextColor.apply(doc,ENCRE); }
+  var pDevis=doc.getNumberOfPages();
 
   /* en-tête */
   doc.addImage(RES_PDF.logo,'JPEG',M,4,70,72);   /* logo officiel Dreams Home Concept (600 x 617 px) */
@@ -6475,7 +6521,7 @@ async function genereDevisPdf(d,o,apercu){
   doc.text('Pour accord y inclus les conditions ci-dessous',M+3.5,y+27.5);
 
   /* conditions générales */
-  doc.outline.add(null,'Devis',{pageNumber:1});
+  doc.outline.add(null,'Devis',{pageNumber:pDevis});
   doc.addPage();
   var debutCgv=doc.getNumberOfPages();
   pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,o.acomptes.length?o.acomptes[0].pc:30);
@@ -6484,7 +6530,8 @@ async function genereDevisPdf(d,o,apercu){
   /* pied et numéros de page */
   for(var p=1;p<=nbPages;p++){
     doc.setPage(p); doc.setTextColor.apply(doc,ENCRE);
-    if(p<debutCgv){
+    if(p<pDevis) doc.setTextColor.apply(doc,rgbHex(garde.couleur));   /* numéro de la page de garde : couleur de la phrase */
+    if(p<debutCgv && p>=pDevis){
       normal(6.9);
       var lp=[]; piedSociete().forEach(function(l){ lp=lp.concat(doc.splitTextToSize(l,W-2*M)); });
       lp.forEach(function(l,i){ doc.text(l,W/2,H-20+i*3.3,{align:'center'}); });
@@ -7429,6 +7476,147 @@ $('socDefaut').onclick=function(){
   params.societe=null; sauveParams(); renduSociete();
 };
 
+/* ------------------------------ pages de garde ------------------------------
+   Une page de couverture complète par type de chantier, importée (image ou PDF) ;
+   la phrase (avec {CLIENT}) est écrite par-dessus à l'endroit choisi sur l'aperçu. */
+var GARDES_DEF=[
+  {id:'renovation', nom:'Rénovation', mots:'rénovation, aménagement, plâtrerie, peinture, intérieur'},
+  {id:'toiture', nom:'Toiture', mots:'toiture, charpente, couverture, zinguerie'},
+  {id:'ossature', nom:'Ossature Métallique', mots:'ossature, métallique, sweelco, structure maison'},
+  {id:'menuiseries', nom:'Menuiseries', mots:'menuiserie, fenêtre, porte, volet, baie'}
+].map(function(g){ return Object.assign({phrase:'Devis personnalisé pour {CLIENT}', x:50, y:40, taille:14, couleur:'#ffffff'},g); });
+var GARDE_IMG={};   /* id → image JPEG (data URL), lue au démarrage depuis IndexedDB */
+var CLIENT_EXEMPLE='M. Dupont Nicolas';
+function gardes(){
+  var s=Array.isArray(params.gardes)?params.gardes:[];
+  return GARDES_DEF.map(function(g){
+    var x=Object.assign({},g), o=s.find(function(y){ return y.id===g.id; });
+    if(o){
+      ['nom','mots','couleur'].forEach(function(k){ if(typeof o[k]==='string' && o[k].trim()) x[k]=o[k]; });
+      if(typeof o.phrase==='string') x.phrase=o.phrase;
+      ['x','y','taille'].forEach(function(k){ var v=parseFloat(o[k]); if(isFinite(v) && v>0) x[k]=v; });
+    }
+    return x;
+  });
+}
+function modifGarde(id,k,v){ var l=gardes(), g=l.find(function(x){ return x.id===id; }); if(!g) return; g[k]=v; params.gardes=l; sauveParams(); }
+function rgbHex(h){ var m=/^#?([0-9a-f]{6})$/i.exec(String(h||'')); if(!m) return [255,255,255]; var n=parseInt(m[1],16); return [n>>16&255,n>>8&255,n&255]; }
+function phraseGarde(g,client){ return String(g.phrase||'').replace(/\{CLIENT\}/g,String(client||'').trim()).replace(/\s+/g,' ').trim(); }
+function chargeGardes(){
+  if(!BASE) return;
+  try{
+    var q=magasin('readonly','modeles').getAll();
+    q.onsuccess=function(){ (q.result||[]).forEach(function(m){ if(m.type==='garde' && m.image) GARDE_IMG[m.id.slice(6)]=m.image; }); renduGardes(); };
+  }catch(e){}
+}
+/* aperçu : la page à l'échelle, la phrase avec un nom d'exemple */
+function dessineGarde(can,g){
+  var ctx=can.getContext('2d'), w=can.width, h=can.height, src=GARDE_IMG[g.id];
+  var fin=function(){
+    var t=phraseGarde(g,CLIENT_EXEMPLE); if(!t) return;
+    var px=g.taille*0.3528*w/210;   /* points → mm → pixels de l'aperçu */
+    ctx.fillStyle=g.couleur; ctx.textAlign='center'; ctx.textBaseline='middle';
+    do{ ctx.font=px+'px Montserrat, sans-serif'; px-=0.5; } while(ctx.measureText(t).width>w*0.94 && px>3);
+    ctx.fillText(t,w*g.x/100,h*g.y/100);
+  };
+  ctx.fillStyle='#f3f1ec'; ctx.fillRect(0,0,w,h);
+  if(!src){ ctx.fillStyle='#8a8170'; ctx.font='13px Montserrat, sans-serif'; ctx.textAlign='center'; ctx.fillText('Aucune image',w/2,h/2-30); fin(); return; }
+  var im=new Image(); im.onload=function(){ ctx.drawImage(im,0,0,w,h); fin(); }; im.src=src;
+}
+function renduGardes(){
+  var zone=$('gardeListe'); if(!zone) return;
+  zone.innerHTML=gardes().map(function(g){
+    var c=function(k,lib,cls,type,extra){ return '<div class="'+cls+'"><label class="champ" for="g_'+g.id+'_'+k+'">'+lib+'</label><input type="'+(type||'text')+'" id="g_'+g.id+'_'+k+'" data-g="'+g.id+'" data-k="'+k+'" value="'+echappe(String(g[k]))+'"'+(extra||'')+'></div>'; };
+    return '<div class="garde-carte"><canvas width="300" height="424" data-g-can="'+g.id+'" title="Clique pour placer la phrase"></canvas><div class="gc-champs">'
+      +'<div class="grille-param">'+c('nom','Nom','p-moyen')+c('mots','Mots-clés des chapitres (séparés par des virgules)','p-moyen')+'</div>'
+      +'<div class="grille-param">'+c('phrase','Phrase sur la page','p-moyen')+c('taille','Taille (pt)','p-court','number',' min="6" max="40" step="0.5"')+c('couleur','Couleur','p-court','color')+'</div>'
+      +'<p style="margin:4px 0"><button type="button" class="mini" data-g-imp="'+g.id+'">'+(GARDE_IMG[g.id]?'Remplacer la page':'Importer la page')+'</button> '
+      +(GARDE_IMG[g.id]?'<button type="button" class="mini" data-g-suppr="'+g.id+'">Retirer</button>':'')+'</p>'
+      +'<p class="note" style="margin:4px 0 0">'+(GARDE_IMG[g.id]?'Page importée. Clique sur l\'aperçu pour placer la phrase.':'Pas encore de page : elle ne sera pas proposée dans le devis.')+'</p>'
+      +'</div></div>';
+  }).join('');
+  gardes().forEach(function(g){ dessineGarde(zone.querySelector('[data-g-can="'+g.id+'"]'),g); });
+}
+async function imageGarde(f){
+  /* page entière au format A4 (1240 x 1754 px, 150 dpi), en JPEG */
+  var can=document.createElement('canvas'), ctx=can.getContext('2d'), src;
+  can.width=1240; can.height=1754; ctx.fillStyle='#fff'; ctx.fillRect(0,0,can.width,can.height);
+  if(/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name)){
+    var pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer(), isEvalSupported:false}).promise, page=await pdf.getPage(1);
+    var vp=page.getViewport({scale:1}); vp=page.getViewport({scale:Math.max(can.width/vp.width,can.height/vp.height)});
+    src=document.createElement('canvas'); src.width=Math.round(vp.width); src.height=Math.round(vp.height);
+    await page.render({canvasContext:src.getContext('2d'), viewport:vp}).promise;
+  } else src=await createImageBitmap(f);
+  /* remplit la page en gardant les proportions (un bord en trop est rogné) */
+  var k=Math.max(can.width/src.width,can.height/src.height), w=src.width*k, h=src.height*k;
+  ctx.drawImage(src,(can.width-w)/2,(can.height-h)/2,w,h);
+  return can.toDataURL('image/jpeg',0.85);
+}
+renduGardes();
+var gardeCible='';
+$('gardeListe').addEventListener('click',function(e){
+  var b=e.target.closest('button'), cv=e.target.closest('canvas[data-g-can]');
+  if(cv){
+    var r=cv.getBoundingClientRect(), id=cv.getAttribute('data-g-can');
+    modifGarde(id,'x',Math.round((e.clientX-r.left)/r.width*1000)/10); modifGarde(id,'y',Math.round((e.clientY-r.top)/r.height*1000)/10);
+    dessineGarde(cv,gardes().find(function(g){ return g.id===id; })); return;
+  }
+  if(!b) return;
+  if(b.hasAttribute('data-g-imp')){ gardeCible=b.getAttribute('data-g-imp'); $('gardeFichier').value=''; $('gardeFichier').click(); }
+  if(b.hasAttribute('data-g-suppr')){
+    var id2=b.getAttribute('data-g-suppr'), g2=gardes().find(function(g){ return g.id===id2; });
+    if(!confirm('Retirer la page de garde « '+g2.nom+' » de ce poste ?')) return;
+    delete GARDE_IMG[id2]; effaceModele('garde:'+id2).then(renduGardes);
+  }
+});
+$('gardeListe').addEventListener('change',function(e){
+  var id=e.target.getAttribute('data-g'), k=e.target.getAttribute('data-k'); if(!id||!k) return;
+  var v=e.target.value; if(k==='taille') v=parseFloat(v)||14; else if(k!=='phrase') v=v.trim();
+  modifGarde(id,k,v); var g=gardes().find(function(x){ return x.id===id; });
+  dessineGarde(document.querySelector('[data-g-can="'+id+'"]'),g);
+});
+$('gardeListe').addEventListener('input',function(e){
+  var id=e.target.getAttribute('data-g'), k=e.target.getAttribute('data-k'); if(!id||(k!=='couleur'&&k!=='taille'&&k!=='phrase')) return;
+  var g=gardes().find(function(x){ return x.id===id; }); g[k]=k==='taille'?(parseFloat(e.target.value)||g.taille):e.target.value;
+  dessineGarde(document.querySelector('[data-g-can="'+id+'"]'),g);   /* aperçu en direct, enregistré au « change » */
+});
+$('gardeFichier').onchange=async function(){
+  var f=this.files[0], etat=$('gardeEtat'); if(!f||!gardeCible) return;
+  etat.className='note'; etat.textContent='Préparation de la page…';
+  try{
+    var url=await imageGarde(f);
+    if(!BASE) throw new Error('sauvegarde locale indisponible sur ce navigateur');
+    await ecrisModele({id:'garde:'+gardeCible, type:'garde', image:url, maj:Date.now()});
+    GARDE_IMG[gardeCible]=url; renduGardes();
+    etat.className='note'; etat.textContent='Page importée ('+Math.round(url.length*0.75/1024)+' Ko). Pour la copier sur un autre poste : À propos › Exporter mes réglages.';
+  }catch(err){ etat.style.color='#a33'; etat.textContent='Import impossible : '+(err&&err.message||err); }
+};
+/* page de garde proposée : celle dont les mots-clés couvrent le plus gros montant de chapitres */
+function sansAccent(t){ return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+function gardeAuto(d){
+  var l=gardes().filter(function(g){ return GARDE_IMG[g.id]; }); if(!l.length) return '';
+  var score={}, chap='';
+  lignesExport(d).forEach(function(r){
+    if(r.type==='chapitre'){ chap=sansAccent(r.designation); return; }
+    if(r.type!=='ligne') return;
+    var t=Math.abs(totalLigne(d,r))||0.01;
+    l.forEach(function(g){
+      if(String(g.mots).split(',').some(function(m){ m=sansAccent(m).trim(); return m && (chap.indexOf(m)>-1 || sansAccent(r.designation).indexOf(m)>-1); })) score[g.id]=(score[g.id]||0)+t;
+    });
+  });
+  var best=l.reduce(function(a,g){ return (score[g.id]||0)>(score[a.id]||0)?g:a; },l[0]);
+  if(!score[best.id]){ var r=l.find(function(g){ return g.id==='renovation'; }); return (r||l[0]).id; }
+  return best.id;
+}
+function dessineGardePdf(doc,g,client){
+  doc.addImage(GARDE_IMG[g.id],'JPEG',0,0,210,297);
+  var t=phraseGarde(g,client); if(!t) return;
+  var fs=g.taille; doc.setFont('Montserrat','normal'); doc.setFontSize(fs);
+  while(doc.getTextWidth(t)>210*0.94 && fs>5){ fs-=0.5; doc.setFontSize(fs); }
+  doc.setTextColor.apply(doc,rgbHex(g.couleur));
+  doc.text(t,210*g.x/100,297*g.y/100,{align:'center',baseline:'middle'});
+}
+
 /* conditions particulières : bibliothèque de textes, liés ou non à un type de client */
 function copieCond(c){ var x={nom:c.nom, texte:c.texte, types:c.types.slice()}; if(typeof c.auto==='string') x.auto=c.auto; return x; }
 function condParts(){ return Array.isArray(params.condParts) ? params.condParts : COND_PARTS_DEF.map(copieCond); }
@@ -7610,6 +7798,7 @@ routeur();
   try{
     if(!window.indexedDB) throw new Error('indisponible');
     BASE=await ouvreBase(); stockageOk=true;
+    chargeGardes();
     setTimeout(function(){ if(peutPublier()) synchronise(); },3000);
     setTimeout(recoitModeles,5000);
     var recs=await lisTous();
