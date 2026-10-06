@@ -85,6 +85,15 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .ong-param button:hover{background:var(--taupe-pale)}
 .ong-param button.actif{background:var(--papier);border-bottom:1px solid var(--papier);font-weight:600;color:var(--nuit)}
 .vue-param[hidden]{display:none}
+.cp-barre{display:flex;justify-content:space-between;gap:8px;max-width:900px;margin-bottom:8px}
+.cp-barre input{max-width:240px}
+.cp-table{border-collapse:collapse;width:100%;max-width:900px;background:#fff;font-size:12.5px}
+.cp-table th{text-align:left;font-weight:600;border-bottom:1px solid var(--trait);padding:6px 8px}
+.cp-table td{border-bottom:1px solid var(--trait);padding:6px 8px;vertical-align:top}
+.cp-table td.texte{white-space:pre-line;text-align:justify}
+.cp-table td.actions{white-space:nowrap;text-align:right;width:84px}
+.cp-cases{margin:6px 0 0}
+.cp-cases label{display:block;font-size:12.5px;margin:2px 0}
 .resp-ligne{display:flex;gap:8px;align-items:center;margin-bottom:6px;max-width:780px}
 .resp-ligne input{flex:1 1 0;min-width:0}
 .resp-ligne input.iban{flex:2 1 0}
@@ -855,6 +864,11 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <div class="grille-param">
       <div class="p-moyen"><label class="champ" for="pAcomptes">Acomptes (un par ligne)</label><textarea id="pAcomptes" rows="3"></textarea></div>
     </div>
+    <h3 class="st" style="margin-top:18px">Conditions particulières</h3>
+    <p class="note" style="margin-top:0">Textes préenregistrés à ajouter au devis client, sous les méthodes de paiement. Un texte lié à un type de client est coché automatiquement dans le devis de ce type de client ; les autres se cochent à la main.</p>
+    <div class="cp-barre"><input type="search" id="cpRecherche" placeholder="Rechercher…" aria-label="Rechercher une condition"><button type="button" class="mini" id="cpNouveau">+ Nouveau</button></div>
+    <table class="cp-table"><thead><tr><th>Nom</th><th>Conditions particulières</th><th>Ajout automatique</th><th></th></tr></thead><tbody id="cpListe"></tbody></table>
+    <p style="margin:6px 0 0"><button type="button" class="mini" id="cpDefaut">Rétablir la bibliothèque d'origine</button></p>
     </div>
 
     <div class="vue-param" data-vue="cgv">
@@ -1000,9 +1014,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.15';
-var DATE_VERSION = '06/10/2026 20h10';   /* date et heure de livraison */
-var NOTES = 'Onglet CGV : le texte des articles est justifié à gauche et à droite dans l\'éditeur, comme sur le PDF.';
+var VERSION = '3.16';
+var DATE_VERSION = '06/10/2026 20h31';   /* date et heure de livraison */
+var NOTES = 'Nouveau : bibliothèque de conditions particulières (Paramètres › Devis), liées au type de client ; dans la fenêtre du devis, « Type de client » et cases à cocher ; texte ajouté sous les méthodes de paiement ; alerte si un client professionnel n\'a pas la clause « Retard de paiement ».';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1058,6 +1072,7 @@ var params = {
   sbUrl:'', sbCle:'', sbAuto:false,
   devisProchain:'', devisResp:'', devisEmail:'', devisTel:'', devisIban:'', devisBic:'', devisAcomptes:'',
   devisResps:[],         /* responsables proposés dans le devis client : {nom, email, tel} */
+  condParts:null,   /* conditions particulières du devis client ; null = bibliothèque d'origine (COND_PARTS_DEF) */
   devisPaiements:['Virement bancaire'],   /* méthodes de paiement du devis client ; la première est la méthode par défaut */
   devisComptes:[]        /* comptes bancaires du devis client : {banque, iban, bic} ; le premier est le compte par défaut */
 };
@@ -1129,7 +1144,7 @@ function sauveParams(){
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule,
     devisProchain:params.devisProchain, devisResp:params.devisResp, devisEmail:params.devisEmail, devisTel:params.devisTel,
-    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe, cgv:params.cgv
+    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe, cgv:params.cgv, condParts:params.condParts
   }));
 }
 function chargeParams(){
@@ -1167,6 +1182,8 @@ function chargeParams(){
     if(o.societe && typeof o.societe==='object') params.societe=o.societe;
     if(Array.isArray(o.cgv)) params.cgv=o.cgv.filter(function(a){ return a && typeof a==='object'; })
       .map(function(a){ return {titre:String(a.titre||''), texte:String(a.texte||'')}; });
+    if(Array.isArray(o.condParts)) params.condParts=o.condParts.filter(function(c){ return c && typeof c==='object'; })
+      .map(function(c){ return {nom:String(c.nom||''), texte:String(c.texte||''), types:Array.isArray(c.types)?c.types.filter(function(t){ return TYPES_CLIENT[t]; }):[]}; });
     if(Array.isArray(o.devisPaiements)) params.devisPaiements=o.devisPaiements.filter(function(x){ return typeof x==='string'; });
     /* poste réglé avant 3.04 : son IBAN unique devient le premier compte */
     if(!params.devisComptes.length && (params.devisIban.trim()||params.devisBic.trim()))
@@ -5809,10 +5826,23 @@ function dialogueDevisPdf(force){
     +'<div><label class="champ" for="pdPaie">Méthode de paiement</label><select id="pdPaie">'
     +paies.map(function(m,i){ return '<option value="'+i+'"'+(m===paieChoisie?' selected':'')+'>'+echappe(m)+'</option>'; }).join('')
     +'</select></div>'
+    +'<div><label class="champ" for="pdType">Type de client</label><select id="pdType">'
+    +Object.keys(TYPES_CLIENT).map(function(t){ return '<option value="'+t+'"'+(t===typeClient(e)?' selected':'')+'>'+TYPES_CLIENT[t]+'</option>'; }).join('')
+    +'</select></div>'
     +'</div>'
+    +'<div class="cp-cases" id="pdConds"></div>'
     +(manque.length?'<p class="note" style="color:#8a5a00">À compléter une fois dans Paramètres › Devis : '+manque.join(' et ')+'.</p>':'')
     +'<p class="note">Le numéro suivant est proposé automatiquement. Coordonnées, comptes bancaires et acomptes viennent des Paramètres. Les conditions générales de vente sont ajoutées en dernière page.</p>';
   var v=function(id){ return String($(id).value||'').trim(); };
+  /* conditions particulières : cochées d'après le type de client, modifiables à la main */
+  var cases=function(choix){
+    var l=condParts(), noms=choix.map(function(c){ return c.nom; });
+    $('pdConds').innerHTML=l.length ? '<span class="champ">Conditions particulières</span>'+l.map(function(c,i){
+      return '<label><input type="checkbox" data-pd-cond="'+i+'"'+(noms.indexOf(c.nom)>-1?' checked':'')+'> '+echappe(c.nom)
+        +(c.types.length?' <span class="note">('+c.types.map(function(t){ return TYPES_CLIENT[t]; }).join(', ')+')</span>':'')+'</label>';
+    }).join('') : '';
+  };
+  var lisConds=function(){ var l=condParts(); return Array.prototype.filter.call(document.querySelectorAll('[data-pd-cond]'),function(x){ return x.checked; }).map(function(x){ return l[+x.getAttribute('data-pd-cond')]; }); };
   var lisForm=function(){
     var r=resps.find(function(x){ return x.nom===v('pdResp'); })||{nom:'',email:'',tel:''};
     var c=comptes[+v('pdCompte')]||comptes[0]||{banque:'',iban:'',bic:''};
@@ -5820,8 +5850,10 @@ function dialogueDevisPdf(force){
     return {numero:v('pdNum'), date:v('pdDate'), client:v('pdClient'), reference:v('pdRef'),
             adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'), demarrage:frDate(v('pdDemarrage')),
             acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
-            resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:pm};
+            resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:pm,
+            typeClient:v('pdType')||'part', conds:lisConds()};
   };
+  setTimeout(function(){ cases(condsDevis(e)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value})); }; },0);
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
     {lib:'Annuler', action:function(){}},
     /* Aperçu : le PDF tel qu'il partira, dans un nouvel onglet ; rien n'est enregistré, aucun numéro consommé */
@@ -5850,6 +5882,7 @@ function creeDevisPdf(d,o,adrCh){
       if(!d._lecture){
         d.entete.numero=o.numero; d.entete.date=o.date; d.entete.client=o.client; d.entete.chantier=o.reference;
         d.entete.adresseClient=o.adresseClient; d.entete.adresseChantier=adrCh; d.entete.responsable=o.resp; d.entete.compteIban=o.iban; d.entete.paiement=o.paiement; d.entete.demarrage=o.demarrage;
+        d.entete.typeClient=o.typeClient; d.entete.condsType=o.typeClient; d.entete.conds=o.conds.map(function(c){ return c.nom; });
         if(d===D()){ $('fClient').value=o.client; $('fChantier').value=o.reference; $('fDate').value=o.date; }
         diffuse();
       }
@@ -5890,6 +5923,9 @@ function controleCgv(o){
   var ip=cherche(/d[ée]lai de paiement/i);
   if(ip<0) pb.push('Aucun article « Délai de paiement » dans les CGV, alors que le devis indique « Paiement comptant ».');
   else if(!/comptant/i.test(arts[ip].texte)) pb.push(nomArt(ip)+' ne parle pas de paiement comptant, alors que le devis indique « Paiement comptant ».');
+  /* 7. client professionnel : clause de retard de paiement */
+  if(o.typeClient==='pro' && !(o.conds||[]).some(function(c){ return /retard de paiement/i.test(c.nom+' '+c.texte); }))
+    pb.push('Client professionnel : la condition particulière « Retard de paiement » (indemnité de 40 €) n\'est pas cochée.');
   /* 6. articles vides */
   arts.forEach(function(a,i){
     var sousSuit=arts[i+1] && !nums[i+1];
@@ -5921,7 +5957,8 @@ function optionsDevisPdf(d){
   return {numero:e.numero||prochainNumero(), date:e.date||aujourdhuiFr(), client:e.client||'', reference:e.chantier||'',
           adresseClient:e.adresseClient||'', adresseChantier:e.adresseChantier||e.adresseClient||'',
           acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
-          resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:paiementDevis(e)};
+          resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:paiementDevis(e),
+          typeClient:typeClient(e), conds:condsDevis(e)};
 }
 /* méthodes de paiement ; celle du devis (retenue à la création du PDF), sinon la première */
 function paiementsDevis(){
@@ -6109,6 +6146,16 @@ async function genereDevisPdf(d,o,apercu){
       .forEach(function(l){ doc.text(l,M+4,y); y+=4.4; });
   }
 
+  /* conditions particulières (titre en gras, puis le texte) */
+  (o.conds||[]).forEach(function(c,i){
+    if(i===0){ y+=4.6; if(y>H-basPage-20){ doc.addPage(); y=20; } gras(8.6); doc.text('Conditions particulières :',M,y); y+=5; }
+    var lignes=[]; String(c.texte||'').split('\n').forEach(function(t){ normal(8.6); lignes=lignes.concat(doc.splitTextToSize(t.trim(),W-2*M)); });
+    if(y+4.4*(1+Math.min(2,lignes.length))>H-basPage){ doc.addPage(); y=20; }
+    gras(8.6); doc.text(c.nom,M,y); y+=4.4; normal(8.6);
+    lignes.forEach(function(l){ if(y>H-basPage){ doc.addPage(); y=20; } doc.text(l,M,y); y+=4.2; });
+    y+=1.5;
+  });
+
   /* cadre de signature */
   y+=9;
   if(y+33.5>H-26){ doc.addPage(); y=24; }   /* cadre de 33,5 mm : il doit finir au-dessus du pied de page (H-23) */
@@ -6273,6 +6320,18 @@ function pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,acompte){
     doc.setTextColor.apply(doc,ENCRE);
   }
 }
+/* types de client et conditions particulières d'origine */
+var TYPES_CLIENT={part:'Particulier', pro:'Professionnel'};
+var COND_PARTS_DEF=[{nom:'Retard de paiement', types:['pro'],
+  texte:'Tout retard de paiement entrainera l’application, sans mise en demeure préalable, d’intérêts de retard au taux légal majoré de 7 points, calculés à compter de la date de facturation.\nSi le client est un professionnel, une indemnité forfaitaire pour frais de recouvrement de 40 € sera due en cas de retard de paiement, en sus des pénalités de retard convenues dans les conditions générales.'}];
+/* conditions retenues pour un devis : celles cochées à la main (e.conds, noms), sinon celles liées au type de client */
+function typeClient(e){ return e && TYPES_CLIENT[e.typeClient] ? e.typeClient : 'part'; }
+function condsDevis(e){
+  var l=condParts(), t=typeClient(e);
+  if(e && Array.isArray(e.conds) && e.condsType===t) return l.filter(function(c){ return e.conds.indexOf(c.nom)>-1; });
+  return l.filter(function(c){ return c.types.indexOf(t)>-1; });
+}
+
 /* Conditions générales de vente DHC, reprises du modèle de devis (dernière page du PDF).
    Un paragraphe = « Titre|Texte » ou « |Texte » (suite sans titre). */
 var CGV_DHC=[
@@ -6904,6 +6963,44 @@ $('socDefaut').onclick=function(){
   if(!confirm('Remettre les informations de la société d\'origine ?')) return;
   params.societe=null; sauveParams(); renduSociete();
 };
+
+/* conditions particulières : bibliothèque de textes, liés ou non à un type de client */
+function condParts(){ return Array.isArray(params.condParts) ? params.condParts : COND_PARTS_DEF.map(function(c){ return {nom:c.nom, texte:c.texte, types:c.types.slice()}; }); }
+function modifCondParts(f){ var l=condParts().map(function(c){ return {nom:c.nom, texte:c.texte, types:c.types.slice()}; }); f(l); params.condParts=l; sauveParams(); renduCondParts(); }
+function renduCondParts(){
+  var q=$('cpRecherche').value.trim().toLowerCase(), l=condParts();
+  var lignes=l.map(function(c,i){ return {c:c,i:i}; }).filter(function(x){ return !q || (x.c.nom+' '+x.c.texte).toLowerCase().indexOf(q)>-1; });
+  $('cpListe').innerHTML=lignes.length ? lignes.map(function(x){
+    return '<tr><td>'+echappe(x.c.nom||'(sans nom)')+'</td><td class="texte">'+echappe(x.c.texte)+'</td>'
+      +'<td>'+(x.c.types.length?x.c.types.map(function(t){ return echappe(TYPES_CLIENT[t]); }).join(', '):'—')+'</td>'
+      +'<td class="actions"><button type="button" class="mini" data-cp-modif="'+x.i+'" title="Modifier">✎</button> '
+      +'<button type="button" class="mini" data-cp-suppr="'+x.i+'" title="Supprimer">🗑</button></td></tr>';
+  }).join('') : '<tr><td colspan="4" class="note">'+(l.length?'Aucune condition ne correspond à la recherche.':'Aucune condition particulière.')+'</td></tr>';
+}
+function editeCondPart(i){
+  var nouveau=i==null, c=nouveau?{nom:'',texte:'',types:[]}:condParts()[i];
+  ouvreModale(nouveau?'Nouvelle condition particulière':'Modifier la condition particulière',
+    '<label class="champ" for="cpNom">Nom</label><input type="text" id="cpNom" value="'+echappe(c.nom)+'" placeholder="Ex. Retard de paiement">'
+    +'<label class="champ" for="cpTexte" style="margin-top:10px">Texte</label><textarea id="cpTexte" rows="7" style="width:100%">'+echappe(c.texte)+'</textarea>'
+    +'<div class="cp-cases"><span class="champ">Ajouter automatiquement pour</span>'
+    +Object.keys(TYPES_CLIENT).map(function(t){ return '<label><input type="checkbox" data-cp-type="'+t+'"'+(c.types.indexOf(t)>-1?' checked':'')+'> '+echappe(TYPES_CLIENT[t])+'</label>'; }).join('')+'</div>',
+    [{lib:'Annuler', action:function(){}},
+     {lib:'Enregistrer', plein:true, action:function(){
+       var n={nom:$('cpNom').value.trim(), texte:$('cpTexte').value.replace(/\s+$/,''),
+              types:Array.prototype.filter.call(document.querySelectorAll('[data-cp-type]'),function(x){ return x.checked; }).map(function(x){ return x.getAttribute('data-cp-type'); })};
+       if(!n.nom){ alert('Indiquez le nom de la condition.'); $('cpNom').focus(); return false; }
+       modifCondParts(function(l){ if(nouveau) l.push(n); else l[i]=n; });
+     }}]);
+}
+renduCondParts();
+$('cpRecherche').addEventListener('input',renduCondParts);
+$('cpNouveau').onclick=function(){ editeCondPart(null); };
+$('cpListe').addEventListener('click',function(e){
+  var m=e.target.closest('[data-cp-modif]'), b=e.target.closest('[data-cp-suppr]');
+  if(m) editeCondPart(+m.getAttribute('data-cp-modif'));
+  else if(b){ var i=+b.getAttribute('data-cp-suppr'); if(confirm('Supprimer la condition « '+(condParts()[i].nom||'sans nom')+' » ?')) modifCondParts(function(l){ l.splice(i,1); }); }
+});
+$('cpDefaut').onclick=function(){ if(confirm('Remettre la bibliothèque d\'origine ? Vos conditions seront perdues.')){ params.condParts=null; sauveParams(); renduCondParts(); } };
 
 /* méthodes de paiement : la première est la méthode par défaut */
 function renduPaiements(){
