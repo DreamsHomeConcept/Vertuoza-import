@@ -865,7 +865,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <div class="p-moyen"><label class="champ" for="pAcomptes">Acomptes (un par ligne)</label><textarea id="pAcomptes" rows="3"></textarea></div>
     </div>
     <h3 class="st" style="margin-top:18px">Conditions particulières</h3>
-    <p class="note" style="margin-top:0">Textes préenregistrés à ajouter au devis client, sous les méthodes de paiement. Un texte lié à un type de client est coché automatiquement dans le devis de ce type de client ; les autres se cochent à la main.</p>
+    <p class="note" style="margin-top:0">Textes préenregistrés à ajouter au devis client, sous les méthodes de paiement. Un texte lié à un type de client est coché automatiquement dans le devis de ce type de client ; les autres se cochent à la main. Dans le texte, <code>{CLIENT}</code> est remplacé par le nom du client et <code>{ADRESSE_CHANTIER}</code> par l'adresse du chantier.</p>
     <div class="cp-barre"><input type="search" id="cpRecherche" placeholder="Rechercher…" aria-label="Rechercher une condition"><button type="button" class="mini" id="cpNouveau">+ Nouveau</button></div>
     <table class="cp-table"><thead><tr><th>Nom</th><th>Conditions particulières</th><th>Ajout automatique</th><th></th></tr></thead><tbody id="cpListe"></tbody></table>
     <p style="margin:6px 0 0"><button type="button" class="mini" id="cpDefaut">Rétablir la bibliothèque d'origine</button></p>
@@ -1014,9 +1014,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.16';
-var DATE_VERSION = '06/10/2026 20h31';   /* date et heure de livraison */
-var NOTES = 'Nouveau : bibliothèque de conditions particulières (Paramètres › Devis), liées au type de client ; dans la fenêtre du devis, « Type de client » et cases à cocher ; texte ajouté sous les méthodes de paiement ; alerte si un client professionnel n\'a pas la clause « Retard de paiement ».';
+var VERSION = '3.17';
+var DATE_VERSION = '06/10/2026 20h54';   /* date et heure de livraison */
+var NOTES = 'Devis PDF : le texte des conditions particulières occupe toute la largeur, justifié à gauche et à droite ; mots-clés {CLIENT} et {ADRESSE_CHANTIER} remplacés automatiquement.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6149,10 +6149,18 @@ async function genereDevisPdf(d,o,apercu){
   /* conditions particulières (titre en gras, puis le texte) */
   (o.conds||[]).forEach(function(c,i){
     if(i===0){ y+=4.6; if(y>H-basPage-20){ doc.addPage(); y=20; } gras(8.6); doc.text('Conditions particulières :',M,y); y+=5; }
-    var lignes=[]; String(c.texte||'').split('\n').forEach(function(t){ normal(8.6); lignes=lignes.concat(doc.splitTextToSize(t.trim(),W-2*M)); });
+    /* retours à la ligne collés au milieu d'une phrase : on les retire, le texte prend toute la largeur */
+    var adrCh1=String(o.adresseChantier||o.adresseClient||'').split('\n').map(function(x){ return x.trim(); }).filter(Boolean).join(', ');
+    var paras=String(c.texte||'').replace(/\{CLIENT\}/gi,o.client||'').replace(/\{ADRESSE_CHANTIER\}/gi,adrCh1).replace(/\r/g,'').replace(/([^.:;!?»"\n])[ \t]*\n(?!\s*\n)[ \t]*/g,'$1 ').split(/\n+/);
+    var lignes=[]; normal(8.6);
+    paras.forEach(function(t){ var ls=doc.splitTextToSize(t.replace(/\s+/g,' ').replace(/ +,/g,',').trim(),W-2*M); ls.forEach(function(l,k){ lignes.push({t:l, fin:k===ls.length-1}); }); });
     if(y+4.4*(1+Math.min(2,lignes.length))>H-basPage){ doc.addPage(); y=20; }
     gras(8.6); doc.text(c.nom,M,y); y+=4.4; normal(8.6);
-    lignes.forEach(function(l){ if(y>H-basPage){ doc.addPage(); y=20; } doc.text(l,M,y); y+=4.2; });
+    lignes.forEach(function(l){
+      if(y>H-basPage){ doc.addPage(); y=20; }
+      if(l.fin) doc.text(l.t,M,y); else doc.text(l.t,M,y,{align:'justify',maxWidth:W-2*M});   /* justifié, sauf la dernière ligne */
+      y+=4.2;
+    });
     y+=1.5;
   });
 
