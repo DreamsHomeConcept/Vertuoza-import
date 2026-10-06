@@ -5842,7 +5842,7 @@ async function genereDevisPdf(d,o){
       var k=lignesD[h.row.index][2], s=h.cell.styles;
       if(k==='t'){ s.fontStyle='bold'; s.fillColor=TAUPE; s.textColor=NUIT; }
       else if(k==='n'){ s.fontStyle='bold'; s.fillColor=NUIT; s.textColor=[255,255,255]; }
-      else s.fillColor=[245,246,248];
+      else s.fillColor=[255,255,255];
     }
   });
   y=Math.max(finG,doc.lastAutoTable.finalY)+9;
