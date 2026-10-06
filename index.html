@@ -962,9 +962,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.94';
-var DATE_VERSION = '06/10/2026 09h50';   /* date et heure de livraison */
-var NOTES = 'Nouveau : la page Paramètres est rangée en onglets (Lecture IA, Prix et marges, Classement et textes, Export Vertuoza, Devis client PDF, Partage et base de prix, À propos) ; aucun réglage ne change.';
+var VERSION = '2.95';
+var DATE_VERSION = '06/10/2026 10h04';   /* date et heure de livraison */
+var NOTES = 'Devis client PDF : dans le cadre du client, le code postal et la ville passent toujours à la ligne sous la rue.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -5748,6 +5748,8 @@ async function genereDevisPdf(d,o){
 
   /* cadre client */
   var adrC=String(o.adresseClient||'').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+  /* code postal et ville toujours sur leur propre ligne */
+  adrC=[].concat.apply([],adrC.map(function(l){ var m=/^(.*\S)[\s,]+(\d{5}\s+\D.*)$/.exec(l); return m?[m[1].replace(/,$/,''),m[2]]:[l]; }));
   var bx=W-M-78, by=41, bw=78;
   normal(9); var lignesC=[]; adrC.forEach(function(l){ lignesC=lignesC.concat(doc.splitTextToSize(l,bw-10)); });
   gras(9.5); var nomC=doc.splitTextToSize(o.client,bw-10);
