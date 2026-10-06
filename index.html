@@ -85,13 +85,14 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .ong-param button:hover{background:var(--taupe-pale)}
 .ong-param button.actif{background:var(--papier);border-bottom:1px solid var(--papier);font-weight:600;color:var(--nuit)}
 .vue-param[hidden]{display:none}
-.cp-barre{display:flex;justify-content:space-between;gap:8px;max-width:900px;margin-bottom:8px}
+.cp-bloc{display:table;width:100%;max-width:1000px}   /* barre et tableau de même largeur : « + Nouveau » au bord droit du tableau */
+.cp-barre{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px}
 .cp-barre input{max-width:240px}
-.cp-table{border-collapse:collapse;width:100%;max-width:900px;background:#fff;font-size:12.5px}
+.cp-table{border-collapse:collapse;width:100%;background:#fff;font-size:12.5px}
 .cp-table th{text-align:left;font-weight:600;border-bottom:1px solid var(--trait);padding:6px 8px}
 .cp-table td{border-bottom:1px solid var(--trait);padding:6px 8px;vertical-align:top}
 .cp-table td.texte{white-space:pre-line;text-align:justify}
-.cp-table td.actions{white-space:nowrap;text-align:right;width:84px}
+.cp-table td.actions{display:table-cell;white-space:nowrap;text-align:right;width:84px}   /* la classe générale .actions est en flex */
 .cp-cases{margin:6px 0 0}
 .cp-cases label{display:block;font-size:12.5px;margin:2px 0}
 .resp-ligne{display:flex;gap:8px;align-items:center;margin-bottom:6px;max-width:780px}
@@ -866,8 +867,10 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     </div>
     <h3 class="st" style="margin-top:18px">Conditions particulières</h3>
     <p class="note" style="margin-top:0">Textes préenregistrés à ajouter au devis client, sous les méthodes de paiement. Un texte lié à un type de client est coché automatiquement dans le devis de ce type de client ; les autres se cochent à la main. Dans le texte, <code>{CLIENT}</code> est remplacé par le nom du client et <code>{ADRESSE_CHANTIER}</code> par l'adresse du chantier.</p>
+    <div class="cp-bloc">
     <div class="cp-barre"><input type="search" id="cpRecherche" placeholder="Rechercher…" aria-label="Rechercher une condition"><button type="button" class="mini" id="cpNouveau">+ Nouveau</button></div>
     <table class="cp-table"><thead><tr><th>Nom</th><th>Conditions particulières</th><th>Ajout automatique</th><th></th></tr></thead><tbody id="cpListe"></tbody></table>
+    </div>
     <p style="margin:6px 0 0"><button type="button" class="mini" id="cpDefaut">Rétablir la bibliothèque d'origine</button></p>
     </div>
 
@@ -1014,9 +1017,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.18';
-var DATE_VERSION = '06/10/2026 21h03';   /* date et heure de livraison */
-var NOTES = 'Conditions particulières : pour enregistrer une condition, il faut cocher Particulier, Professionnel ou les deux.';
+var VERSION = '3.19';
+var DATE_VERSION = '06/10/2026 21h11';   /* date et heure de livraison */
+var NOTES = 'Conditions particulières : le bouton « + Nouveau » est calé au bord droit du tableau.';
 /* =================================================================== */
 (function(){
 'use strict';
