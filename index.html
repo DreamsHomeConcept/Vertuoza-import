@@ -962,8 +962,8 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.00';
-var DATE_VERSION = '06/10/2026 11h47';   /* date et heure de livraison */
+var VERSION = '3.01';
+var DATE_VERSION = '06/10/2026 12h10';   /* date et heure de livraison */
 var NOTES = 'Devis client PDF : bouton « Aperçu » qui ouvre le PDF tel qu\'il partira au client, dans un nouvel onglet, sans rien enregistrer ni consommer de numéro.';
 /* =================================================================== */
 (function(){
@@ -5872,7 +5872,7 @@ async function genereDevisPdf(d,o,apercu){
       var k=lignesD[h.row.index][2], s=h.cell.styles;
       if(k==='t'){ s.fontStyle='bold'; s.fillColor=TAUPE; s.textColor=NUIT; }
       else if(k==='n'){ s.fontStyle='bold'; s.fillColor=NUIT; s.textColor=[255,255,255]; }
-      else s.fillColor=[245,246,248];
+      else s.fillColor=[255,255,255];
     }
   });
   y=Math.max(finG,doc.lastAutoTable.finalY)+9;
