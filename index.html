@@ -623,6 +623,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <span class="barre-sel" id="barreSel" hidden>
         <b id="selNb">0 sélectionné</b>
         <button class="mini" id="selDeplacer" title="Choisir le chapitre ou sous-chapitre de destination">Déplacer vers…</button>
+        <button class="mini" id="selQteUnite" title="Donner la même quantité et / ou la même unité à toutes les lignes cochées">Qté / unité…</button>
         <button class="mini" id="selOption" title="Passer en option / réintégrer au devis">Option</button>
         <button class="mini danger" id="selSupprimer">Supprimer</button>
         <button class="mini" id="selVider" title="Tout désélectionner (Échap)">×</button>
@@ -3457,8 +3458,15 @@ function destinationGroupe(d,blocs,j,apres){
   return pos;
 }
 /* « Déplacer vers… » : liste des destinations possibles selon le niveau sélectionné */
-function dialogueDeplacerVers(){
-  var d=D(), blocs=blocsSelection(d); if(!blocs.length) return;
+function dialogueDeplacerVers(idSeul){
+  var d=D();
+  var lesBlocs=function(){
+    if(!idSeul) return blocsSelection(d);
+    var i0=d.lignes.findIndex(function(x){ return x.id===idSeul; });
+    return i0<0 ? [] : [blocMobile(d,i0)];
+  };
+  var blocs=lesBlocs(); if(!blocs.length) return;
+  var nb=idSeul ? 1 : selIds().length;
   var niv=niveauSel(d.lignes[blocs[0].debut]), cibles=[];
   d.lignes.forEach(function(r,i){
     if(niv==='chapitre' && r.type==='chapitre') cibles.push({lib:'Après « '+(r.article||'')+' '+String(r.designation||'').slice(0,50)+' »', pos:bloc(d,i).fin, i:i});
@@ -3471,7 +3479,7 @@ function dialogueDeplacerVers(){
   });
   if(niv==='chapitre'){ var p0=d.lignes.findIndex(function(x){return x.type==='chapitre';}); cibles.unshift({lib:'En tête du devis', pos:p0<0?0:p0, i:-1}); }
   cibles=cibles.filter(function(c){ return !blocs.some(function(b){ return c.i>=b.debut && c.i<b.fin; }); });
-  ouvreModale('Déplacer '+selIds().length+' élément'+(selIds().length>1?'s':'')+' vers…',
+  ouvreModale('Déplacer '+(idSeul?'« '+String(d.lignes[blocs[0].debut].designation||'cet élément').slice(0,40)+' »':nb+' élément'+(nb>1?'s':''))+' vers…',
     '<p class="note" style="margin-top:0">'+(niv==='lignes'?'Les lignes se placent à la fin des lignes du titre choisi, chacune avec ses commentaires et sa note.':niv==='sous'?'Les sous-chapitres se placent à la fin du chapitre choisi, avec leurs lignes.':'Les chapitres se placent avec tout leur contenu.')+'</p>'
     +'<select id="selCible" size="12" style="width:100%;font:inherit;font-size:13px">'+cibles.map(function(c,k){ return '<option value="'+k+'">'+echappe(c.lib)+'</option>'; }).join('')+'</select>',
     [{lib:'Annuler', action:function(){}},
@@ -3484,8 +3492,10 @@ function dialogueDeplacerVers(){
           d.replis[d.lignes[c.i].id]=false;
           var cp=chapitreDe(d,c.i); if(cp>-1) d.replis[d.lignes[cp].id]=false;     /* et son chapitre, sinon rien ne se voit */
         }
-        if(!deplaceGroupe(d,blocsSelection(d),c.pos)){ info('Déplacement impossible à cet endroit.',100,'avertit'); return; }
-        SEL.ids={}; rendu(); info(blocs.length+' élément'+(blocs.length>1?'s déplacés':' déplacé')+' — ↶ Annuler ou Ctrl+Z pour revenir en arrière.',100,'ok');
+        if(!deplaceGroupe(d,lesBlocs(),c.pos)){ info('Déplacement impossible à cet endroit.',100,'avertit'); return; }
+        if(!idSeul) SEL.ids={};
+        rendu(); if(idSeul) montreLigne(idSeul);
+        info(blocs.length+' élément'+(blocs.length>1?'s déplacés':' déplacé')+' — ↶ Annuler ou Ctrl+Z pour revenir en arrière.',100,'ok');
      }}]);
 }
 function voirChapitreSeul(d,id){
@@ -3650,7 +3660,28 @@ function deplaceVoisin(d,i,sens){
     var n=d.lignes[src.fin];
     if(n && (n.type===t || (t==='texte' && n.type==='ligne') || (t==='ligne' && n.type==='texte'))) pos=blocMobile(d,src.fin).fin;
   }
-  if(pos<0){ info('Déjà '+(sens<0?'en tête':'en fin')+' de son niveau : utilisez la poignée ⠿ pour le changer de chapitre.',100,'avertit'); return false; }
+  /* une ligne ou un texte au bord de son chapitre passe dans le chapitre ou sous-chapitre voisin */
+  if(pos<0 && t!=='chapitre' && t!=='sous'){
+    var titre=-1;
+    if(sens<0){
+      for(var k2=src.debut-1;k2>=0;k2--){ var x2=d.lignes[k2].type; if(x2==='chapitre'||x2==='sous'){ titre=k2; break; } }
+      if(titre>0 && chapitreDe(d,titre-1)>-1){
+        pos=titre;                                            /* fin du bloc qui précède le titre */
+        var tv=d.lignes[sousDe(d,titre-1)>-1?sousDe(d,titre-1):chapitreDe(d,titre-1)];
+        if(!d.replis) d.replis={};
+        d.replis[tv.id]=false; d.replis[d.lignes[chapitreDe(d,titre-1)].id]=false;
+      }
+    } else {
+      var n2=d.lignes[src.fin];
+      if(n2 && (n2.type==='chapitre'||n2.type==='sous')){
+        pos=src.fin+1; while(pos<d.lignes.length && d.lignes[pos].type==='texte') pos++;   /* sous le titre et ses textes de présentation */
+        if(!d.replis) d.replis={};
+        d.replis[n2.id]=false; var cn=chapitreDe(d,src.fin); if(cn>-1) d.replis[d.lignes[cn].id]=false;
+      }
+    }
+    if(pos<0){ info('Déjà '+(sens<0?'en tête':'en fin')+' du devis.',100,'avertit'); return false; }
+  }
+  if(pos<0){ info('Déjà '+(sens<0?'en tête':'en fin')+' de son niveau : utilisez la poignée ⠿ ou « Déplacer vers… » pour le changer de chapitre.',100,'avertit'); return false; }
   return deplaceBloc(d,src,pos);
 }
 
@@ -3881,12 +3912,13 @@ function menuActions(bouton,i){
   var ajoute=function(lib,fn,inactif,classe){
     var b=document.createElement('button'); b.textContent=lib; if(classe) b.className=classe;
     if(inactif) b.disabled=true;
-    b.onclick=function(){ fermeMenuIns(); if(!/Monter|Descendre/.test(lib)) memorise(d,lib.replace(/^[^A-Za-zÀ-ÿ%]+/,'').replace(/….*$/,'').toLowerCase()); fn(); majBoutonAnnuler(); };
+    b.onclick=function(){ fermeMenuIns(); if(!/Monter|Descendre|Déplacer/.test(lib)) memorise(d,lib.replace(/^[^A-Za-zÀ-ÿ%]+/,'').replace(/….*$/,'').toLowerCase()); fn(); majBoutonAnnuler(); };
     m.appendChild(b);
   };
   var sep=function(t){ var x=document.createElement('div'); x.className='menu-sep'; if(t) x.textContent=t; m.appendChild(x); };
   ajoute('↑ Monter'+(r.type==='chapitre'||r.type==='sous'?' (bloc entier)':''),function(){ var id=r.id; if(deplaceVoisin(d,i,-1)){ rendu(); montreLigne(id); } }, i===0);
   ajoute('↓ Descendre'+(r.type==='chapitre'||r.type==='sous'?' (bloc entier)':''),function(){ var id=r.id; if(deplaceVoisin(d,i,1)){ rendu(); montreLigne(id); } }, i===d.lignes.length-1);
+  if(r.type!=='note') ajoute('↪ Déplacer vers…',function(){ dialogueDeplacerVers(r.id); });
   if(r.type!=='note'){
     sep('Transformer en');
     ['chapitre','sous','ligne','texte'].forEach(function(t){
@@ -6250,6 +6282,28 @@ $('btnClasser').onclick=function(){
 };
 $('selVider').onclick=function(){ videSelection(); };
 $('selDeplacer').onclick=function(){ dialogueDeplacerVers(); };
+/* Qté / unité : même quantité et / ou même unité pour toutes les lignes chiffrées de la sélection */
+$('selQteUnite').onclick=function(){
+  var d=D(), blocs=blocsSelection(d); if(!blocs.length) return;
+  var cibles=[]; blocs.forEach(function(b){ for(var k=b.debut;k<b.fin;k++) if(d.lignes[k].type==='ligne') cibles.push(d.lignes[k]); });
+  if(!cibles.length){ info('Aucune ligne chiffrée dans la sélection.',100,'avertit'); return; }
+  ouvreModale('Quantité / unité de '+cibles.length+' ligne'+(cibles.length>1?'s':''),
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+    +'<div><label class="champ" for="mqQte">Quantité</label><input type="text" id="mqQte" inputmode="decimal" placeholder="Inchangée" style="width:100%"></div>'
+    +'<div><label class="champ" for="mqUnite">Unité</label><select id="mqUnite" style="width:100%"><option value="">Inchangée</option>'
+    +UNITES.map(function(u){ return '<option value="'+echappe(u)+'">'+echappe(u)+'</option>'; }).join('')+'</select></div></div>'
+    +'<p class="note">Laisser un champ vide pour ne pas le changer. Les textes et notes ne sont pas touchés ; ↶ Annuler ou Ctrl+Z pour revenir en arrière.</p>',
+    [{lib:'Annuler', action:function(){}},
+     {lib:'Appliquer', plein:true, action:function(){
+        var vq=$('mqQte').value.trim(), vu=$('mqUnite').value, q=vq===''?null:nombreFr(vq);
+        if(vq!=='' && !(q>=0)){ alert('Quantité invalide.'); return false; }
+        if(q===null && !vu){ info('Rien à changer : saisissez une quantité ou choisissez une unité.',100,'avertit'); return false; }
+        memorise(d,'quantité / unité sur la sélection');
+        cibles.forEach(function(r){ if(q!==null) r.qte=q; if(vu) r.unite=vu; });
+        rendu();
+        info(cibles.length+' ligne'+(cibles.length>1?'s modifiées':' modifiée')+' : '+[q!==null?'quantité '+afficheQte(q):'', vu?'unité '+vu:''].filter(Boolean).join(', ')+'.',100,'ok');
+     }}]);
+};
 $('selOption').onclick=function(){
   var d=D(), blocs=blocsSelection(d); if(!blocs.length) return;
   var tous=blocs.every(function(b){ return d.lignes[b.debut].option; });
