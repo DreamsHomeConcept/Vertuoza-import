@@ -947,6 +947,17 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
 
     <hr class="separateur">
 
+    <h3 class="st">Copier mes réglages sur un autre poste</h3>
+    <p class="note" style="margin-top:0">Les réglages sont enregistrés sur ce poste seulement. « Exporter mes réglages » télécharge un fichier avec la société, les CGV, les conditions particulières, les comptes bancaires (IBAN compris), les méthodes de paiement, les acomptes, les responsables, les marges et le classement. Ouvrez ce fichier sur l'autre poste avec « Importer des réglages ». Les clés (IA, édition de la base de prix) et le numéro du prochain devis ne sont jamais copiés : chaque poste garde les siens. Le fichier contient l'IBAN : envoyez-le seulement à vos collaborateurs.</p>
+    <div class="rangee-boutons" style="margin-top:6px">
+      <button class="fant" id="btnExpReglages">Exporter mes réglages</button>
+      <button class="fant" id="btnImpReglages">Importer des réglages</button>
+      <input type="file" id="fImpReglages" accept=".json,application/json" hidden>
+    </div>
+    <p class="etat-sync" id="etatReglages"></p>
+
+    <hr class="separateur">
+
     <h3 class="st">Intégration au CRM</h3>
     <p class="aide">
       Déclarez la configuration avant le module pour éviter toute saisie :<br>
@@ -1031,9 +1042,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.23';
-var DATE_VERSION = '06/10/2026 22h27';   /* date et heure de livraison */
-var NOTES = 'CGV : « Sommaire cliquable » réparti sur toute la largeur, champ texte qui s\'agrandit, nouvel article en vert dans son champ, titre obligatoire pour valider ; retours à la ligne gardés dans les conditions particulières.';
+var VERSION = '3.24';
+var DATE_VERSION = '06/10/2026 22h37';   /* date et heure de livraison */
+var NOTES = 'Paramètres › À propos : « Exporter mes réglages » et « Importer des réglages » pour copier société, CGV, conditions, comptes bancaires et le reste sur un autre poste (sans les clés) ; sommaire des CGV sur une ligne par titre.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1163,6 +1174,34 @@ function sauveParams(){
     devisProchain:params.devisProchain, devisResp:params.devisResp, devisEmail:params.devisEmail, devisTel:params.devisTel,
     devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe, cgv:params.cgv, condParts:params.condParts
   }));
+}
+/* copie des réglages d'un poste à l'autre : jamais les clés ni le compteur de devis */
+var REGLAGES_LOCAUX=['cleEdition','cleConsult','devisProchain','cle','apiKey'];
+function exporteReglages(){
+  sauveParams();
+  var o={}; try{ o=JSON.parse(lisStockage(CLE_PARAMS)||'{}'); }catch(e){}
+  REGLAGES_LOCAUX.forEach(function(k){ delete o[k]; });
+  var f={type:'dhc-reglages', version:VERSION, date:new Date().toISOString(), params:o};
+  var blob=new Blob([JSON.stringify(f,null,1)],{type:'application/json'}), a=document.createElement('a');
+  var j=new Date(), nom='Reglages DHC '+j.getFullYear()+'-'+pad2(j.getMonth()+1)+'-'+pad2(j.getDate())+'.json';
+  a.href=URL.createObjectURL(blob); a.download=nom; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1000);
+  var e=$('etatReglages'); e.className='etat-sync ok'; e.textContent='Fichier « '+nom+' » téléchargé. Il contient l\'IBAN : envoyez-le seulement à vos collaborateurs.';
+}
+function importeReglages(fichier){
+  var e=$('etatReglages'), lu=new FileReader();
+  lu.onload=function(){
+    var f; try{ f=JSON.parse(lu.result); }catch(x){ f=null; }
+    if(!f || f.type!=='dhc-reglages' || !f.params || typeof f.params!=='object'){ e.className='etat-sync err'; e.textContent='Ce fichier n\'est pas un fichier de réglages DHC.'; return; }
+    if(!confirm('Remplacer les réglages de ce poste par ceux du fichier'+(f.date?' du '+new Date(f.date).toLocaleDateString('fr-FR'):'')+' ?\nLes clés et le numéro du prochain devis de ce poste sont conservés.')) return;
+    var actuel={}; try{ actuel=JSON.parse(lisStockage(CLE_PARAMS)||'{}'); }catch(x){}
+    var n=JSON.parse(JSON.stringify(f.params));
+    REGLAGES_LOCAUX.forEach(function(k){ delete n[k]; if(actuel[k]!==undefined) n[k]=actuel[k]; });
+    ecrisStockage(CLE_PARAMS, JSON.stringify(n));
+    e.className='etat-sync ok'; e.textContent='Réglages importés. La page se recharge…';
+    setTimeout(function(){ location.reload(); },600);
+  };
+  lu.readAsText(fichier);
 }
 function chargeParams(){
   var v=lisStockage(CLE_PARAMS); if(!v) return;
@@ -6341,10 +6380,13 @@ function pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,acompte){
   /* sommaire cliquable sous le titre : articles numérotés, sur 3 colonnes */
   var somm=arts.map(function(a,ia){ return {ia:ia, t:nums[ia]+String(a.titre||'').trim()}; }).filter(function(x){ return nums[x.ia] && String(arts[x.ia].titre||'').trim(); });
   /* 3 colonnes réparties sur toute la largeur : la 1re contre la marge gauche, la 3e contre la marge droite,
-     même écart entre elles ; un titre trop long passe sur deux lignes */
+     même écart entre elles ; un titre trop long est raccourci par « … » */
   var sRang=Math.ceil(somm.length/3), sh=3.7, sY=40, sMax=(W-2*M-2*6)/3, sCols=[[],[],[]];
   normal(7.8);
-  somm.forEach(function(x,j){ x.l=doc.splitTextToSize(x.t,sMax); sCols[Math.floor(j/sRang)].push(x); });
+  somm.forEach(function(x,j){
+    var lib=x.t; while(doc.getTextWidth(lib)>sMax && lib.length>4) lib=lib.slice(0,-2).replace(/\s*…?$/,'')+'…';   /* une seule ligne : un titre trop long finit par « … » */
+    x.l=[lib]; sCols[Math.floor(j/sRang)].push(x);
+  });
   var sLarg=sCols.map(function(c){ return c.reduce(function(m,x){ return Math.max(m,Math.max.apply(null,x.l.map(function(t){ return doc.getTextWidth(t); }))); },0); });
   var sEcart=(W-2*M-sLarg[0]-sLarg[1]-sLarg[2])/2, sX=[M, M+sLarg[0]+sEcart, W-M-sLarg[2]];
   var sHaut=Math.max.apply(null,sCols.map(function(c){ return c.reduce(function(h,x){ return h+x.l.length; },0); }));
@@ -6855,6 +6897,9 @@ function majEtatVersion(txt,classe){
 }
 $('btnMaj').onclick=function(){ this.disabled=true; var b=this;
   Promise.resolve(verifieVersion(true)).then(function(){ b.disabled=false; }); };
+$('btnExpReglages').onclick=exporteReglages;
+$('btnImpReglages').onclick=function(){ $('fImpReglages').value=''; $('fImpReglages').click(); };
+$('fImpReglages').onchange=function(){ if(this.files[0]) importeReglages(this.files[0]); };
 $('majRecharger').onclick=function(){
   var v=$('majBandeau').dataset.version||'';
   var suite=function(){ location.replace(location.pathname+'?v='+encodeURIComponent(v)+location.hash); };
