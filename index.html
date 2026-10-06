@@ -962,9 +962,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.01';
-var DATE_VERSION = '06/10/2026 12h10';   /* date et heure de livraison */
-var NOTES = 'Devis client PDF : bouton « Aperçu » qui ouvre le PDF tel qu\'il partira au client, dans un nouvel onglet, sans rien enregistrer ni consommer de numéro.';
+var VERSION = '3.02';
+var DATE_VERSION = '06/10/2026 12h54';   /* date et heure de livraison */
+var NOTES = 'Contrôle de cohérence : « Voir le devis » ouvre le devis client PDF dans un nouvel onglet, tel qu\'il partira, sans rien enregistrer ni consommer de numéro.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1672,9 +1672,8 @@ function dialogueCoherence(d,apresExport){
   var corps = (r.ecarts.length ? '<p class="note" style="color:#9b2c24;font-weight:600;margin-top:0">'+r.ecarts.length+(r.ecarts.length>1?' écarts de calcul':' écart de calcul')+' — à corriger avant d\'envoyer le devis :</p><ul class="coh">'+r.ecarts.map(function(x){ return li(x,'ko'); }).join('')+'</ul>'
       : '<p class="note" style="color:#23633a;font-weight:600;margin-top:0">✓ Totaux cohérents : chapitres, sous-chapitres, total HT, tableau des intervenants et export Vertuoza concordent au centime ('+eur(totalHt(d))+' HT).</p>')
     +(r.alertes.length ? '<p class="note" style="margin-bottom:4px">À vérifier :</p><ul class="coh">'+r.alertes.map(function(x){ return li(x,'moyen'); }).join('')+'</ul>' : '');
-  /* « Voir le devis » : ferme la fenêtre et ouvre le tableau sur la première ligne à problème */
-  var premier=r.ecarts.concat(r.alertes).filter(function(x){ return x.id; })[0];
-  var voirDevis={lib:'Voir le devis', action:function(){ voirLigneCoherence(premier?premier.id:null); }};
+  /* « Voir le devis » : le PDF client tel qu'il partira, dans un nouvel onglet ; la fenêtre reste ouverte */
+  var voirDevis={lib:'Voir le devis', action:function(){ apercuDevisPdf(d,optionsDevisPdf(d)); return false; }};
   var boutons=[voirDevis,{lib:'Fermer', action:function(){}}];
   if(apresExport) boutons=[{lib:'Corriger d\'abord', action:function(){}},voirDevis,{lib:'Exporter quand même', plein:true, action:function(){ apresExport(); }}];
   ouvreModale('Contrôle de cohérence — '+(d.feuille||'devis'), corps, boutons);
@@ -5711,19 +5710,7 @@ function dialogueDevisPdf(force){
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
     {lib:'Annuler', action:function(){}},
     /* Aperçu : le PDF tel qu'il partira, dans un nouvel onglet ; rien n'est enregistré, aucun numéro consommé */
-    {lib:'Aperçu', action:function(){
-      var onglet=window.open('','_blank');
-      if(onglet) onglet.document.title='Aperçu du devis…';
-      info('Préparation de l\'aperçu…',40);
-      genereDevisPdf(d,lisForm(),true).then(function(url){
-        if(onglet) onglet.location.href=url; else window.open(url,'_blank');
-        info('Aperçu ouvert dans un nouvel onglet — rien n\'a été enregistré.',100,'ok');
-      },function(err){
-        if(onglet) onglet.close();
-        info('Aperçu impossible : '+(err&&err.message||err)+'. Vérifiez la connexion internet puis réessayez.',0,'err');
-      });
-      return false;
-    }},
+    {lib:'Aperçu', action:function(){ apercuDevisPdf(d,lisForm()); return false; }},
     {lib:'Créer le PDF', plein:true, action:function(){
       var o=lisForm();
       if(!o.numero){ alert('Indiquez le numéro du devis.'); $('pdNum').focus(); return false; }
@@ -5745,6 +5732,30 @@ function dialogueDevisPdf(force){
       });
     }}
   ]);
+}
+
+/* Aperçu : le PDF tel qu'il partira, dans un nouvel onglet ; rien n'est enregistré, aucun numéro consommé.
+   L'onglet est ouvert tout de suite, au clic, pour ne pas être bloqué par le navigateur. */
+function apercuDevisPdf(d,o){
+  var onglet=window.open('','_blank');
+  if(onglet) onglet.document.title='Aperçu du devis…';
+  info('Préparation de l\'aperçu…',40);
+  genereDevisPdf(d,o,true).then(function(url){
+    if(onglet) onglet.location.href=url; else window.open(url,'_blank');
+    info('Aperçu ouvert dans un nouvel onglet — rien n\'a été enregistré.',100,'ok');
+  },function(err){
+    if(onglet) onglet.close();
+    info('Aperçu impossible : '+(err&&err.message||err)+'. Vérifiez la connexion internet puis réessayez.',0,'err');
+  });
+}
+/* Infos du devis déjà saisies (en-tête du devis et Paramètres), sans passer par la fenêtre */
+function optionsDevisPdf(d){
+  var e=d.entete||{}, resps=params.devisResps.filter(function(r){ return r.nom; });
+  var r=resps.find(function(x){ return x.nom===(e.responsable||params.devisResp); })||resps[0]||{nom:'',email:'',tel:''};
+  return {numero:e.numero||prochainNumero(), date:e.date||aujourdhuiFr(), client:e.client||'', reference:e.chantier||'',
+          adresseClient:e.adresseClient||'', adresseChantier:e.adresseChantier||e.adresseClient||'',
+          acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
+          resp:r.nom, email:r.email, tel:r.tel, iban:params.devisIban, bic:params.devisBic};
 }
 
 function eurPdf(n){ return eur(Math.round((isFinite(n)?n:0)*100)/100).replace(/[  ]/g,' '); }
