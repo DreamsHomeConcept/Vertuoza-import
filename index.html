@@ -101,6 +101,16 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .cgv-art{border:1px solid var(--trait);border-radius:3px;padding:10px;margin-bottom:10px;max-width:900px;background:#fff}
 .cgv-art .tete{display:flex;gap:8px;align-items:center;margin-bottom:6px}
 .cgv-art .tete input{flex:1;font-weight:600}
+.cgv-art.modifie{border-color:#c9a227;background:#fffdf3}
+.cgv-art.supprime{border-color:#c0392b;background:#fdf3f2}
+.cgv-art.supprime .tete input{text-decoration:line-through;color:#c0392b}
+.cgv-diff{margin-top:6px;padding:8px 10px;border:1px dashed var(--trait);background:#fff;font-size:12.5px;line-height:1.5;white-space:pre-wrap;text-align:justify}
+.cgv-diff ins{color:#1e7b34;background:#e6f4ea;text-decoration:none}
+.cgv-diff del{color:#c0392b;text-decoration:line-through}
+.cgv-valid{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:12.5px}
+.cgv-valid .etat{color:#8a5a00;font-weight:600}
+button.mini.plein{background:var(--nuit);color:#fff;border-color:var(--nuit)}
+button.mini.plein:hover{background:var(--nuit-clair)}
 .cgv-art .plier{border:0;background:none;cursor:pointer;font-size:13px;color:var(--taupe-fonce);padding:0 2px;width:18px}
 .cgv-art.plie .tete{margin-bottom:0}
 .cgv-art .num{min-width:28px;font-weight:600;color:var(--taupe-fonce);text-align:right}
@@ -876,8 +886,10 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
 
     <div class="vue-param" data-vue="cgv">
     <h3 class="st">Conditions générales de vente</h3>
-    <p class="note" style="margin-top:0">Ajoutées en fin de devis client PDF. Une ligne vide dans un texte crée un nouveau paragraphe. <code>{ACOMPTE}</code> est remplacé par le pourcentage du premier acompte, <code>{MEDIATEUR}</code> par le médiateur de l'onglet Société, <code>{SOCIETE}</code> par le nom de la société. Les articles sont numérotés automatiquement ; un titre commençant par « a. », « b. »… est un sous-article, non numéroté.</p>
-    <p style="margin:0 0 8px"><button type="button" class="mini" id="cgvPlie">Tout replier</button> <button type="button" class="mini" id="cgvDeplie">Tout déplier</button> <button type="button" class="mini" id="cgvVoir" title="Les CGV seules, telles qu'elles s'impriment sur le devis ; rien n'est enregistré">Voir en PDF</button></p>
+    <p class="note" style="margin-top:0">Ajoutées en fin de devis client PDF. Une ligne vide dans un texte crée un nouveau paragraphe. <code>{ACOMPTE}</code> est remplacé par le pourcentage du premier acompte, <code>{MEDIATEUR}</code> par le médiateur de l'onglet Société, <code>{SOCIETE}</code> par le nom de la société. Les articles sont numérotés automatiquement ; un titre commençant par « a. », « b. »… est un sous-article, non numéroté. Une modification n'est prise en compte sur les devis qu'après « Valider » : en attendant, l'ajout est en vert et la suppression barrée en rouge.</p>
+    <p style="margin:0 0 8px"><button type="button" class="mini" id="cgvPlie">Tout replier</button> <button type="button" class="mini" id="cgvDeplie">Tout déplier</button> <button type="button" class="mini" id="cgvVoir" title="Les CGV validées, telles qu'elles s'impriment sur le devis ; rien n'est enregistré">Voir en PDF</button> <button type="button" class="mini" id="cgvExport" title="Télécharge les CGV validées dans un fichier PDF, prêt à envoyer">Exporter les CGV (PDF)</button>
+      <button type="button" class="mini plein" id="cgvToutValider" hidden>Tout valider</button></p>
+    <p class="note" id="cgvAttente" hidden style="color:#8a5a00;margin:0 0 8px"></p>
     <div id="cgvListe"></div>
     <p style="margin:6px 0 0"><button type="button" class="mini" id="cgvAjout">+ Ajouter un article</button>
       <button type="button" class="mini" id="cgvDefaut">Rétablir les CGV d'origine</button></p>
@@ -1017,9 +1029,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.19';
-var DATE_VERSION = '06/10/2026 21h11';   /* date et heure de livraison */
-var NOTES = 'Conditions particulières : le bouton « + Nouveau » est calé au bord droit du tableau.';
+var VERSION = '3.20';
+var DATE_VERSION = '06/10/2026 21h34';   /* date et heure de livraison */
+var NOTES = 'Onglet CGV : chaque modification reste en attente jusqu\'à « Valider » (ajouts en vert, suppressions barrées en rouge), bouton « Tout valider », et bouton « Exporter les CGV (PDF) » pour télécharger les CGV validées.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1184,7 +1196,9 @@ function chargeParams(){
       .map(function(c){ return {banque:String(c.banque||''), iban:String(c.iban||''), bic:String(c.bic||'')}; });
     if(o.societe && typeof o.societe==='object') params.societe=o.societe;
     if(Array.isArray(o.cgv)) params.cgv=o.cgv.filter(function(a){ return a && typeof a==='object'; })
-      .map(function(a){ return {titre:String(a.titre||''), texte:String(a.texte||'')}; });
+      .map(function(a){ var x={titre:String(a.titre||''), texte:String(a.texte||'')};
+        if(a.nv && typeof a.nv==='object') x.nv={titre:String(a.nv.titre||''), texte:String(a.nv.texte||'')};
+        if(a.ajout) x.ajout=true; if(a.suppr) x.suppr=true; return x; });
     if(Array.isArray(o.condParts)) params.condParts=o.condParts.filter(function(c){ return c && typeof c==='object'; })
       .map(function(c){ return {nom:String(c.nom||''), texte:String(c.texte||''), types:Array.isArray(c.types)?c.types.filter(function(t){ return TYPES_CLIENT[t]; }):[]}; });
     if(Array.isArray(o.devisPaiements)) params.devisPaiements=o.devisPaiements.filter(function(x){ return typeof x==='string'; });
@@ -6199,7 +6213,7 @@ async function genereDevisPdf(d,o,apercu){
 }
 
 /* Les CGV seules, telles qu'imprimées sur le devis, dans un nouvel onglet ; rien n'est enregistré */
-async function pdfCgvSeules(){
+async function pdfCgvSeules(fichier){
   await chargeLibsPdf();
   var J=window.jspdf.jsPDF, doc=new J({unit:'mm',format:'a4',compress:true});
   doc.addFileToVFS('Montserrat-Regular.ttf',RES_PDF.policeNormale); doc.addFont('Montserrat-Regular.ttf','Montserrat','normal');
@@ -6213,7 +6227,12 @@ async function pdfCgvSeules(){
   pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,ac.length?ac[0].pc:30);
   var n=doc.getNumberOfPages();
   for(var p=1;p<=n;p++){ doc.setPage(p); doc.setTextColor.apply(doc,ENCRE); normal(8.6); doc.text('Page '+p+'/'+n,210-14,297-8,{align:'right'}); }
+  if(fichier){ doc.save(fichier); return fichier; }
   return doc.output('bloburl');
+}
+function exporteCgv(){
+  var nom=('CGV '+societe().nom).replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim()+'.pdf';
+  pdfCgvSeules(nom).catch(function(err){ alert('Export des CGV impossible : '+(err&&err.message||err)+'. Vérifiez la connexion internet puis réessayez.'); });
 }
 function voirCgv(){
   var onglet=window.open('','_blank');
@@ -6236,8 +6255,19 @@ function cgvOrigine(){
   });
   return arts;
 }
+/* params.cgv : articles {titre, texte} en vigueur, avec les modifications en attente de validation :
+   nv {titre, texte} = nouvelle version, ajout = article nouveau, suppr = suppression demandée */
+function cgvBrouillon(){
+  return Array.isArray(params.cgv) ? params.cgv.map(function(a){
+    var x={titre:String(a.titre||'').replace(/^\d+\.\s*/,''), texte:String(a.texte||'')};
+    if(a.nv) x.nv={titre:String(a.nv.titre||'').replace(/^\d+\.\s*/,''), texte:String(a.nv.texte||'')};
+    if(a.ajout) x.ajout=true; if(a.suppr) x.suppr=true;
+    return x;
+  }) : cgvOrigine();
+}
+/* CGV en vigueur (devis, PDF, contrôle) : seulement ce qui est validé */
 function cgvArticles(){
-  return Array.isArray(params.cgv) ? params.cgv.map(function(a){ return {titre:String(a.titre||'').replace(/^\d+\.\s*/,''), texte:a.texte}; }) : cgvOrigine();
+  return cgvBrouillon().filter(function(a){ return !a.ajout; }).map(function(a){ return {titre:a.titre, texte:a.texte}; });
 }
 /* numérotation automatique : 1, 2, 3… dans l'ordre ; un titre « a. … », « b. … » est un sous-article, non numéroté */
 function cgvNumeros(l){
@@ -6893,54 +6923,119 @@ $('compteAjout').onclick=function(){
 /* Paramètres › CGV : un bloc par article (titre + texte) */
 /* articles dépliés (pliés par défaut) ; suit les ajouts, suppressions et déplacements */
 var cgvOuvert=[];
-function renduCgv(){
-  var l=cgvArticles(), nums=cgvNumeros(l);
-  $('cgvListe').innerHTML=l.map(function(a,i){
-    var lignes=Math.min(14,Math.max(3,Math.ceil(String(a.texte).length/110)+String(a.texte).split('\n').length)), ouv=!!cgvOuvert[i];
-    return '<div class="cgv-art'+(ouv?'':' plie')+'"><div class="tete">'
-      +'<button type="button" class="plier" data-cgv-plier="'+i+'" title="'+(ouv?'Replier':'Déplier')+'" aria-expanded="'+ouv+'">'+(ouv?'▾':'▸')+'</button>'
-      +'<span class="num">'+(nums[i]?nums[i].trim():'—')+'</span>'
-      +'<input type="text" data-cgv="'+i+'" data-k="titre" placeholder="Titre de l\'article" aria-label="Titre" value="'+echappe(a.titre)+'">'
-      +'<button type="button" class="mini" data-cgv-haut="'+i+'" title="Monter"'+(i===0?' disabled':'')+'>↑</button>'
-      +'<button type="button" class="mini" data-cgv-bas="'+i+'" title="Descendre"'+(i===l.length-1?' disabled':'')+'>↓</button>'
-      +'<button type="button" class="mini" data-cgv-ins="'+i+'" title="Insérer un article juste en dessous">+</button>'
-      +'<button type="button" class="mini" data-cgv-suppr="'+i+'" title="Supprimer cet article">✕</button></div>'
-      +'<textarea data-cgv="'+i+'" data-k="texte" rows="'+lignes+'" aria-label="Texte"'+(ouv?'':' hidden')+'>'+echappe(a.texte)+'</textarea></div>';
-  }).join('') || '<p class="note">Aucun article : le devis n\'aura pas de conditions générales.</p>';
+/* différence mot à mot entre deux textes : ajouts en vert, suppressions barrées en rouge */
+function diffMots(a,b){
+  var x=String(a||'').split(/(\s+)/), y=String(b||'').split(/(\s+)/), n=x.length, m=y.length;
+  if(n*m>400000) return '<del>'+echappe(a)+'</del><ins>'+echappe(b)+'</ins>';
+  var t=[]; for(var i=0;i<=n;i++){ t.push(new Uint16Array(m+1)); }
+  for(i=n-1;i>=0;i--) for(var j=m-1;j>=0;j--) t[i][j]=x[i]===y[j]?t[i+1][j+1]+1:Math.max(t[i+1][j],t[i][j+1]);
+  var r=[], k; i=0; j=0;
+  var pousse=function(tag,v){ if(r.length && r[r.length-1].tag===tag) r[r.length-1].v+=v; else r.push({tag:tag,v:v}); };
+  while(i<n && j<m){ if(x[i]===y[j]){ pousse('',x[i]); i++; j++; } else if(t[i+1][j]>=t[i][j+1]){ pousse('del',x[i]); i++; } else { pousse('ins',y[j]); j++; } }
+  for(;i<n;i++) pousse('del',x[i]); for(;j<m;j++) pousse('ins',y[j]);
+  return r.map(function(z){ return z.tag?'<'+z.tag+'>'+echappe(z.v)+'</'+z.tag+'>':echappe(z.v); }).join('');
 }
-function modifCgv(f){ var l=cgvArticles().map(function(a){ return {titre:a.titre, texte:a.texte}; }); f(l); params.cgv=l; sauveParams(); }
-renduCgv();
-$('cgvListe').addEventListener('change',function(e){
+function etatCgv(a){ return a.suppr?'suppr':a.ajout?'ajout':a.nv?'modif':''; }
+function blocValidCgv(a,i){
+  var e=etatCgv(a); if(!e) return '';
+  var lib={suppr:'Suppression en attente', ajout:'Nouvel article en attente', modif:'Modification en attente'}[e];
+  var diff='';
+  if(e==='modif') diff=(a.nv.titre!==a.titre?'<div><b>Titre : </b>'+diffMots(a.titre,a.nv.titre)+'</div>':'')+diffMots(a.texte,a.nv.texte);
+  else if(e==='ajout') diff='<ins><b>'+echappe(a.titre||'Sans titre')+'</b>'+(a.texte?'\n'+echappe(a.texte):'')+'</ins>';
+  else diff='<del><b>'+echappe(a.titre)+'</b>'+(a.texte?'\n'+echappe(a.texte):'')+'</del>';
+  return '<div class="cgv-diff">'+diff+'</div><div class="cgv-valid"><span class="etat">'+lib+'</span>'
+    +'<button type="button" class="mini plein" data-cgv-valider="'+i+'">✓ Valider</button>'
+    +'<button type="button" class="mini" data-cgv-annuler="'+i+'">'+(e==='suppr'?'Annuler la suppression':e==='ajout'?'Annuler l\'ajout':'Annuler la modification')+'</button></div>';
+}
+function articleCgv(a,i,n,num){
+  var vue=a.nv||a, e=etatCgv(a), ouv=cgvOuvert[i]!=null?!!cgvOuvert[i]:!!e;   /* une modification en attente s'ouvre d'office */
+  var lignes=Math.min(14,Math.max(3,Math.ceil(String(vue.texte).length/110)+String(vue.texte).split('\n').length));
+  return '<div class="cgv-art'+(ouv?'':' plie')+(e==='suppr'?' supprime':e?' modifie':'')+'" data-art="'+i+'"><div class="tete">'
+    +'<button type="button" class="plier" data-cgv-plier="'+i+'" title="'+(ouv?'Replier':'Déplier')+'" aria-expanded="'+ouv+'">'+(ouv?'▾':'▸')+'</button>'
+    +'<span class="num">'+(num?num.trim():'—')+'</span>'
+    +'<input type="text" data-cgv="'+i+'" data-k="titre" placeholder="Titre de l\'article" aria-label="Titre" value="'+echappe(vue.titre)+'"'+(e==='suppr'?' disabled':'')+'>'
+    +'<button type="button" class="mini" data-cgv-haut="'+i+'" title="Monter"'+(i===0?' disabled':'')+'>↑</button>'
+    +'<button type="button" class="mini" data-cgv-bas="'+i+'" title="Descendre"'+(i===n-1?' disabled':'')+'>↓</button>'
+    +'<button type="button" class="mini" data-cgv-ins="'+i+'" title="Insérer un article juste en dessous">+</button>'
+    +'<button type="button" class="mini" data-cgv-suppr="'+i+'" title="Supprimer cet article"'+(e==='suppr'?' disabled':'')+'>✕</button></div>'
+    +'<textarea data-cgv="'+i+'" data-k="texte" rows="'+lignes+'" aria-label="Texte"'+(ouv&&e!=='suppr'?'':' hidden')+'>'+echappe(vue.texte)+'</textarea>'
+    +'<div class="cgv-suivi" id="cgvSuivi'+i+'"'+(ouv?'':' hidden')+'>'+blocValidCgv(a,i)+'</div></div>';
+}
+/* numéros affichés dans l'éditeur : ceux qu'auront les CGV une fois tout validé (les suppressions en attente gardent un tiret) */
+function numerosEditeur(l){
+  var vis=l.filter(function(a){ return !a.suppr; }).map(function(a){ return a.nv||a; }), nv=cgvNumeros(vis), k=0;
+  return l.map(function(a){ return a.suppr?'':nv[k++]; });
+}
+function bandeauCgv(l){
+  var n=l.filter(function(a){ return etatCgv(a); }).length;
+  $('cgvToutValider').hidden=!n; $('cgvToutValider').textContent='Tout valider ('+n+')';
+  $('cgvAttente').hidden=!n; $('cgvAttente').textContent=n?n+' modification'+(n>1?'s':'')+' en attente : les devis utilisent encore la version validée.':'';
+}
+function renduCgv(){
+  var l=cgvBrouillon(), nums=numerosEditeur(l);
+  $('cgvListe').innerHTML=l.map(function(a,i){ return articleCgv(a,i,l.length,nums[i]); }).join('') || '<p class="note">Aucun article : le devis n\'aura pas de conditions générales.</p>';
+  bandeauCgv(l);
+}
+function modifCgv(f){ var l=cgvBrouillon(); f(l); params.cgv=l; sauveParams(); }
+/* frappe dans un article : la nouvelle version est mise en attente, l'aperçu vert / rouge suit en direct */
+var cgvMinuteur=null;
+$('cgvListe').addEventListener('input',function(e){
   var t=e.target, i=+t.getAttribute('data-cgv'), k=t.getAttribute('data-k'); if(!k) return;
-  modifCgv(function(l){ if(l[i]) l[i][k]=k==='titre'?t.value.trim().replace(/^\d+\.\s*/,''):t.value.replace(/\s+$/,''); });
-  if(k==='titre') renduCgv();
+  var l=cgvBrouillon(), a=l[i]; if(!a) return;
+  var val=k==='titre'?t.value.trim().replace(/^\d+\.\s*/,''):t.value.replace(/\s+$/,'');
+  if(a.ajout) a[k]=val;
+  else { var nv=a.nv||{titre:a.titre, texte:a.texte}; nv[k]=val; if(nv.titre===a.titre && nv.texte===a.texte) delete a.nv; else a.nv=nv; }
+  params.cgv=l;
+  var art=t.closest('.cgv-art'), e2=etatCgv(a);
+  art.classList.toggle('modifie',!!e2);
+  $('cgvSuivi'+i).innerHTML=blocValidCgv(a,i);
+  var nums=numerosEditeur(l); Array.prototype.forEach.call($('cgvListe').querySelectorAll('.cgv-art .num'),function(s,j){ s.textContent=nums[j]?nums[j].trim():'—'; });
+  bandeauCgv(l);
+  clearTimeout(cgvMinuteur); cgvMinuteur=setTimeout(sauveParams,300);
 });
+function valideCgv(l,i){ var a=l[i]; if(a.suppr){ l.splice(i,1); return -1; } if(a.nv){ a.titre=a.nv.titre; a.texte=a.nv.texte; delete a.nv; } delete a.ajout; return 0; }
+function annuleCgv(l,i){ var a=l[i]; if(a.ajout){ l.splice(i,1); return -1; } delete a.nv; delete a.suppr; return 0; }
 $('cgvListe').addEventListener('click',function(e){
-  var b=e.target.closest('[data-cgv-suppr],[data-cgv-haut],[data-cgv-bas],[data-cgv-ins],[data-cgv-plier]'); if(!b) return;
-  var i=+(b.getAttribute('data-cgv-suppr')||b.getAttribute('data-cgv-haut')||b.getAttribute('data-cgv-bas')||b.getAttribute('data-cgv-ins')||b.getAttribute('data-cgv-plier'));
-  if(b.hasAttribute('data-cgv-plier')){ cgvOuvert[i]=!cgvOuvert[i]; renduCgv(); return; }
-  if(b.hasAttribute('data-cgv-ins')){ insereCgv(i+1); return; }
-  if(b.hasAttribute('data-cgv-suppr')){
-    if(!confirm('Supprimer l\'article « '+(cgvArticles()[i].titre||'sans titre')+' » ?')) return;
-    modifCgv(function(l){ l.splice(i,1); }); cgvOuvert.splice(i,1);
+  var b=e.target.closest('[data-cgv-suppr],[data-cgv-haut],[data-cgv-bas],[data-cgv-ins],[data-cgv-plier],[data-cgv-valider],[data-cgv-annuler]'); if(!b) return;
+  var att=['data-cgv-suppr','data-cgv-haut','data-cgv-bas','data-cgv-ins','data-cgv-plier','data-cgv-valider','data-cgv-annuler'].filter(function(x){ return b.hasAttribute(x); })[0];
+  var i=+b.getAttribute(att);
+  clearTimeout(cgvMinuteur);
+  if(att==='data-cgv-plier'){ cgvOuvert[i]=!cgvOuvert[i]; renduCgv(); return; }
+  if(att==='data-cgv-ins'){ insereCgv(i+1); return; }
+  if(att==='data-cgv-valider' || att==='data-cgv-annuler'){
+    var r; modifCgv(function(l){ r=(att==='data-cgv-valider'?valideCgv:annuleCgv)(l,i); });
+    if(r<0) cgvOuvert.splice(i,1);
+    renduCgv(); return;
+  }
+  if(att==='data-cgv-suppr'){
+    var a=cgvBrouillon()[i];
+    if(a.ajout){ if(!confirm('Retirer le nouvel article « '+(a.titre||'sans titre')+' » ?')) return; modifCgv(function(l){ l.splice(i,1); }); cgvOuvert.splice(i,1); }
+    else { modifCgv(function(l){ l[i].suppr=true; }); cgvOuvert[i]=true; }   /* reste affiché, barré en rouge, jusqu'à validation */
   } else {
-    var j=b.hasAttribute('data-cgv-haut')?i-1:i+1;
+    var j=att==='data-cgv-haut'?i-1:i+1;
     modifCgv(function(l){ var x=l[i]; l[i]=l[j]; l[j]=x; });
     var o=cgvOuvert[i]; cgvOuvert[i]=cgvOuvert[j]; cgvOuvert[j]=o;
   }
   renduCgv();
 });
+$('cgvToutValider').onclick=function(){
+  clearTimeout(cgvMinuteur);
+  modifCgv(function(l){ for(var i=l.length-1;i>=0;i--) if(etatCgv(l[i])){ if(valideCgv(l,i)<0) cgvOuvert.splice(i,1); } });
+  renduCgv();
+};
 /* nouvel article vide à la position i (déplié, curseur dans le titre) ; la numérotation suit */
 function insereCgv(i){
-  modifCgv(function(l){ l.splice(i,0,{titre:'', texte:''}); });
+  modifCgv(function(l){ l.splice(i,0,{titre:'', texte:'', ajout:true}); });
   while(cgvOuvert.length<i) cgvOuvert.push(false);
   cgvOuvert.splice(i,0,true); renduCgv();
   var ch=$('cgvListe').querySelector('input[data-cgv="'+i+'"][data-k="titre"]'); if(ch) ch.focus();
 }
-$('cgvAjout').onclick=function(){ insereCgv(cgvArticles().length); };
-$('cgvPlie').onclick=function(){ cgvOuvert=[]; renduCgv(); };
+renduCgv();
+$('cgvAjout').onclick=function(){ insereCgv(cgvBrouillon().length); };
+$('cgvPlie').onclick=function(){ cgvOuvert=cgvBrouillon().map(function(){ return false; }); renduCgv(); };
 $('cgvVoir').onclick=voirCgv;
-$('cgvDeplie').onclick=function(){ cgvOuvert=cgvArticles().map(function(){ return true; }); renduCgv(); };
+$('cgvExport').onclick=exporteCgv;
+$('cgvDeplie').onclick=function(){ cgvOuvert=cgvBrouillon().map(function(){ return true; }); renduCgv(); };
 $('cgvDefaut').onclick=function(){
   if(!confirm('Remettre les CGV d\'origine ? Vos modifications seront perdues.')) return;
   params.cgv=null; sauveParams(); cgvOuvert=[]; renduCgv();
