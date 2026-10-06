@@ -962,8 +962,8 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.96';
-var DATE_VERSION = '06/10/2026 10h17';   /* date et heure de livraison */
+var VERSION = '2.97';
+var DATE_VERSION = '06/10/2026 10h33';   /* date et heure de livraison */
 var NOTES = 'Devis client PDF : cadre client en face de l\'adresse Dreams Home Concept, en-tête du tableau et bandeaux de chapitres et d\'options en gras, sous-totaux et tableau de TVA sans montants coupés.';
 /* =================================================================== */
 (function(){
@@ -5825,11 +5825,11 @@ async function genereDevisPdf(d,o){
   if(y>H-basPage-70){ doc.addPage(); y=20; }
   var styleT={font:'Montserrat',fontSize:8.4,textColor:ENCRE,cellPadding:{top:1.6,bottom:1.6,left:2,right:2},halign:'center'};
   window.autoTable(doc,{
-    startY:y, margin:{left:56,right:W-130}, tableWidth:74, theme:'plain', styles:styleT,
-    columnStyles:{0:{cellWidth:18},1:{cellWidth:28},2:{cellWidth:28}},
-    head:[['Taux TVA','Base HT','Total TVA']], headStyles:{fillColor:TAUPE,textColor:NUIT,fontStyle:'normal'},
+    startY:y, margin:{left:50,right:W-130}, tableWidth:80, theme:'plain', styles:styleT,
+    columnStyles:{0:{cellWidth:22},1:{cellWidth:29},2:{cellWidth:29}},
+    head:[['Taux TVA','Base HT','Total TVA']], headStyles:{fillColor:TAUPE,textColor:NUIT,fontStyle:'bold'},
     body:ventil.map(function(v){ return [tvaPdf(v.taux),eurPdf(v.ht),eurPdf(v.tva)]; }),
-    foot:[['TOTAL',eurPdf(ht),eurPdf(tva)]], footStyles:{fillColor:NUIT,textColor:[255,255,255],fontStyle:'normal'}, showFoot:'lastPage'
+    foot:[['TOTAL',eurPdf(ht),eurPdf(tva)]], footStyles:{fillColor:NUIT,textColor:[255,255,255],fontStyle:'bold'}, showFoot:'lastPage'
   });
   var finG=doc.lastAutoTable.finalY;
   var lignesD=[['Total Net HTVA',eurPdf(ht),'t']].concat(ventil.map(function(v){ return ['TVA '+tvaPdf(v.taux),eurPdf(v.tva),'c']; }))
@@ -5840,8 +5840,8 @@ async function genereDevisPdf(d,o){
     body:lignesD.map(function(l){ return [l[0],l[1]]; }),
     didParseCell:function(h){
       var k=lignesD[h.row.index][2], s=h.cell.styles;
-      if(k==='t'){ s.fillColor=TAUPE; s.textColor=NUIT; }
-      else if(k==='n'){ s.fillColor=NUIT; s.textColor=[255,255,255]; }
+      if(k==='t'){ s.fontStyle='bold'; s.fillColor=TAUPE; s.textColor=NUIT; }
+      else if(k==='n'){ s.fontStyle='bold'; s.fillColor=NUIT; s.textColor=[255,255,255]; }
       else s.fillColor=[245,246,248];
     }
   });
