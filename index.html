@@ -5750,7 +5750,7 @@ async function genereDevisPdf(d,o){
   var adrC=String(o.adresseClient||'').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
   /* code postal et ville toujours sur leur propre ligne */
   adrC=[].concat.apply([],adrC.map(function(l){ var m=/^(.*\S)[\s,]+(\d{5}\s+\D.*)$/.exec(l); return m?[m[1].replace(/,$/,''),m[2]]:[l]; }));
-  var bx=W-M-78, by=41, bw=78;
+  var bx=W-M-78, by=69.8, bw=78;   /* aligné sur la ligne « Dreams Home Concept » */
   normal(9); var lignesC=[]; adrC.forEach(function(l){ lignesC=lignesC.concat(doc.splitTextToSize(l,bw-10)); });
   gras(9.5); var nomC=doc.splitTextToSize(o.client,bw-10);
   var bh=7+nomC.length*4.6+lignesC.length*4.4;
@@ -5759,11 +5759,11 @@ async function genereDevisPdf(d,o){
   normal(9); lignesC.forEach(function(l){ doc.text(l,bx+5,yy); yy+=4.4; });
 
   /* coordonnées DHC */
-  var y=Math.max(76,by+bh+6);
+  var y=76;
   gras(8.6); doc.text(ENTREPRISE.nom,M,y); y+=4.3; normal(8.4);
   [ENTREPRISE.adresse,ENTREPRISE.ville,o.email,o.tel,o.iban?'IBAN : '+o.iban:'',o.bic?'Code BIC : '+o.bic:'']
     .filter(Boolean).forEach(function(l){ doc.text(l,M,y); y+=4; });
-  y+=4;
+  y=Math.max(y,by+bh+3)+4;
   var adrCh=String(o.adresseChantier||'').split('\n').map(function(s){ return s.trim(); }).filter(Boolean).join(', ');
   if(adrCh){
     gras(8.6); var lib='Adresse du Chantier : ', wl=doc.getTextWidth(lib); doc.text(lib,M,y);
@@ -5782,9 +5782,9 @@ async function genereDevisPdf(d,o){
   var corps=[];
   exp.forEach(function(r){
     if(r.type==='chapitre'){
-      corps.push({k:'chap',c:['',{content:designationExport(r),colSpan:5},{content:'Total '+eurPdf(tot[r.id]),colSpan:2,styles:{halign:'right'}}]});
+      corps.push({k:'chap',c:['',{content:designationExport(r),colSpan:4},{content:'Total '+eurPdf(tot[r.id]),colSpan:3,styles:{halign:'right'}}]});
     } else if(r.type==='sous'){
-      corps.push({k:'sous',c:['',{content:designationExport(r),colSpan:5},{content:'Sous-total '+eurPdf(tot[r.id]),colSpan:2,styles:{halign:'right'}}]});
+      corps.push({k:'sous',c:['',{content:designationExport(r),colSpan:4},{content:'Sous-total '+eurPdf(tot[r.id]),colSpan:3,styles:{halign:'right'}}]});
     } else if(r.type==='ligne'){
       corps.push({k:'ligne',c:['',String(r.designation||''),typeMarche(r),nbPdf(nombreFr(r.qte)),r.unite||'',eurPdf(puVente(d,r)),tvaPdf(tauxDe(d,r)),eurPdf(totalLigne(d,r))]});
       if(r.detail) corps.push({k:'detail',c:['',{content:r.detail,colSpan:7}]});
@@ -5801,14 +5801,14 @@ async function genereDevisPdf(d,o){
     head:[tete], body:corps.map(function(x){ return x.c; }),
     theme:'plain', showHead:'everyPage', rowPageBreak:'avoid',
     styles:{font:'Montserrat',fontSize:7.6,textColor:ENCRE,cellPadding:{top:2.3,bottom:2.3,left:1.6,right:1.6},valign:'top',overflow:'linebreak',lineColor:[255,255,255]},
-    headStyles:{fontStyle:'normal',fontSize:7.6,cellPadding:{top:2,bottom:2.6,left:1.6,right:1.6}},
+    headStyles:{fontStyle:'bold',fontSize:7.6,cellPadding:{top:2,bottom:2.6,left:1.6,right:1.6}},
     columnStyles:{0:{cellWidth:8},2:{cellWidth:10,halign:'center'},3:{cellWidth:14,halign:'right'},4:{cellWidth:17,halign:'center'},
                   5:{cellWidth:21,halign:'right'},6:{cellWidth:11,halign:'right'},7:{cellWidth:22,halign:'right'}},
     didParseCell:function(h){
       if(h.section!=='body') return;
       var k=corps[h.row.index].k, s=h.cell.styles;
-      if(k==='chap'){ s.fillColor=NUIT; s.textColor=[255,255,255]; s.valign='middle'; s.cellPadding={top:3,bottom:3,left:1.6,right:2.2}; }
-      else if(k==='sous'){ s.fillColor=TAUPE; s.textColor=NUIT; s.valign='middle'; s.cellPadding={top:3,bottom:3,left:1.6,right:2.2}; }
+      if(k==='chap'){ s.fontStyle='bold'; s.fillColor=NUIT; s.textColor=[255,255,255]; s.valign='middle'; s.cellPadding={top:3,bottom:3,left:1.6,right:2.2}; }
+      else if(k==='sous'){ s.fontStyle='bold'; s.fillColor=TAUPE; s.textColor=NUIT; s.valign='middle'; s.cellPadding={top:3,bottom:3,left:1.6,right:2.2}; }
       else if(k==='detail'){ s.fontSize=6.8; s.textColor=GRIS; s.cellPadding={top:0,bottom:2.2,left:1.6,right:1.6}; }
     },
     didDrawCell:function(h){
