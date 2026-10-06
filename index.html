@@ -315,6 +315,15 @@ ul.coh li.ko{color:#9b2c24} ul.coh li.moyen{color:#6a5200}
 tr.eclair td{background:#fff3c4 !important;transition:background .4s}
 .badge-tva{display:inline-block;margin:3px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;background:#e3f2e6;color:#23633a;white-space:nowrap}
 .badge-tva.ko{background:#f8e1df;color:#9b2c24}
+button.badge-tva{border:0;cursor:pointer;font-family:inherit}
+button.badge-tva.neutre{background:#efe9df;color:#6b5a3e}
+.f55{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px}
+.f55 label{font-size:12px}
+.f55 input,.f55 select{width:100%}
+.f55 .verdict{grid-column:1/4;border-radius:4px;padding:7px 10px;font-weight:600;font-size:12.5px}
+.f55 .verdict.ok{background:#e6f4ea;color:#1e7b34}
+.f55 .verdict.ko{background:#fdecea;color:#b03a2e}
+@media (max-width:640px){ .f55{grid-template-columns:1fr} .f55 .verdict{grid-column:auto} }
 .badge-qp{display:inline-block;margin:2px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;background:#f3e1e1;color:#8a2f2f;vertical-align:middle}
 tr.r-note td{background:#f4f8fc;font-size:13px;color:#1f4f7a;padding-top:6px;padding-bottom:6px}
 tr.r-note .note-int{display:block;line-height:1.9}
@@ -822,6 +831,18 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
         <small class="aide-champ">Montage d'ossature et main-d'œuvre ajoutée sur une ligne : toujours en majoration du coût journalier, quelle que soit la marge du dossier.</small>
       </div>
     </div>
+
+    <hr class="separateur">
+
+    <h3 class="st">TVA à 5,5 % : performances minimales</h3>
+    <p class="note" style="margin-top:0">Une ligne à 5,5 % (isolation, fenêtre, porte d'entrée) est contrôlée avec ces seuils : pastille sur la ligne et alerte à la création du PDF.</p>
+    <div class="grille-param">
+      <div class="p-court"><label class="champ" for="s55_combles">Isolation rampants et combles</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_combles" data-s55="combles" inputmode="decimal"><span>m².K/W</span></div></div>
+      <div class="p-court"><label class="champ" for="s55_murs">Isolation murs extérieurs</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_murs" data-s55="murs" inputmode="decimal"><span>m².K/W</span></div></div>
+      <div class="p-court"><label class="champ" for="s55_ud">Porte d'entrée</label><div class="unite-champ"><span>Ud ≤</span><input type="text" id="s55_ud" data-s55="ud" inputmode="decimal"><span>W/m².K</span></div></div>
+      <div class="p-court"><label class="champ" for="s55_uw1">Fenêtres, 1re possibilité</label><div class="unite-champ"><span>Uw ≤</span><input type="text" id="s55_uw1" data-s55="uw1" inputmode="decimal"><span>et Sw ≥</span><input type="text" id="s55_sw1" data-s55="sw1" inputmode="decimal" aria-label="Sw minimal, 1re possibilité"></div></div>
+      <div class="p-court"><label class="champ" for="s55_uw2">Fenêtres, 2e possibilité</label><div class="unite-champ"><span>Uw ≤</span><input type="text" id="s55_uw2" data-s55="uw2" inputmode="decimal"><span>et Sw ≥</span><input type="text" id="s55_sw2" data-s55="sw2" inputmode="decimal" aria-label="Sw minimal, 2e possibilité"></div></div>
+    </div>
     </div>
 
     <div class="vue-param" data-vue="classement">
@@ -1042,9 +1063,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.24';
-var DATE_VERSION = '06/10/2026 22h37';   /* date et heure de livraison */
-var NOTES = 'Paramètres › À propos : « Exporter mes réglages » et « Importer des réglages » pour copier société, CGV, conditions, comptes bancaires et le reste sur un autre poste (sans les clés) ; sommaire des CGV sur une ligne par titre.';
+var VERSION = '3.25';
+var DATE_VERSION = '06/10/2026 23h25';   /* date et heure de livraison */
+var NOTES = 'TVA 5,5 % : pastille sur chaque ligne (isolation, fenêtre, porte d\'entrée), fiche « Compléter » qui calcule R et écrit le libellé type, contrôle des seuils avant le PDF, valeurs lues par l\'IA, seuils modifiables dans Prix et marges.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1100,6 +1121,7 @@ var params = {
   sbUrl:'', sbCle:'', sbAuto:false,
   devisProchain:'', devisResp:'', devisEmail:'', devisTel:'', devisIban:'', devisBic:'', devisAcomptes:'',
   devisResps:[],         /* responsables proposés dans le devis client : {nom, email, tel} */
+  seuils55:{combles:6, murs:3.7, uw1:1.3, sw1:0.3, uw2:1.7, sw2:0.36, ud:1.7},   /* TVA 5,5 % : performances minimales */
   condParts:null,   /* conditions particulières du devis client ; null = bibliothèque d'origine (COND_PARTS_DEF) */
   devisPaiements:['Virement bancaire'],   /* méthodes de paiement du devis client ; la première est la méthode par défaut */
   devisComptes:[]        /* comptes bancaires du devis client : {banque, iban, bic} ; le premier est le compte par défaut */
@@ -1172,7 +1194,7 @@ function sauveParams(){
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule,
     devisProchain:params.devisProchain, devisResp:params.devisResp, devisEmail:params.devisEmail, devisTel:params.devisTel,
-    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe, cgv:params.cgv, condParts:params.condParts
+    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe, cgv:params.cgv, condParts:params.condParts, seuils55:params.seuils55
   }));
 }
 /* copie des réglages d'un poste à l'autre : jamais les clés ni le compteur de devis */
@@ -1240,6 +1262,7 @@ function chargeParams(){
       .map(function(a){ var x={titre:String(a.titre||''), texte:String(a.texte||'')};
         if(a.nv && typeof a.nv==='object') x.nv={titre:String(a.nv.titre||''), texte:String(a.nv.texte||'')};
         if(a.ajout) x.ajout=true; if(a.suppr) x.suppr=true; return x; });
+    if(o.seuils55 && typeof o.seuils55==='object') Object.keys(params.seuils55).forEach(function(k){ var v=parseFloat(o.seuils55[k]); if(isFinite(v) && v>0) params.seuils55[k]=v; });
     if(Array.isArray(o.condParts)) params.condParts=o.condParts.filter(function(c){ return c && typeof c==='object'; })
       .map(function(c){ var x={nom:String(c.nom||''), texte:String(c.texte||''), types:Array.isArray(c.types)?c.types.filter(function(t){ return TYPES_CLIENT[t]; }):[]};
         if(typeof c.auto==='string') x.auto=c.auto; return x; });
@@ -1369,6 +1392,141 @@ function puVente(d,r){ return Math.round((puAchat(r)*coefficient(d,r) + moVente(
 function totalLigne(d,r){ return (r.type==='ligne'&&!r.option)?nombreFr(r.qte)*puVente(d,r):0; }
 function debourseLigne(r){ return (r.type==='ligne'&&!r.option)?nombreFr(r.qte)*puAchat(r)+moDeb(r):0; }
 /* Un intervenant décoché n'est plus compté : ses lignes restent visibles, grisées. */
+/* ---------------- TVA 5,5 % : performances des isolants, fenêtres et portes ---------------- */
+var FAM55={isolation:'Isolation', fenetre:'Fenêtre ou baie', porte:'Porte d\'entrée'};
+var EMPL55={combles:'Rampants et combles', murs:'Murs extérieurs'};
+function nb55(x){ var v=nombreFr(x); return v>0?v:null; }
+function fmt55(v,dec){ return v==null?'':(Math.round(v*Math.pow(10,dec||2))/Math.pow(10,dec||2)).toLocaleString('fr-FR',{maximumFractionDigits:dec||2}); }
+/* texte de la ligne et des commentaires juste dessous */
+function texte55(d,i){
+  var t=[d.lignes[i].designation||''];
+  for(var j=i+1;j<d.lignes.length && d.lignes[j].type==='texte';j++) t.push(d.lignes[j].designation||'');
+  return t.join('\n');
+}
+function famille55(t){
+  if(/porte\s*d['’ ]?\s*entr|porte\s+entr[ée]e|bloc[- ]porte\s+d['’]entr/i.test(t)) return 'porte';
+  if(/fen[êe]tre|porte[- ]fen[êe]tre|\bbaies?\b|menuiseries?\s+ext|coulissant|ch[âa]ssis|vasistas|oscillo|velux|fen[êe]tre de toit/i.test(t)) return 'fenetre';
+  if(/isol|laine|ouate|polystyr|polyur[ée]than|fibre de bois|\bPSE\b|\bPIR\b|\bPUR\b|soufflage|biofib|chanvre/i.test(t)) return 'isolation';
+  return '';
+}
+function empl55(t){
+  if(/rampant|comble|toiture|sous[- ]toiture|plafond|sarking|toit/i.test(t)) return 'combles';
+  if(/\bmurs?\b|fa[çc]ade|\bITE\b|\bITI\b|doublage|pignon/i.test(t)) return 'murs';
+  return '';
+}
+/* valeurs lues dans le texte, complétées par la fiche (r.perf) */
+function valeurs55(d,i){
+  var r=d.lignes[i], t=texte55(d,i), p=r.perf||{}, m, v={};
+  var lit=function(re){ var x=re.exec(t); return x?nb55(x[1]):null; };
+  v.r=lit(/\bR\s*(?:=|:|≥|>=)\s*(\d+(?:[.,]\d+)?)/);
+  v.lambda=lit(/(?:λ|lambda)\s*(?:=|:)?\s*(\d+[.,]\d+)/i);
+  v.epaisseur=lit(/[ée]p(?:aisseur|\.)?\s*(?:=|:|de)?\s*(\d+(?:[.,]\d+)?)\s*mm/i);
+  v.uw=lit(/\bUw\s*(?:=|:|≤|<=)?\s*(\d+(?:[.,]\d+)?)/i);
+  v.sw=lit(/\bSw\s*(?:=|:|≥|>=)?\s*(\d+(?:[.,]\d+)?)/i);
+  v.ud=lit(/\bUd\s*(?:=|:|≤|<=)?\s*(\d+(?:[.,]\d+)?)/i);
+  m=/ACERMI\s*(?:n\s*[°o]\.?\s*)?[:\s]*([0-9][0-9A-Z\/\-.]{3,})/i.exec(t); v.acermi=m?m[1].replace(/[.)]+$/,''):'';
+  ['r','lambda','epaisseur','uw','sw','ud'].forEach(function(k){ if(nb55(p[k])) v[k]=nb55(p[k]); });
+  ['acermi','marque','isolant','modele','dimensions'].forEach(function(k){ if(String(p[k]||'').trim()) v[k]=String(p[k]).trim(); });
+  v.famille=FAM55[p.famille]?p.famille:famille55(t);
+  v.emplacement=EMPL55[p.emplacement]?p.emplacement:empl55(t);
+  v.rCalcule=false;
+  if(!v.r && v.epaisseur && v.lambda){ v.r=Math.round(v.epaisseur/1000/v.lambda*100)/100; v.rCalcule=true; }
+  v.trous=/\[[^\]]{0,40}\]/.test(t);
+  return v;
+}
+/* null si la ligne n'est pas à 5,5 % ; sinon ce qui manque et ce qui ne respecte pas les seuils */
+function analyse55(d,i){
+  var r=d.lignes[i]; if(!r || r.type!=='ligne' || tauxDe(d,r)!==5.5) return null;
+  var v=valeurs55(d,i), S=params.seuils55, manque=[], ko=[];
+  if(v.famille==='isolation'){
+    if(!v.r) manque.push('R'); if(!v.acermi) manque.push('ACERMI'); if(!v.emplacement) manque.push('emplacement');
+    var mini=v.emplacement?S[v.emplacement]:null;
+    if(v.r && mini && v.r<mini-1e-9) ko.push('R '+fmt55(v.r)+' < '+fmt55(mini)+' ('+EMPL55[v.emplacement].toLowerCase()+')');
+  } else if(v.famille==='fenetre'){
+    if(!v.uw) manque.push('Uw'); if(!v.sw) manque.push('Sw');
+    if(v.uw && v.sw && !((v.uw<=S.uw1+1e-9 && v.sw>=S.sw1-1e-9) || (v.uw<=S.uw2+1e-9 && v.sw>=S.sw2-1e-9)))
+      ko.push('Uw '+fmt55(v.uw)+' / Sw '+fmt55(v.sw)+' hors seuils (Uw ≤ '+fmt55(S.uw1)+' et Sw ≥ '+fmt55(S.sw1)+', ou Uw ≤ '+fmt55(S.uw2)+' et Sw ≥ '+fmt55(S.sw2)+')');
+  } else if(v.famille==='porte'){
+    if(!v.ud) manque.push('Ud');
+    if(v.ud && v.ud>S.ud+1e-9) ko.push('Ud '+fmt55(v.ud)+' > '+fmt55(S.ud));
+  }
+  return {v:v, famille:v.famille, manque:manque, ko:ko, trous:v.trous, ok:!!v.famille && !manque.length && !ko.length && !v.trous};
+}
+function badge55(d,i){
+  var a=analyse55(d,i); if(!a) return '';
+  var cls=a.ok?'badge-tva':a.famille?'badge-tva ko':'badge-tva neutre';
+  var lib=a.ok?'✓ 5,5 % conforme':!a.famille?'5,5 % : préciser le type':a.ko.length?'5,5 % : '+a.ko[0].replace(/\s*\(.*$/,''):a.manque.length?'5,5 % : '+a.manque.join(', ')+' manquant'+(a.manque.length>1?'s':''):'5,5 % : [x] à remplir';
+  return '<button type="button" class="'+cls+'" data-a="perf55" title="Performances exigées pour la TVA à 5,5 % : cliquer pour compléter">'+echappe(lib)+'</button>';
+}
+/* libellé type, rempli avec les valeurs de la fiche ; une valeur absente reste entre crochets */
+function libelle55(f,r){
+  var x=function(v,def){ return String(v==null?'':v).trim()||'['+def+']'; }, n=function(v,dec,def){ return v?fmt55(v,dec):'['+def+']'; };
+  if(f.famille==='isolation')
+    return 'Fourniture et pose d\'isolant '+x(f.isolant,'type d\'isolant')+', '+x(f.marque,'marque, référence')+', épaisseur '+n(f.epaisseur,0,'x')+' mm, λ = '+n(f.lambda,3,'x')+' W/m.K, R = '+n(f.r,2,'x')+' m².K/W (certificat ACERMI n° '+x(f.acermi,'x')+'), surface '+n(f.surface,2,'x')+' m².';
+  if(f.famille==='fenetre')
+    return 'Fourniture et pose de '+x(f.modele,'type de menuiserie')+', '+x(f.marque,'marque, référence')+', '+x(f.dimensions,'dimensions')+', Uw = '+n(f.uw,2,'x')+' W/m².K, Sw = '+n(f.sw,2,'x')+'.';
+  return 'Fourniture et pose de '+x(f.modele,'type de porte')+', '+x(f.marque,'marque, référence')+', Ud = '+n(f.ud,2,'x')+' W/m².K.';
+}
+function fichePerf55(d,i){
+  var r=d.lignes[i], v=valeurs55(d,i), p=r.perf||{};
+  var iso=/(laine de (?:bois|verre|roche|chanvre|coton|mouton)|ouate de cellulose|fibre de bois|polystyr[èe]ne (?:expans[ée]|extrud[ée])|polystyr[èe]ne|polyur[ée]thane|li[èe]ge|chanvre)/i.exec(texte55(d,i));
+  var f={famille:v.famille||'isolation', emplacement:v.emplacement, isolant:p.isolant||(iso?iso[1].toLowerCase():''), marque:v.marque||'', modele:p.modele||'', dimensions:p.dimensions||'',
+         epaisseur:v.epaisseur, lambda:v.lambda, r:v.rCalcule?null:v.r, acermi:v.acermi, uw:v.uw, sw:v.sw, ud:v.ud,
+         surface:nb55(p.surface)||(/m²|m2/i.test(r.unite||'')?nb55(r.qte):null)};
+  var champ=function(id,lib,val,ph){ return '<label>'+lib+'<input type="text" id="f55_'+id+'" value="'+echappe(val==null?'':String(val).replace('.',','))+'" placeholder="'+(ph||'')+'"></label>'; };
+  var corps=function(){
+    var h='<label>Type de travaux<select id="f55_famille">'+Object.keys(FAM55).map(function(k){ return '<option value="'+k+'"'+(k===f.famille?' selected':'')+'>'+FAM55[k]+'</option>'; }).join('')+'</select></label>';
+    if(f.famille==='isolation'){
+      h+='<label>Emplacement<select id="f55_emplacement"><option value="">— à choisir —</option>'+Object.keys(EMPL55).map(function(k){ return '<option value="'+k+'"'+(k===f.emplacement?' selected':'')+'>'+EMPL55[k]+' (R ≥ '+fmt55(params.seuils55[k])+')</option>'; }).join('')+'</select></label>'
+        +champ('isolant','Isolant',f.isolant,'laine de bois, laine de verre…')+champ('marque','Marque, référence',f.marque,'Steico Flex 036')
+        +champ('epaisseur','Épaisseur (mm)',f.epaisseur)+champ('lambda','λ (W/m.K)',f.lambda,'0,036')
+        +champ('r','R (m².K/W), vide = calculé',f.r)+champ('acermi','N° ACERMI',f.acermi)+champ('surface','Surface (m²)',f.surface);
+    } else {
+      h+=champ('modele',f.famille==='porte'?'Type de porte':'Type de menuiserie',f.modele,f.famille==='porte'?'porte d\'entrée alu':'fenêtre PVC 2 vantaux')+champ('marque','Marque, référence',f.marque);
+      h+=f.famille==='fenetre' ? champ('dimensions','Dimensions',f.dimensions,'120 × 135')+champ('uw','Uw (W/m².K)',f.uw)+champ('sw','Sw',f.sw) : champ('ud','Ud (W/m².K)',f.ud);
+    }
+    return '<p class="note" style="margin-top:0">Ligne : « '+echappe(r.designation||'')+' ». Le libellé type est écrit sous la ligne : il sort sur le devis et dans le Commentaire de l\'export Vertuoza.</p><div class="f55">'+h+'<div class="verdict" id="f55_verdict"></div></div>';
+  };
+  var lis=function(){
+    var g=function(k){ var e=$('f55_'+k); return e?e.value:undefined; };
+    ['emplacement','isolant','marque','modele','dimensions','acermi'].forEach(function(k){ if(g(k)!==undefined) f[k]=String(g(k)).trim(); });
+    ['epaisseur','lambda','r','uw','sw','ud','surface'].forEach(function(k){ if(g(k)!==undefined) f[k]=nb55(g(k)); });
+  };
+  var rCalc=function(){ return f.r || (f.epaisseur && f.lambda ? Math.round(f.epaisseur/1000/f.lambda*100)/100 : null); };
+  var verdict=function(){
+    lis(); var S=params.seuils55, el=$('f55_verdict'), t='', ok=null;
+    if(f.famille==='isolation'){
+      var rr=rCalc();
+      if(!rr) t='Indiquez l\'épaisseur et le λ (ou R) : R sera calculé.';
+      else if(!f.emplacement) t='R = '+fmt55(rr)+' m².K/W'+(f.r?'':' (calculé : '+fmt55(f.epaisseur,0)+' ÷ 1000 ÷ '+fmt55(f.lambda,3)+')')+'. Choisissez l\'emplacement pour vérifier le seuil.';
+      else { ok=rr>=S[f.emplacement]-1e-9; t='R = '+fmt55(rr)+' m².K/W'+(f.r?'':' (calculé : '+fmt55(f.epaisseur,0)+' ÷ 1000 ÷ '+fmt55(f.lambda,3)+')')+(ok?'  ✓ seuil respecté':'  ✗ inférieur au seuil')+' ('+EMPL55[f.emplacement].toLowerCase()+' : R ≥ '+fmt55(S[f.emplacement])+')'; }
+    } else if(f.famille==='fenetre'){
+      if(!f.uw || !f.sw) t='Indiquez Uw et Sw. Seuils : Uw ≤ '+fmt55(S.uw1)+' et Sw ≥ '+fmt55(S.sw1)+', ou Uw ≤ '+fmt55(S.uw2)+' et Sw ≥ '+fmt55(S.sw2)+'.';
+      else { ok=(f.uw<=S.uw1+1e-9&&f.sw>=S.sw1-1e-9)||(f.uw<=S.uw2+1e-9&&f.sw>=S.sw2-1e-9); t='Uw = '+fmt55(f.uw)+', Sw = '+fmt55(f.sw)+(ok?'  ✓ seuils respectés':'  ✗ hors seuils (Uw ≤ '+fmt55(S.uw1)+' et Sw ≥ '+fmt55(S.sw1)+', ou Uw ≤ '+fmt55(S.uw2)+' et Sw ≥ '+fmt55(S.sw2)+')'); }
+    } else {
+      if(!f.ud) t='Indiquez Ud. Seuil : Ud ≤ '+fmt55(S.ud)+' W/m².K.';
+      else { ok=f.ud<=S.ud+1e-9; t='Ud = '+fmt55(f.ud)+' W/m².K'+(ok?'  ✓ seuil respecté':'  ✗ supérieur au seuil ('+fmt55(S.ud)+')'); }
+    }
+    el.className='verdict'+(ok===true?' ok':ok===false?' ko':''); el.textContent=t;
+  };
+  var branche=function(){
+    $('f55_famille').onchange=function(){ lis(); f.famille=this.value; $('modCorps').innerHTML=corps(); branche(); verdict(); };
+    Array.prototype.forEach.call($('modCorps').querySelectorAll('.f55 input,.f55 select'),function(x){ if(x.id!=='f55_famille') x.addEventListener('input',verdict); });
+  };
+  ouvreModale('Performances pour la TVA à 5,5 %', corps(), [
+    {lib:'Annuler', action:function(){}},
+    {lib:'Écrire le libellé', plein:true, action:function(){
+      lis(); var ff=Object.assign({},f); if(ff.famille==='isolation' && !ff.r) ff.r=rCalc();
+      memorise(d,'performances 5,5 %');
+      var perf={}; Object.keys(f).forEach(function(k){ if(f[k]!=null && f[k]!=='') perf[k]=f[k]; }); r.perf=perf;
+      var txt=libelle55(ff,r), j=-1;
+      for(var k=i+1;k<d.lignes.length && d.lignes[k].type==='texte';k++) if(d.lignes[k].perfDe===r.id){ j=k; break; }
+      if(j>-1) d.lignes[j].designation=txt;
+      else d.lignes.splice(i+1,0,nouvelleLigne('texte',{designation:txt, perfDe:r.id, intervenant:r.intervenant||'', option:!!r.option, variante:r.variante==null?null:r.variante}));
+      rendu();
+    }}]);
+  setTimeout(function(){ branche(); verdict(); },0);
+}
 function refuse(d,r){
   if(!r.intervenant || !d.retenus) return false;
   if(d.retenus[r.intervenant]===false) return true;
@@ -1891,6 +2049,7 @@ function rendu(){
         +(estLigne&&r.marge!=null&&r.marge!==''?'<span class="badge-mg" title="Marge propre à cette ligne">marge '+String(r.marge).replace('.',',')+' %</span>':'')
         +(titre&&margeFixee(r)?'<span class="badge-mg" title="Marge appliquée à toutes les lignes de ce '+(r.type==='chapitre'?'chapitre':'sous-chapitre')+', sauf celles qui ont leur propre marge">marge '+String(r.marge).replace('.',',')+' %</span>':'')
         +(estLigne&&r.mo?'<span class="badge-mo" title="Main-d\'œuvre DHC incluse dans le prix">+ MO '+eur(moDeb(r))+'</span>':'')
+        +(estLigne&&!d._lecture?badge55(d,i):'')
         +(estLigne&&!d._lecture&&!d.dpgf?'<button class="etoile'+(r.etoile?' on':'')+'" data-a="etoile" title="'+(r.etoile?'Marqué pour la bibliothèque — cliquer pour retirer':'Marquer cet ouvrage pour la bibliothèque')+'">'+(r.etoile?'★':'☆')+'</button>':'')
         +(replie?'<span class="resume">'+(refuse(d,r)?'refusé · ':'')+(r.type==='sous'&&r.variante!=null&&r.option?'non retenue · ':'')+M.nb[i]+' ligne'+(M.nb[i]>1?'s':'')+' masquée'+(M.nb[i]>1?'s':'')+'</span>':'')
         +'</div></td>'
@@ -3904,6 +4063,7 @@ $('corpsTable').addEventListener('click',function(e){
   var d=D(), id=b.closest('tr').getAttribute('data-id');
   var i=d.lignes.findIndex(function(r){return r.id===id;}); if(i<0) return;
   var a=b.getAttribute('data-a');
+  if(a==='perf55'){ fichePerf55(d,i); return; }
   if(a==='etoile'){ d.lignes[i].etoile=!d.lignes[i].etoile; if(!d.lignes[i].etoile) delete d.lignes[i].etoile; rendu(); return; }
   if(a==='haut'){ if(!deplaceVoisin(d,i,-1)) return; }
   else if(a==='bas'){ if(!deplaceVoisin(d,i,1)) return; }
@@ -5016,7 +5176,7 @@ var SYSTEME =
 "Réponds UNIQUEMENT par un objet JSON valide, sans texte autour, sans balises markdown.\n"+
 "Schéma :\n"+
 '{"entete":{"client":"","chantier":"","reference":"","date":"","intervenant":"","lot":"","nature":"","total_ht":0,"taux_tva":[],"autoliquidation":false,"surface_ossature":0,"metre_surfaces":[{"element":"","surface":0}]},'+
-'"lignes":[{"type":"ligne","designation":"","unite":"","qte":0,"pu":0},{"type":"texte","designation":""}],'+
+'"lignes":[{"type":"ligne","designation":"","unite":"","qte":0,"pu":0,"perf":{"r":0,"lambda":0,"epaisseur":0,"acermi":"","uw":0,"sw":0,"ud":0,"marque":""}},{"type":"texte","designation":""}],'+
 '"variantes":[{"nom":"","total_ht":0,"lignes":[]}]}\n'+
 "Règles :\n"+
 "- intervenant : la raison sociale de l'entreprise qui ÉMET le devis. Elle figure en TÊTE DE LA PREMIÈRE PAGE, dans l'en-tête ou le logo. Ne la cherche jamais dans les conditions de vente, les mentions légales, le RIB ou une clause de médiation.\n"+
@@ -5036,6 +5196,7 @@ var SYSTEME =
 "- Unités autorisées, à respecter à l'identique : "+UNITES.join(', ')+".\n"+
 "- Ignore en-têtes, pieds de page, mentions légales, conditions de paiement, totaux HT/TVA/TTC, RIB.\n"+
 "- qte et pu sont des nombres JSON avec le point décimal.\n"+
+"- perf : SEULEMENT pour une ligne d'isolation, de fenêtre, de baie ou de porte d'entrée, et seulement avec les valeurs imprimées sur le document : r (résistance thermique R en m².K/W), lambda (λ en W/m.K), epaisseur (en mm), acermi (numéro de certificat ACERMI), uw, sw, ud, marque (marque et référence du produit). N'invente aucune valeur ; omets perf pour toutes les autres lignes.\n"+
 "- RÉPONSE COMPACTE : pour les types chapitre, sous et texte, ne mets QUE type et designation, sans aucun autre champ. N'ajoute option que lorsqu'il vaut true. Aucun espace ni retour à la ligne superflu dans le JSON.\n"+
 "\n"+
 "DEVIS DE NÉGOCE ET DE MATÉRIAUX — ces documents ont plusieurs colonnes chiffrées d'affilée, du type :\n"+
@@ -5275,6 +5436,13 @@ function enteteLocale(t){
 }
 
 /* --------------------------- application du résultat --------------------- */
+/* valeurs de performance lues par l'IA : nombres positifs et textes courts seulement */
+function perfIA(p){
+  var o={};
+  ['r','lambda','epaisseur','uw','sw','ud'].forEach(function(k){ var v=nombreFr(p[k]); if(v>0 && v<1000) o[k]=v; });
+  ['acermi','marque'].forEach(function(k){ var v=String(p[k]||'').trim(); if(v) o[k]=v.slice(0,80); });
+  return Object.keys(o).length?o:undefined;
+}
 function convertitLignes(brut,nom){
   return (brut||[]).map(function(r){
     var t=['chapitre','sous','ligne','texte'].indexOf(r.type)>-1?r.type:'ligne';
@@ -5284,7 +5452,8 @@ function convertitLignes(brut,nom){
       qte:t==='ligne'?(nombreFr(r.qte)||0):0,
       pu:t==='ligne'?(nombreFr(r.pu)||0):0,
       option:t==='ligne'&&r.option===true,
-      mo:(t==='ligne' && r.mo && typeof r.mo==='object') ? Object.assign({},r.mo) : undefined
+      mo:(t==='ligne' && r.mo && typeof r.mo==='object') ? Object.assign({},r.mo) : undefined,
+      perf:(t==='ligne' && r.perf && typeof r.perf==='object') ? perfIA(r.perf) : undefined
     });
   }).filter(function(r){ return r.designation||r.qte||r.pu; });
 }
@@ -5991,6 +6160,14 @@ function controleCgv(o,d){
   condParts().forEach(function(c){
     if(d && condAuto(c,d,o.typeClient) && !(o.conds||[]).some(function(x){ return x.nom===c.nom; }))
       pb.push('Condition particulière « '+c.nom+' » non cochée, alors que '+REGLES_COND[regleCond(c)].lib.charAt(0).toLowerCase()+REGLES_COND[regleCond(c)].lib.slice(1)+'.');
+  });
+  /* 9. TVA 5,5 % : performances des lignes */
+  if(d) d.lignes.forEach(function(r,i){
+    if(r.type!=='ligne' || r.option || refuse(d,r)) return;
+    var a=analyse55(d,i); if(!a || a.ok) return;
+    var lib='« '+String(r.designation||'sans désignation').slice(0,60)+' » (TVA 5,5 %) : ';
+    if(!a.famille) pb.push(lib+'type de travaux à préciser (isolation, fenêtre, porte d\'entrée) pour vérifier les performances.');
+    else pb.push(lib+a.ko.concat(a.manque.length?[a.manque.join(', ')+' manquant'+(a.manque.length>1?'s':'')]:[]).concat(a.trous?['valeurs entre crochets [x] à remplir']:[]).join(' ; ')+'.');
   });
   /* 6. articles vides */
   arts.forEach(function(a,i){
@@ -6953,6 +7130,10 @@ majAideMarge();
 $('tauxMO').value=String(params.tauxMO).replace('.',',');
 $('rendMontage').value=String(params.rendMontage).replace('.',',');
 $('margeMontage').value=String(params.margeMontage).replace('.',',');
+Array.prototype.forEach.call(document.querySelectorAll('[data-s55]'),function(x){
+  var k=x.getAttribute('data-s55'); x.value=String(params.seuils55[k]).replace('.',',');
+  x.addEventListener('blur',function(){ var v=nombreFr(this.value); if(v>0){ params.seuils55[k]=v; sauveParams(); rendu(); } this.value=String(params.seuils55[k]).replace('.',','); });
+});
 var ORDRE_DEFAUT=params.ordreLots, SIGLES_DEFAUT=SIGLES_DEF, MARQUES_DEFAUT=MARQUES_DEF;
 $('sigles').value=params.sigles; $('marques').value=params.marques;
 ['sigles','marques'].forEach(function(k){ $(k).addEventListener('change',function(){ params[k]=this.value; CASSE_LISTES=null; sauveParams(); info((k==='sigles'?'Sigles':'Marques')+' enregistrés.',100,'ok'); }); });
