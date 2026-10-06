@@ -5801,7 +5801,7 @@ async function genereDevisPdf(d,o){
     head:[tete], body:corps.map(function(x){ return x.c; }),
     theme:'plain', showHead:'everyPage', rowPageBreak:'avoid',
     styles:{font:'Montserrat',fontSize:7.6,textColor:ENCRE,cellPadding:{top:2.3,bottom:2.3,left:1.6,right:1.6},valign:'top',overflow:'linebreak',lineColor:[255,255,255]},
-    headStyles:{fontStyle:'bold',fontSize:7.6,cellPadding:{top:2,bottom:2.6,left:1.6,right:1.6}},
+    headStyles:{fontStyle:'bold',fontSize:7.6,cellPadding:{top:2,bottom:5,left:1.6,right:1.6}},
     columnStyles:{0:{cellWidth:8},2:{cellWidth:10,halign:'center'},3:{cellWidth:14,halign:'right'},4:{cellWidth:17,halign:'center'},
                   5:{cellWidth:21,halign:'right'},6:{cellWidth:11,halign:'right'},7:{cellWidth:22,halign:'right'}},
     didParseCell:function(h){
@@ -5814,7 +5814,7 @@ async function genereDevisPdf(d,o){
     didDrawCell:function(h){
       if(h.section==='head' && h.column.index===0){
         doc.setDrawColor(215,215,215); doc.setLineWidth(0.25);
-        doc.line(M,h.cell.y+h.cell.height,W-M,h.cell.y+h.cell.height);
+        doc.line(M,h.cell.y+h.cell.height-2.4,W-M,h.cell.y+h.cell.height-2.4);   /* 2,4 mm d'air sous le trait */
       }
     }
   });
