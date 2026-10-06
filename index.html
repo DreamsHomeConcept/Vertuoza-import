@@ -1000,9 +1000,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.12';
-var DATE_VERSION = '06/10/2026 18h46';   /* date et heure de livraison */
-var NOTES = 'Nouveau : dans l\'onglet CGV, bouton « + » sur chaque article pour en insérer un juste en dessous (numérotation automatique), articles pliables (un par un ou « Tout replier / Tout déplier ») et bouton « Voir en PDF ».';
+var VERSION = '3.13';
+var DATE_VERSION = '06/10/2026 19h29';   /* date et heure de livraison */
+var NOTES = 'Devis PDF : « Paiement comptant à la réception de la facture », une ligne d\'espace avant les acomptes et avant les méthodes de paiement ; CGV : titre plus grand et centré sur la page, colonne de droite alignée sur l\'article 1.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6084,7 +6084,8 @@ async function genereDevisPdf(d,o,apercu){
     y+=4.6;
   };
   if(y>H-basPage-60){ doc.addPage(); y=20; }
-  ecrit('Conditions de paiements : ','Paiement comptant');
+  ecrit('Conditions de paiements : ','Paiement comptant à la réception de la facture');
+  y+=4.6;   /* une ligne d'espace avant les acomptes */
   if(o.acomptes.length){
     ecrit('Acomptes :','');
     var reste=Math.round(ttc*100)/100;
@@ -6098,6 +6099,7 @@ async function genereDevisPdf(d,o,apercu){
     });
   }
   var paie=o.paiement||'Virement bancaire';
+  y+=4.6;   /* une ligne d'espace avant les méthodes de paiement */
   ecrit('Méthodes de Paiement : ',paie);
   /* coordonnées du compte choisi, seulement pour un virement */
   if(/virement/i.test(paie) && (o.iban||o.bic||o.banque)){
@@ -6187,7 +6189,7 @@ function cgvNumeros(l){
 /* Conditions générales sur deux colonnes, en 8,5 points, sur autant de pages que nécessaire. */
 /* {ACOMPTE} reprend le premier acompte de l'échéancier (30 % ou 40 % selon le marché). */
 function pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,acompte){
-  var W=210, M=10, gout=6, cw=(W-2*M-gout)/2, haut=34, bas=284;
+  var W=210, M=10, gout=6, cw=(W-2*M-gout)/2, haut=40, bas=284;
   var paragraphes=[], so=societe();
   var med=[so.medNom, so.medAdresse, so.medTel?'Tél. '+so.medTel:'', so.medWeb].filter(Boolean).join(' — ');
   var arts=cgvArticles(), nums=cgvNumeros(arts);
@@ -6219,14 +6221,15 @@ function pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,acompte){
   for(var i=0;i<paragraphes.length;i++){
     var ls=coupe(paragraphes[i],taille);
     for(var k=0;k<ls.length;k++){
-      if(yy+ih>bas){ col++; if(col>1){ col=0; page++; } yy=(page===0&&col===0)?haut:16; }
+      if(yy+ih>bas){ col++; if(col>1){ col=0; page++; } yy=page===0?haut:16; }   /* page 1 : les deux colonnes commencent sous le titre */
       plan.push({page:page,col:col,y:yy,mots:ls[k],derniere:k===ls.length-1}); yy+=ih;
     }
     yy+=ih*0.35;
   }
   var page0=doc.getNumberOfPages();
-  gras(15); doc.setTextColor.apply(doc,ENCRE); doc.text('Conditions Générales de Ventes',M+cw/2,20,{align:'center'});
-  doc.setTextColor.apply(doc,TAUPE); doc.text(societe().nom,M+cw/2,27,{align:'center'});
+  /* titre centré sur la largeur de la page */
+  gras(20); doc.setTextColor.apply(doc,ENCRE); doc.text('Conditions Générales de Ventes',W/2,21,{align:'center'});
+  gras(17); doc.setTextColor.apply(doc,TAUPE); doc.text(societe().nom,W/2,30,{align:'center'});
   doc.setTextColor.apply(doc,ENCRE);
   plan.forEach(function(l){
     while(doc.getNumberOfPages()<page0+l.page) doc.addPage();
