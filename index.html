@@ -79,6 +79,12 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .grille-param .p-cle{flex:1 1 320px;max-width:520px}
 .grille-param .p-court{flex:0 1 220px}
 .grille-param .p-moyen{flex:0 1 270px}
+.ong-param{display:flex;gap:2px;flex-wrap:wrap;padding:10px 16px 0;border-bottom:1px solid var(--trait);background:var(--taupe-voile)}
+.ong-param button{padding:8px 12px;border:1px solid var(--trait);border-bottom:none;border-radius:3px 3px 0 0;
+  background:#EFEBE3;font-size:13px;color:var(--encre);position:relative;top:1px}
+.ong-param button:hover{background:var(--taupe-pale)}
+.ong-param button.actif{background:var(--papier);border-bottom:1px solid var(--papier);font-weight:600;color:var(--nuit)}
+.vue-param[hidden]{display:none}
 .resp-ligne{display:flex;gap:8px;align-items:center;margin-bottom:6px;max-width:780px}
 .resp-ligne input{flex:1 1 0;min-width:0}
 .unite-champ{display:flex;align-items:stretch}
@@ -692,8 +698,18 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
 
 <section class="panneau" id="secParam">
   <h2>Paramètres <span class="droite">Réglages conservés sur ce poste</span></h2>
+  <div class="ong-param" id="ongParam" role="tablist">
+    <button type="button" role="tab" data-ong="lecture">Lecture IA</button>
+    <button type="button" role="tab" data-ong="prix">Prix et marges</button>
+    <button type="button" role="tab" data-ong="classement">Classement et textes</button>
+    <button type="button" role="tab" data-ong="export">Export Vertuoza</button>
+    <button type="button" role="tab" data-ong="pdf">Devis client PDF</button>
+    <button type="button" role="tab" data-ong="partage">Partage et base de prix</button>
+    <button type="button" role="tab" data-ong="apropos">À propos</button>
+  </div>
   <div class="corps">
 
+    <div class="vue-param" data-vue="lecture">
     <h3 class="st">Lecture des devis</h3>
     <div class="grille-param">
       <div class="p-methode">
@@ -714,9 +730,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
         <small>À cocher sur votre poste : sinon la clé est oubliée à la fermeture de l'application, et l'IA ne peut plus lire les devis. À laisser décoché sur un poste partagé.</small>
       </span></label>
     <p class="note" id="noteCle"></p>
+    </div>
 
-    <hr class="separateur">
-
+    <div class="vue-param" data-vue="prix">
     <h3 class="st">Marge et TVA</h3>
     <div class="grille-param">
       <div class="p-court">
@@ -763,17 +779,24 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
         <small class="aide-champ">Montage d'ossature et main-d'œuvre ajoutée sur une ligne : toujours en majoration du coût journalier, quelle que soit la marge du dossier.</small>
       </div>
     </div>
-    <label class="champ" for="ordreLots" style="margin-top:14px">Ordre des corps d'état dans un chantier</label>
+    </div>
+
+    <div class="vue-param" data-vue="classement">
+    <h3 class="st">Ordre des corps d'état</h3>
+    <label class="champ" for="ordreLots">Ordre des corps d'état dans un chantier</label>
     <textarea id="ordreLots" rows="7" spellcheck="false" style="width:100%;font:inherit;font-size:12.5px;line-height:1.5"></textarea>
     <small class="aide-champ">Une ligne par corps d'état, dans l'ordre voulu : <b>TITRE DU CHAPITRE : mots qui le reconnaissent</b> (lot du devis, titre, nom de l'entreprise). Les devis arrivent rangés à leur place et leur chapitre prend ce titre. <button type="button" class="mini" id="ordreDefaut">Rétablir l'ordre par défaut</button></small>
-    <label class="champ" for="sigles" style="margin-top:14px">Sigles gardés en majuscules</label>
+    <hr class="separateur">
+
+    <h3 class="st">Majuscules des désignations</h3>
+    <label class="champ" for="sigles">Sigles gardés en majuscules</label>
     <textarea id="sigles" rows="3" spellcheck="false" style="width:100%;font:inherit;font-size:12.5px;line-height:1.5"></textarea>
     <label class="champ" for="marques" style="margin-top:10px">Marques gardées avec leur majuscule</label>
     <textarea id="marques" rows="3" spellcheck="false" style="width:100%;font:inherit;font-size:12.5px;line-height:1.5"></textarea>
     <small class="aide-champ">Séparés par des virgules. Les désignations importées tout en majuscules (ou mélangées) sont remises en « Majuscule puis minuscules » ; ces mots-là, les références avec chiffres (SD1500, BA13) et les accents courants du bâtiment (béton, étanchéité…) sont conservés. <button type="button" class="mini" id="casseDefaut">Rétablir les listes par défaut</button></small>
+    </div>
 
-    <hr class="separateur">
-
+    <div class="vue-param" data-vue="export">
     <h3 class="st">Mise en forme de l'export</h3>
     <label class="case"><input type="checkbox" id="optPrefixe" checked>
       <span>Numéroter les lignes dans la dénomination
@@ -791,9 +814,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <span>Ajouter le pied de totaux dans la feuille exportée
         <small>Écrit Total HT, TVA et Total TTC sous les lignes. À laisser décoché pour un import Vertuoza : l'import attend les lignes seules. À cocher pour une relecture ou un envoi client.</small>
       </span></label>
+    </div>
 
-    <hr class="separateur">
-
+    <div class="vue-param" data-vue="pdf">
     <h3 class="st">Devis client PDF</h3>
     <p class="note" style="margin-top:0">Saisis une fois ici : la fenêtre « Devis client PDF » ne demande plus que le client et les adresses.</p>
     <label class="champ">Responsables (au choix dans le devis)</label>
@@ -804,9 +827,9 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <div class="p-court"><label class="champ" for="pBic">Code BIC</label><input type="text" id="pBic" spellcheck="false"></div>
       <div class="p-moyen"><label class="champ" for="pAcomptes">Acomptes (un par ligne)</label><textarea id="pAcomptes" rows="3"></textarea></div>
     </div>
+    </div>
 
-    <hr class="separateur">
-
+    <div class="vue-param" data-vue="partage">
     <h3 class="st">Base de prix (Supabase)</h3>
     <p class="aide">Chaque devis archivé alimente l'historique des prix : désignation, unité, quantité, prix reçu, émetteur et date. Le prix enregistré est toujours le <strong>déboursé</strong>, jamais le prix marge incluse.</p>
     <div class="grille">
@@ -844,7 +867,15 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <span>Ce poste gère uniquement la bibliothèque
         <small>Avec la clé d'édition, seuls les modèles sont publiés, jamais les chantiers de ce poste. Ils arrivent automatiquement chez les autres postes comme <b>modèles de référence</b>, utilisables mais non modifiables. Renseignez aussi la clé de consultation pour suivre les chantiers en lecture seule.</small>
       </span></label>
+    </div>
 
+    <div class="vue-param" data-vue="apropos">
+    <h3 class="st">Version</h3>
+    <p class="note" id="versionParam" style="margin-top:0"></p>
+    <div class="rangee-boutons" style="margin-top:6px">
+      <button class="fant" id="btnMaj">Vérifier les mises à jour</button>
+    </div>
+    <p class="etat-sync" id="etatMaj"></p>
 
     <hr class="separateur">
 
@@ -856,17 +887,13 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <code>setDevis(d)</code>, <code>exportXlsx()</code>, <code>onChange(fn)</code>.
       En iframe, chaque modification est postée au parent sous <code>{type:'vertuoza:dossier'}</code>.
     </p>
+    </div>
   </div>
 </section>
 
   <div class="rangee-boutons">
     <button class="plein" id="btnRetour">← Revenir aux devis</button>
   </div>
-  <p class="note" id="versionParam" style="margin-top:14px"></p>
-  <div class="rangee-boutons" style="margin-top:6px">
-    <button class="fant" id="btnMaj">Vérifier les mises à jour</button>
-  </div>
-  <p class="etat-sync" id="etatMaj"></p>
 
 </div><!-- /pageParam -->
 
@@ -935,9 +962,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.93';
-var DATE_VERSION = '05/10/2026 23h56';   /* date et heure de livraison */
-var NOTES = 'Nouveau : bouton « → Passer en devis client » dans un dossier en consolidation (copie à côté, consolidation intacte) ; fenêtre « Devis client PDF » allégée : responsable au choix dans une liste, coordonnées, IBAN et acomptes saisis une fois dans Paramètres.';
+var VERSION = '2.94';
+var DATE_VERSION = '06/10/2026 09h50';   /* date et heure de livraison */
+var NOTES = 'Nouveau : la page Paramètres est rangée en onglets (Lecture IA, Prix et marges, Classement et textes, Export Vertuoza, Devis client PDF, Partage et base de prix, À propos) ; aucun réglage ne change.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4101,6 +4128,20 @@ function versDevisClient(){
 }
 $('btnVersClient').onclick=versDevisClient;
 
+/* ------------------------ onglets des paramètres ------------------------- */
+var CLE_ONG_PARAM='dhc_vertuoza_ongparam'+ESPACE, ongletParamActif='lecture';
+function ongletParam(id){
+  if(!document.querySelector('.vue-param[data-vue="'+id+'"]')) id='lecture';
+  ongletParamActif=id;
+  Array.prototype.forEach.call(document.querySelectorAll('.vue-param'),function(v){ v.hidden = v.getAttribute('data-vue')!==id; });
+  Array.prototype.forEach.call(document.querySelectorAll('#ongParam button'),function(b){
+    var on=b.getAttribute('data-ong')===id; b.classList.toggle('actif',on); b.setAttribute('aria-selected',on?'true':'false');
+  });
+  ecrisStockage(CLE_ONG_PARAM,id);
+}
+$('ongParam').onclick=function(e){ var b=e.target.closest('button[data-ong]'); if(b) ongletParam(b.getAttribute('data-ong')); };
+ongletParam(lisStockage(CLE_ONG_PARAM)||'lecture');
+
 /* --------------------------- navigation 2 pages -------------------------- */
 function montre(page){
   var param = page==='parametres', ch = page==='chantiers', bi = page==='bibliotheque', autre = param||ch||bi;
@@ -4116,7 +4157,7 @@ function montre(page){
   $('btnParam').textContent = param?'Revenir aux devis':'Paramètres';
   $('btnChantiers').textContent = ch?'Revenir aux devis':(modeConsultation()?'Chantiers':'Mes chantiers');
   window.scrollTo(0,0);
-  if(param) setTimeout(function(){ $('cle').focus(); },60);
+  if(param && ongletParamActif==='lecture') setTimeout(function(){ $('cle').focus(); },60);
   if(ch) renduChantiers();
   if(!autre) ajusteToutes();
 }
@@ -4454,7 +4495,7 @@ async function traiteLot(liste){
         +(sansCle ? ' Renseignez la clé API de ce poste, puis déposez à nouveau le devis. ' : ' '),
         100,'err');
     var bp=document.createElement('button'); bp.className='mini'; bp.textContent='Ouvrir les paramètres';
-    bp.onclick=function(){ location.hash='#parametres'; };
+    bp.onclick=function(){ ongletParam('lecture'); location.hash='#parametres'; };
     $('etatTexte').appendChild(bp);
   } else {
     info(tete+nb+(st?' lignes ajoutées.':' lignes au total.')
