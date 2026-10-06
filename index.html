@@ -87,6 +87,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .vue-param[hidden]{display:none}
 .resp-ligne{display:flex;gap:8px;align-items:center;margin-bottom:6px;max-width:780px}
 .resp-ligne input{flex:1 1 0;min-width:0}
+.resp-ligne input.iban{flex:2 1 0}
+.resp-ligne .defaut{font-size:11.5px;color:var(--taupe-fonce);white-space:nowrap;min-width:92px;text-align:center}
 .unite-champ{display:flex;align-items:stretch}
 .unite-champ input{flex:1;min-width:0;text-align:right;border-radius:2px 0 0 2px}
 .unite-champ span{display:flex;align-items:center;padding:0 10px;border:1px solid var(--trait);border-left:none;border-radius:0 2px 2px 0;
@@ -822,9 +824,10 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <label class="champ">Responsables (au choix dans le devis)</label>
     <div id="respListe"></div>
     <p style="margin:6px 0 12px"><button type="button" class="mini" id="respAjout">+ Ajouter un responsable</button></p>
+    <label class="champ">Comptes bancaires (le premier est proposé par défaut dans le devis)</label>
+    <div id="compteListe"></div>
+    <p style="margin:6px 0 12px"><button type="button" class="mini" id="compteAjout">+ Ajouter un compte bancaire</button></p>
     <div class="grille-param">
-      <div class="p-moyen"><label class="champ" for="pIban">IBAN</label><input type="text" id="pIban" spellcheck="false"></div>
-      <div class="p-court"><label class="champ" for="pBic">Code BIC</label><input type="text" id="pBic" spellcheck="false"></div>
       <div class="p-moyen"><label class="champ" for="pAcomptes">Acomptes (un par ligne)</label><textarea id="pAcomptes" rows="3"></textarea></div>
     </div>
     </div>
@@ -962,9 +965,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.03';
-var DATE_VERSION = '06/10/2026 13h05';   /* date et heure de livraison */
-var NOTES = 'Contrôle de cohérence : « Voir le devis » ouvre le devis client PDF dans un nouvel onglet, tel qu\'il partira, sans rien enregistrer ni consommer de numéro.';
+var VERSION = '3.04';
+var DATE_VERSION = '06/10/2026 13h14';   /* date et heure de livraison */
+var NOTES = 'Nouveau : plusieurs comptes bancaires dans Paramètres › Devis client PDF (banque, IBAN, BIC ; le premier est le compte par défaut), au choix dans la fenêtre « Devis client PDF », et le nom de la banque figure sur le devis.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1019,7 +1022,8 @@ var params = {
   margeMode:'majoration',
   sbUrl:'', sbCle:'', sbAuto:false,
   devisProchain:'', devisResp:'', devisEmail:'', devisTel:'', devisIban:'', devisBic:'', devisAcomptes:'',
-  devisResps:[]          /* responsables proposés dans le devis client : {nom, email, tel} */
+  devisResps:[],         /* responsables proposés dans le devis client : {nom, email, tel} */
+  devisComptes:[]        /* comptes bancaires du devis client : {banque, iban, bic} ; le premier est le compte par défaut */
 };
 var dossier = [];      /* liste de devis */
 var actif = 0;
@@ -1089,7 +1093,7 @@ function sauveParams(){
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule,
     devisProchain:params.devisProchain, devisResp:params.devisResp, devisEmail:params.devisEmail, devisTel:params.devisTel,
-    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps
+    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes
   }));
 }
 function chargeParams(){
@@ -1122,6 +1126,11 @@ function chargeParams(){
     /* poste réglé en 2.91 : son responsable unique devient le premier de la liste */
     if(!params.devisResps.length && params.devisResp.trim())
       params.devisResps=[{nom:params.devisResp.trim(), email:params.devisEmail, tel:params.devisTel}];
+    if(Array.isArray(o.devisComptes)) params.devisComptes=o.devisComptes.filter(function(c){ return c && typeof c==='object'; })
+      .map(function(c){ return {banque:String(c.banque||''), iban:String(c.iban||''), bic:String(c.bic||'')}; });
+    /* poste réglé avant 3.04 : son IBAN unique devient le premier compte */
+    if(!params.devisComptes.length && (params.devisIban.trim()||params.devisBic.trim()))
+      params.devisComptes=[{banque:'', iban:params.devisIban.trim(), bic:params.devisBic.trim()}];
   }catch(e){}
 }
 function chargeCle(){
@@ -5684,7 +5693,8 @@ function dialogueDevisPdf(force){
   if(!resps.some(function(r){ return r.nom===choisi; })) choisi=resps.length?resps[0].nom:'';
   var manque=[];
   if(!resps.length) manque.push('les responsables');
-  if(!params.devisIban) manque.push('l\'IBAN');
+  var comptes=comptesDevis(), compteChoisi=compteDevis(e);
+  if(!comptes.length) manque.push('le compte bancaire');
   var corps='<div class="grille">'
     +champ('pdNum','N° du devis',e.numero||prochainNumero())
     +champ('pdDate','Date',e.date||aujourdhuiFr(),'jj/mm/aaaa')
@@ -5693,19 +5703,22 @@ function dialogueDevisPdf(force){
     +'</select></div>'
     +champ('pdClient','Client',e.client,'Mme. Prénom NOM')
     +champ('pdRef','Référence (nom du chantier)',e.chantier)
-    +'<div></div>'
+    +'<div><label class="champ" for="pdCompte">Compte bancaire</label><select id="pdCompte">'
+    +(comptes.length?comptes.map(function(c,i){ return '<option value="'+i+'"'+(c===compteChoisi?' selected':'')+'>'+echappe(libCompte(c))+(i===0?' (par défaut)':'')+'</option>'; }).join(''):'<option value="">—</option>')
+    +'</select></div>'
     +zone('pdAdrClient','Adresse du client',e.adresseClient,'Numéro et rue\nCode postal VILLE')
     +zone('pdAdrChantier','Adresse du chantier',e.adresseChantier,'Vide : même adresse que le client')
     +'</div>'
     +(manque.length?'<p class="note" style="color:#8a5a00">À compléter une fois dans Paramètres › Devis client PDF : '+manque.join(' et ')+'.</p>':'')
-    +'<p class="note">Le numéro suivant est proposé automatiquement. Coordonnées, IBAN et acomptes viennent des Paramètres. Les conditions générales de vente sont ajoutées en dernière page.</p>';
+    +'<p class="note">Le numéro suivant est proposé automatiquement. Coordonnées, comptes bancaires et acomptes viennent des Paramètres. Les conditions générales de vente sont ajoutées en dernière page.</p>';
   var v=function(id){ return String($(id).value||'').trim(); };
   var lisForm=function(){
     var r=resps.find(function(x){ return x.nom===v('pdResp'); })||{nom:'',email:'',tel:''};
+    var c=comptes[+v('pdCompte')]||comptes[0]||{banque:'',iban:'',bic:''};
     return {numero:v('pdNum'), date:v('pdDate'), client:v('pdClient'), reference:v('pdRef'),
             adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'),
             acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
-            resp:r.nom, email:r.email, tel:r.tel, iban:params.devisIban, bic:params.devisBic};
+            resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic};
   };
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
     {lib:'Annuler', action:function(){}},
@@ -5718,7 +5731,7 @@ function dialogueDevisPdf(force){
       if(o.resp){ params.devisResp=o.resp; sauveParams(); }
       if(!d._lecture){
         d.entete.numero=o.numero; d.entete.date=o.date; d.entete.client=o.client; d.entete.chantier=o.reference;
-        d.entete.adresseClient=o.adresseClient; d.entete.adresseChantier=v('pdAdrChantier'); d.entete.responsable=o.resp;
+        d.entete.adresseClient=o.adresseClient; d.entete.adresseChantier=v('pdAdrChantier'); d.entete.responsable=o.resp; d.entete.compteIban=o.iban;
         if(d===D()){ $('fClient').value=o.client; $('fChantier').value=o.reference; $('fDate').value=o.date; }
         diffuse();
       }
@@ -5752,10 +5765,21 @@ function apercuDevisPdf(d,o){
 function optionsDevisPdf(d){
   var e=d.entete||{}, resps=params.devisResps.filter(function(r){ return r.nom; });
   var r=resps.find(function(x){ return x.nom===(e.responsable||params.devisResp); })||resps[0]||{nom:'',email:'',tel:''};
+  var c=compteDevis(e)||{banque:'',iban:'',bic:''};
   return {numero:e.numero||prochainNumero(), date:e.date||aujourdhuiFr(), client:e.client||'', reference:e.chantier||'',
           adresseClient:e.adresseClient||'', adresseChantier:e.adresseChantier||e.adresseClient||'',
           acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
-          resp:r.nom, email:r.email, tel:r.tel, iban:params.devisIban, bic:params.devisBic};
+          resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic};
+}
+/* comptes bancaires renseignés ; celui du devis (retenu à la création du PDF), sinon le premier */
+function comptesDevis(){ return params.devisComptes.filter(function(c){ return c.iban||c.banque; }); }
+function compteDevis(e){
+  var l=comptesDevis(), iban=(e&&e.compteIban)||'';
+  return (iban && l.find(function(c){ return c.iban===iban; })) || l[0] || null;
+}
+function libCompte(c){
+  var fin=String(c.iban||'').replace(/\s+/g,'').slice(-4);
+  return (c.banque||'Compte')+(fin?' — •••• '+fin:'');
 }
 
 function eurPdf(n){ return eur(Math.round((isFinite(n)?n:0)*100)/100).replace(/[  ]/g,' '); }
@@ -5802,7 +5826,7 @@ async function genereDevisPdf(d,o,apercu){
   /* coordonnées DHC */
   var y=76;
   gras(8.6); doc.text(ENTREPRISE.nom,M,y); y+=4.3; normal(8.4);
-  [ENTREPRISE.adresse,ENTREPRISE.ville,o.email,o.tel,o.iban?'IBAN : '+o.iban:'',o.bic?'Code BIC : '+o.bic:'']
+  [ENTREPRISE.adresse,ENTREPRISE.ville,o.email,o.tel,o.banque?'Banque : '+o.banque:'',o.iban?'IBAN : '+o.iban:'',o.bic?'Code BIC : '+o.bic:'']
     .filter(Boolean).forEach(function(l){ doc.text(l,M,y); y+=4; });
   y=Math.max(y,by+bh+3)+4;
   var adrCh=String(o.adresseChantier||'').split('\n').map(function(s){ return s.trim(); }).filter(Boolean).join(', ');
@@ -6478,9 +6502,38 @@ $('respAjout').onclick=function(){
   params.devisResps.push({nom:'',email:'',tel:''}); renduResps();
   var ch=$('respListe').querySelectorAll('input[data-k="nom"]'); ch[ch.length-1].focus();
 };
-$('pIban').value=params.devisIban; $('pBic').value=params.devisBic; $('pAcomptes').value=params.devisAcomptes||ACOMPTES_DEF;
-$('pIban').addEventListener('change',function(){ params.devisIban=this.value.trim(); sauveParams(); });
-$('pBic').addEventListener('change',function(){ params.devisBic=this.value.trim(); sauveParams(); });
+/* comptes bancaires : le premier est le compte par défaut ; devisIban/devisBic suivent le premier (compatibilité) */
+function sauveComptes(){
+  var p=params.devisComptes[0]||{iban:'',bic:''};
+  params.devisIban=p.iban; params.devisBic=p.bic; sauveParams();
+}
+function renduComptes(){
+  var l=params.devisComptes;
+  $('compteListe').innerHTML=l.length ? l.map(function(c,i){
+    return '<div class="resp-ligne">'
+      +'<input type="text" data-c="'+i+'" data-k="banque" placeholder="Nom de la banque" aria-label="Banque" value="'+echappe(c.banque)+'">'
+      +'<input type="text" class="iban" data-c="'+i+'" data-k="iban" placeholder="IBAN" aria-label="IBAN" spellcheck="false" value="'+echappe(c.iban)+'">'
+      +'<input type="text" data-c="'+i+'" data-k="bic" placeholder="Code BIC" aria-label="Code BIC" spellcheck="false" value="'+echappe(c.bic)+'">'
+      +(i===0?'<span class="defaut">par défaut</span>':'<button type="button" class="mini defaut" data-compte-defaut="'+i+'" title="Proposer ce compte en premier dans les devis">Mettre par défaut</button>')
+      +'<button type="button" class="mini" data-compte-suppr="'+i+'" title="Retirer ce compte">✕</button></div>';
+  }).join('') : '<p class="note" style="margin:0 0 4px">Aucun compte : ajoutez-en au moins un.</p>';
+}
+renduComptes();
+$('compteListe').addEventListener('change',function(e){
+  var t=e.target, i=+t.getAttribute('data-c'), k=t.getAttribute('data-k');
+  if(!k || !params.devisComptes[i]) return;
+  params.devisComptes[i][k]=t.value.trim(); sauveComptes();
+});
+$('compteListe').addEventListener('click',function(e){
+  var b=e.target.closest('[data-compte-suppr]'), m=e.target.closest('[data-compte-defaut]');
+  if(b){ params.devisComptes.splice(+b.getAttribute('data-compte-suppr'),1); sauveComptes(); renduComptes(); }
+  else if(m){ var c=params.devisComptes.splice(+m.getAttribute('data-compte-defaut'),1)[0]; params.devisComptes.unshift(c); sauveComptes(); renduComptes(); }
+});
+$('compteAjout').onclick=function(){
+  params.devisComptes.push({banque:'',iban:'',bic:''}); renduComptes();
+  var ch=$('compteListe').querySelectorAll('input[data-k="banque"]'); ch[ch.length-1].focus();
+};
+$('pAcomptes').value=params.devisAcomptes||ACOMPTES_DEF;
 $('pAcomptes').addEventListener('change',function(){ params.devisAcomptes=this.value.trim(); if(!params.devisAcomptes) this.value=ACOMPTES_DEF; sauveParams(); });
 $('sbUrl').value=params.sbUrl; $('sbCle').value=params.sbCle; $('sbAuto').checked=params.sbAuto;
 majEtatSb();
