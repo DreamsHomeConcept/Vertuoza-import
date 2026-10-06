@@ -5808,7 +5808,7 @@ async function genereDevisPdf(d,o){
       if(h.section!=='body') return;
       var k=corps[h.row.index].k, s=h.cell.styles;
       if(k==='chap'){ s.fontStyle='bold'; s.fillColor=NUIT; s.textColor=[255,255,255]; s.valign='middle'; s.cellPadding={top:3,bottom:3,left:1.6,right:2.2}; }
-      else if(k==='sous'){ s.fontStyle='bold'; s.fillColor=TAUPE; s.textColor=[255,255,255]; s.valign='middle'; s.cellPadding={top:3,bottom:3,left:1.6,right:2.2}; }
+      else if(k==='sous'){ s.fontStyle='bold'; s.fillColor=TAUPE; s.textColor=NUIT; s.valign='middle'; s.cellPadding={top:3,bottom:3,left:1.6,right:2.2}; }
       else if(k==='detail'){ s.fontSize=6.8; s.textColor=GRIS; s.cellPadding={top:0,bottom:2.2,left:1.6,right:1.6}; }
     },
     didDrawCell:function(h){
@@ -5827,7 +5827,7 @@ async function genereDevisPdf(d,o){
   window.autoTable(doc,{
     startY:y, margin:{left:50,right:W-130}, tableWidth:80, theme:'plain', styles:styleT,
     columnStyles:{0:{cellWidth:22},1:{cellWidth:29},2:{cellWidth:29}},
-    head:[['Taux TVA','Base HT','Total TVA']], headStyles:{fillColor:TAUPE,textColor:[255,255,255],fontStyle:'bold'},
+    head:[['Taux TVA','Base HT','Total TVA']], headStyles:{fillColor:TAUPE,textColor:NUIT,fontStyle:'bold'},
     body:ventil.map(function(v){ return [tvaPdf(v.taux),eurPdf(v.ht),eurPdf(v.tva)]; }),
     foot:[['TOTAL',eurPdf(ht),eurPdf(tva)]], footStyles:{fillColor:NUIT,textColor:[255,255,255],fontStyle:'bold'}, showFoot:'lastPage'
   });
@@ -5840,7 +5840,7 @@ async function genereDevisPdf(d,o){
     body:lignesD.map(function(l){ return [l[0],l[1]]; }),
     didParseCell:function(h){
       var k=lignesD[h.row.index][2], s=h.cell.styles;
-      if(k==='t'){ s.fontStyle='bold'; s.fillColor=TAUPE; s.textColor=[255,255,255]; }
+      if(k==='t'){ s.fontStyle='bold'; s.fillColor=TAUPE; s.textColor=NUIT; }
       else if(k==='n'){ s.fontStyle='bold'; s.fillColor=NUIT; s.textColor=[255,255,255]; }
       else s.fillColor=[245,246,248];
     }
