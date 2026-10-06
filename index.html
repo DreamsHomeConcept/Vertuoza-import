@@ -962,8 +962,8 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.02';
-var DATE_VERSION = '06/10/2026 12h54';   /* date et heure de livraison */
+var VERSION = '3.03';
+var DATE_VERSION = '06/10/2026 13h05';   /* date et heure de livraison */
 var NOTES = 'Contrôle de cohérence : « Voir le devis » ouvre le devis client PDF dans un nouvel onglet, tel qu\'il partira, sans rien enregistrer ni consommer de numéro.';
 /* =================================================================== */
 (function(){
@@ -5933,7 +5933,7 @@ async function genereDevisPdf(d,o,apercu){
     }
     normal(8.6); doc.text('Page '+p+'/'+nbPages,W-M,H-8,{align:'right'});
   }
-  var nom=('Devis '+o.numero+(o.reference?' - '+o.reference:'')).replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,90)+'.pdf';
+  var nom=(o.numero+(o.client?' '+o.client:''))   /* ex. « 2026-209 Mr Collet Jean Marc.pdf » */.replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,90)+'.pdf';
   if(apercu) return doc.output('bloburl');
   doc.save(nom);
   return nom;
