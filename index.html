@@ -965,9 +965,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.04';
-var DATE_VERSION = '06/10/2026 13h14';   /* date et heure de livraison */
-var NOTES = 'Nouveau : plusieurs comptes bancaires dans Paramètres › Devis client PDF (banque, IBAN, BIC ; le premier est le compte par défaut), au choix dans la fenêtre « Devis client PDF », et le nom de la banque figure sur le devis.';
+var VERSION = '3.05';
+var DATE_VERSION = '06/10/2026 13h34';   /* date et heure de livraison */
+var NOTES = 'Devis client PDF : champ « Date de démarrage du chantier » avec calendrier ; si rempli, la date figure en haut du devis, sinon rien.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -5678,6 +5678,9 @@ function lisAcomptes(txt){
   }).filter(function(a){ return a && a.pc>0; });
 }
 
+/* date du calendrier (aaaa-mm-jj) <-> date affichée sur le devis (jj/mm/aaaa) */
+function frDate(iso){ var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||''); return m?m[3]+'/'+m[2]+'/'+m[1]:String(iso||''); }
+function isoDate(fr){ var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(fr||''); return m?m[3]+'-'+m[2]+'-'+m[1]:(/^\d{4}-\d{2}-\d{2}$/.test(fr||'')?fr:''); }
 function dialogueDevisPdf(force){
   var d=D();
   if(!d || !lignesExport(d).some(function(r){ return r.type==='ligne'; })){ alert('Aucune ligne chiffrée à mettre dans le devis.'); return; }
@@ -5708,6 +5711,7 @@ function dialogueDevisPdf(force){
     +'</select></div>'
     +zone('pdAdrClient','Adresse du client',e.adresseClient,'Numéro et rue\nCode postal VILLE')
     +zone('pdAdrChantier','Adresse du chantier',e.adresseChantier,'Vide : même adresse que le client')
+    +'<div><label class="champ" for="pdDemarrage">Date de démarrage du chantier</label><input type="date" id="pdDemarrage" value="'+echappe(isoDate(e.demarrage))+'" title="Vide : rien sur le devis"></div>'
     +'</div>'
     +(manque.length?'<p class="note" style="color:#8a5a00">À compléter une fois dans Paramètres › Devis client PDF : '+manque.join(' et ')+'.</p>':'')
     +'<p class="note">Le numéro suivant est proposé automatiquement. Coordonnées, comptes bancaires et acomptes viennent des Paramètres. Les conditions générales de vente sont ajoutées en dernière page.</p>';
@@ -5716,7 +5720,7 @@ function dialogueDevisPdf(force){
     var r=resps.find(function(x){ return x.nom===v('pdResp'); })||{nom:'',email:'',tel:''};
     var c=comptes[+v('pdCompte')]||comptes[0]||{banque:'',iban:'',bic:''};
     return {numero:v('pdNum'), date:v('pdDate'), client:v('pdClient'), reference:v('pdRef'),
-            adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'),
+            adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'), demarrage:frDate(v('pdDemarrage')),
             acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
             resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic};
   };
@@ -5731,7 +5735,7 @@ function dialogueDevisPdf(force){
       if(o.resp){ params.devisResp=o.resp; sauveParams(); }
       if(!d._lecture){
         d.entete.numero=o.numero; d.entete.date=o.date; d.entete.client=o.client; d.entete.chantier=o.reference;
-        d.entete.adresseClient=o.adresseClient; d.entete.adresseChantier=v('pdAdrChantier'); d.entete.responsable=o.resp; d.entete.compteIban=o.iban;
+        d.entete.adresseClient=o.adresseClient; d.entete.adresseChantier=v('pdAdrChantier'); d.entete.responsable=o.resp; d.entete.compteIban=o.iban; d.entete.demarrage=o.demarrage;
         if(d===D()){ $('fClient').value=o.client; $('fChantier').value=o.reference; $('fDate').value=o.date; }
         diffuse();
       }
@@ -5810,6 +5814,7 @@ async function genereDevisPdf(d,o,apercu){
   droite('Référence : ',o.reference||'—',28);
   droite('Date : ',o.date||aujourdhuiFr(),32.5);
   if(o.resp) droite('Responsable : ',o.resp,37);
+  if(o.demarrage) droite('Démarrage du chantier : ',o.demarrage,o.resp?41.5:37);   /* vide : rien sur le devis */
 
   /* cadre client */
   var adrC=String(o.adresseClient||'').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
