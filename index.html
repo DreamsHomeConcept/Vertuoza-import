@@ -962,9 +962,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '2.99';
-var DATE_VERSION = '06/10/2026 10h52';   /* date et heure de livraison */
-var NOTES = 'Contrôle de cohérence : nouveau bouton « Voir le devis » qui ferme la fenêtre et ouvre le tableau sur la première ligne à problème.';
+var VERSION = '3.00';
+var DATE_VERSION = '06/10/2026 11h47';   /* date et heure de livraison */
+var NOTES = 'Devis client PDF : bouton « Aperçu » qui ouvre le PDF tel qu\'il partira au client, dans un nouvel onglet, sans rien enregistrer ni consommer de numéro.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -5700,15 +5700,32 @@ function dialogueDevisPdf(force){
     +'</div>'
     +(manque.length?'<p class="note" style="color:#8a5a00">À compléter une fois dans Paramètres › Devis client PDF : '+manque.join(' et ')+'.</p>':'')
     +'<p class="note">Le numéro suivant est proposé automatiquement. Coordonnées, IBAN et acomptes viennent des Paramètres. Les conditions générales de vente sont ajoutées en dernière page.</p>';
+  var v=function(id){ return String($(id).value||'').trim(); };
+  var lisForm=function(){
+    var r=resps.find(function(x){ return x.nom===v('pdResp'); })||{nom:'',email:'',tel:''};
+    return {numero:v('pdNum'), date:v('pdDate'), client:v('pdClient'), reference:v('pdRef'),
+            adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'),
+            acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
+            resp:r.nom, email:r.email, tel:r.tel, iban:params.devisIban, bic:params.devisBic};
+  };
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
     {lib:'Annuler', action:function(){}},
+    /* Aperçu : le PDF tel qu'il partira, dans un nouvel onglet ; rien n'est enregistré, aucun numéro consommé */
+    {lib:'Aperçu', action:function(){
+      var onglet=window.open('','_blank');
+      if(onglet) onglet.document.title='Aperçu du devis…';
+      info('Préparation de l\'aperçu…',40);
+      genereDevisPdf(d,lisForm(),true).then(function(url){
+        if(onglet) onglet.location.href=url; else window.open(url,'_blank');
+        info('Aperçu ouvert dans un nouvel onglet — rien n\'a été enregistré.',100,'ok');
+      },function(err){
+        if(onglet) onglet.close();
+        info('Aperçu impossible : '+(err&&err.message||err)+'. Vérifiez la connexion internet puis réessayez.',0,'err');
+      });
+      return false;
+    }},
     {lib:'Créer le PDF', plein:true, action:function(){
-      var v=function(id){ return String($(id).value||'').trim(); };
-      var r=resps.find(function(x){ return x.nom===v('pdResp'); })||{nom:'',email:'',tel:''};
-      var o={numero:v('pdNum'), date:v('pdDate'), client:v('pdClient'), reference:v('pdRef'),
-             adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'),
-             acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
-             resp:r.nom, email:r.email, tel:r.tel, iban:params.devisIban, bic:params.devisBic};
+      var o=lisForm();
       if(!o.numero){ alert('Indiquez le numéro du devis.'); $('pdNum').focus(); return false; }
       if(!o.client){ alert('Indiquez le nom du client.'); $('pdClient').focus(); return false; }
       if(o.resp){ params.devisResp=o.resp; sauveParams(); }
@@ -5734,7 +5751,7 @@ function eurPdf(n){ return eur(Math.round((isFinite(n)?n:0)*100)/100).replace(/[
 function nbPdf(n){ return (isFinite(n)?n:0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/[  ]/g,' '); }
 function tvaPdf(t){ return String(t).replace('.',',')+'%'; }
 
-async function genereDevisPdf(d,o){
+async function genereDevisPdf(d,o,apercu){
   await chargeLibsPdf();
   var J=window.jspdf.jsPDF, doc=new J({unit:'mm',format:'a4',compress:true});
   doc.addFileToVFS('Montserrat-Regular.ttf',RES_PDF.policeNormale); doc.addFont('Montserrat-Regular.ttf','Montserrat','normal');
@@ -5906,6 +5923,7 @@ async function genereDevisPdf(d,o){
     normal(8.6); doc.text('Page '+p+'/'+nbPages,W-M,H-8,{align:'right'});
   }
   var nom=('Devis '+o.numero+(o.reference?' - '+o.reference:'')).replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,90)+'.pdf';
+  if(apercu) return doc.output('bloburl');
   doc.save(nom);
   return nom;
 }
