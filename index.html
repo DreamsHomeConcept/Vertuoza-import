@@ -317,6 +317,10 @@ tr.eclair td{background:#fff3c4 !important;transition:background .4s}
 .badge-tva.ko{background:#f8e1df;color:#9b2c24}
 button.badge-tva{border:0;cursor:pointer;font-family:inherit}
 button.badge-tva.neutre{background:#efe9df;color:#6b5a3e}
+.explic55{margin:12px 0 0;border:1px solid var(--trait);border-radius:4px;padding:8px 12px;background:#fcfaf6;font-size:13px;line-height:1.5;max-width:900px}
+.explic55 summary{cursor:pointer;font-weight:600}
+.explic55 p{margin:8px 0 4px}
+.explic55 ul{margin:2px 0 4px;padding-left:20px}
 .f55{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px}
 .f55 label{font-size:12px}
 .f55 input,.f55 select{width:100%}
@@ -843,6 +847,30 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <div class="p-court"><label class="champ" for="s55_uw1">Fenêtres, 1re possibilité</label><div class="unite-champ"><span>Uw ≤</span><input type="text" id="s55_uw1" data-s55="uw1" inputmode="decimal"><span>et Sw ≥</span><input type="text" id="s55_sw1" data-s55="sw1" inputmode="decimal" aria-label="Sw minimal, 1re possibilité"></div></div>
       <div class="p-court"><label class="champ" for="s55_uw2">Fenêtres, 2e possibilité</label><div class="unite-champ"><span>Uw ≤</span><input type="text" id="s55_uw2" data-s55="uw2" inputmode="decimal"><span>et Sw ≥</span><input type="text" id="s55_sw2" data-s55="sw2" inputmode="decimal" aria-label="Sw minimal, 2e possibilité"></div></div>
     </div>
+    <details class="explic55">
+      <summary>Comprendre R et U</summary>
+      <p>Il y a deux familles : <b>R</b> mesure la capacité d'un isolant à freiner la chaleur, <b>U</b> mesure la chaleur qui s'échappe à travers une paroi.</p>
+      <p><b>R : la résistance thermique (isolants)</b></p>
+      <ul>
+        <li>Unité : m².K/W.</li>
+        <li>Plus R est élevé, mieux on isole.</li>
+        <li>Il se calcule ainsi : R = épaisseur (en mètres) ÷ λ.</li>
+        <li>λ (lambda), la conductivité du matériau, figure sur la fiche technique : plus il est bas, plus le matériau est isolant.</li>
+      </ul>
+      <p><b>U : la transmission thermique (fenêtres, portes)</b></p>
+      <ul>
+        <li>Unité : W/m².K. C'est la chaleur perdue à travers 1 m² de paroi.</li>
+        <li>Plus U est bas, mieux on isole.</li>
+        <li>La lettre qui suit dit de quoi on parle :
+          <ul>
+            <li>Uw (window) : la fenêtre complète, cadre et vitrage ;</li>
+            <li>Ug (glass) : le vitrage seul ;</li>
+            <li>Uf (frame) : le cadre seul ;</li>
+            <li>Ud (door) : la porte.</li>
+          </ul></li>
+        <li>Sw : le facteur solaire de la fenêtre. C'est la part de la chaleur du soleil qui traverse la fenêtre, de 0 à 1. Un Sw élevé apporte de la chaleur gratuite en hiver.</li>
+      </ul>
+    </details>
     </div>
 
     <div class="vue-param" data-vue="classement">
@@ -1063,9 +1091,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.25';
-var DATE_VERSION = '06/10/2026 23h25';   /* date et heure de livraison */
-var NOTES = 'TVA 5,5 % : pastille sur chaque ligne (isolation, fenêtre, porte d\'entrée), fiche « Compléter » qui calcule R et écrit le libellé type, contrôle des seuils avant le PDF, valeurs lues par l\'IA, seuils modifiables dans Prix et marges.';
+var VERSION = '3.26';
+var DATE_VERSION = '06/10/2026 23h51';   /* date et heure de livraison */
+var NOTES = 'Paramètres › Prix et marges : encadré « Comprendre R et U » sous les seuils de la TVA à 5,5 %.';
 /* =================================================================== */
 (function(){
 'use strict';
