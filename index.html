@@ -1029,9 +1029,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.21';
-var DATE_VERSION = '06/10/2026 21h49';   /* date et heure de livraison */
-var NOTES = 'Devis client PDF : le nom du client et les adresses tapés en majuscules sortent remis en forme (ex. « 52 cours Aristide Brillant, 69300 Caluire »).';
+var VERSION = '3.22';
+var DATE_VERSION = '06/10/2026 21h56';   /* date et heure de livraison */
+var NOTES = 'Conditions particulières cochées automatiquement selon la TVA du devis (5,5 %, 10 %, professionnel sans TVA), avec une alerte à la création du PDF si l\'une manque.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1200,7 +1200,8 @@ function chargeParams(){
         if(a.nv && typeof a.nv==='object') x.nv={titre:String(a.nv.titre||''), texte:String(a.nv.texte||'')};
         if(a.ajout) x.ajout=true; if(a.suppr) x.suppr=true; return x; });
     if(Array.isArray(o.condParts)) params.condParts=o.condParts.filter(function(c){ return c && typeof c==='object'; })
-      .map(function(c){ return {nom:String(c.nom||''), texte:String(c.texte||''), types:Array.isArray(c.types)?c.types.filter(function(t){ return TYPES_CLIENT[t]; }):[]}; });
+      .map(function(c){ var x={nom:String(c.nom||''), texte:String(c.texte||''), types:Array.isArray(c.types)?c.types.filter(function(t){ return TYPES_CLIENT[t]; }):[]};
+        if(typeof c.auto==='string') x.auto=c.auto; return x; });
     if(Array.isArray(o.devisPaiements)) params.devisPaiements=o.devisPaiements.filter(function(x){ return typeof x==='string'; });
     /* poste réglé avant 3.04 : son IBAN unique devient le premier compte */
     if(!params.devisComptes.length && (params.devisIban.trim()||params.devisBic.trim()))
@@ -5870,7 +5871,7 @@ function dialogueDevisPdf(force){
             resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:pm,
             typeClient:v('pdType')||'part', conds:lisConds()};
   };
-  setTimeout(function(){ cases(condsDevis(e)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value})); }; },0);
+  setTimeout(function(){ cases(condsDevis(e,d)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value},d)); }; },0);
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
     {lib:'Annuler', action:function(){}},
     /* Aperçu : le PDF tel qu'il partira, dans un nouvel onglet ; rien n'est enregistré, aucun numéro consommé */
@@ -5879,7 +5880,7 @@ function dialogueDevisPdf(force){
       var o=lisForm();
       if(!o.numero){ alert('Indiquez le numéro du devis.'); $('pdNum').focus(); return false; }
       if(!o.client){ alert('Indiquez le nom du client.'); $('pdClient').focus(); return false; }
-      var adrCh=v('pdAdrChantier'), pb=controleCgv(o);
+      var adrCh=v('pdAdrChantier'), pb=controleCgv(o,d);
       if(pb.length){
         /* écart entre les CGV et le devis : on l'affiche, la création reste possible */
         ouvreModale('Contrôle CGV / devis — '+pb.length+' point'+(pb.length>1?'s':'')+' à vérifier',
@@ -5913,7 +5914,7 @@ function creeDevisPdf(d,o,adrCh){
       });
 }
 /* Contrôle de cohérence entre les CGV et le devis client ; renvoie la liste des écarts */
-function controleCgv(o){
+function controleCgv(o,d){
   var pb=[], arts=cgvArticles(), nums=cgvNumeros(arts), soc=societe();
   var nomArt=function(i){ return (nums[i]?'article '+nums[i].replace(/\.\s*$/,''):'sous-article')+' « '+(arts[i].titre||'sans titre')+' »'; };
   var cherche=function(re){ for(var i=0;i<arts.length;i++) if(re.test(arts[i].titre)) return i; return -1; };
@@ -5943,6 +5944,11 @@ function controleCgv(o){
   /* 7. client professionnel : clause de retard de paiement */
   if(o.typeClient==='pro' && !(o.conds||[]).some(function(c){ return /retard de paiement/i.test(c.nom+' '+c.texte); }))
     pb.push('Client professionnel : la condition particulière « Retard de paiement » (indemnité de 40 €) n\'est pas cochée.');
+  /* 8. conditions particulières attendues d'après la TVA du devis */
+  condParts().forEach(function(c){
+    if(d && condAuto(c,d,o.typeClient) && !(o.conds||[]).some(function(x){ return x.nom===c.nom; }))
+      pb.push('Condition particulière « '+c.nom+' » non cochée, alors que '+REGLES_COND[regleCond(c)].lib.charAt(0).toLowerCase()+REGLES_COND[regleCond(c)].lib.slice(1)+'.');
+  });
   /* 6. articles vides */
   arts.forEach(function(a,i){
     var sousSuit=arts[i+1] && !nums[i+1];
@@ -5975,7 +5981,7 @@ function optionsDevisPdf(d){
           adresseClient:e.adresseClient||'', adresseChantier:e.adresseChantier||e.adresseClient||'',
           acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
           resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:paiementDevis(e),
-          typeClient:typeClient(e), conds:condsDevis(e)};
+          typeClient:typeClient(e), conds:condsDevis(e,d)};
 }
 /* méthodes de paiement ; celle du devis (retenue à la création du PDF), sinon la première */
 function paiementsDevis(){
@@ -6390,10 +6396,29 @@ var COND_PARTS_DEF=[{nom:'Retard de paiement', types:['pro'],
   texte:'Tout retard de paiement entrainera l’application, sans mise en demeure préalable, d’intérêts de retard au taux légal majoré de 7 points, calculés à compter de la date de facturation.\nSi le client est un professionnel, une indemnité forfaitaire pour frais de recouvrement de 40 € sera due en cas de retard de paiement, en sus des pénalités de retard convenues dans les conditions générales.'}];
 /* conditions retenues pour un devis : celles cochées à la main (e.conds, noms), sinon celles liées au type de client */
 function typeClient(e){ return e && TYPES_CLIENT[e.typeClient] ? e.typeClient : 'part'; }
-function condsDevis(e){
-  var l=condParts(), t=typeClient(e);
-  if(e && Array.isArray(e.conds) && e.condsType===t) return l.filter(function(c){ return e.conds.indexOf(c.nom)>-1; });
-  return l.filter(function(c){ return c.types.indexOf(t)>-1; });
+/* coche automatique d'après le contenu du devis (recalculée à chaque ouverture de la fenêtre) */
+var REGLES_COND={
+  tva55:{lib:'Le devis contient de la TVA à 5,5 %', vrai:function(d){ return tauxVente(d).indexOf(5.5)>-1; }},
+  tva10:{lib:'Le devis contient de la TVA à 10 %', vrai:function(d){ return tauxVente(d).indexOf(10)>-1; }},
+  proSansTva:{lib:'Client professionnel et devis sans TVA (autoliquidation)', vrai:function(d,t){ var l=tauxVente(d); return t==='pro' && l.length>0 && l.every(function(x){ return !x; }); }}
+};
+function tauxVente(d){ return d ? ventilation(d).filter(function(v){ return Math.abs(v.ht)>0.004; }).map(function(v){ return v.taux; }) : []; }
+/* règle d'une condition : celle choisie dans les Paramètres, sinon devinée d'après son nom */
+function regleCond(c){
+  if(typeof c.auto==='string') return REGLES_COND[c.auto]?c.auto:'';
+  var n=String(c.nom||'');
+  if(/sous-?traitance/i.test(n)) return 'proSansTva';
+  if(/(taux|tva)/i.test(n) && /5[,.]5|\b5\s*%/.test(n)) return 'tva55';
+  if(/(taux|tva)/i.test(n) && /\b10\s*%/.test(n)) return 'tva10';
+  return '';
+}
+function condAuto(c,d,t){ var r=regleCond(c); return r && c.types.indexOf(t)>-1 && REGLES_COND[r].vrai(d,t); }
+function condsDevis(e,d){
+  var l=condParts(), t=typeClient(e), garde=e && Array.isArray(e.conds) && e.condsType===t;
+  return l.filter(function(c){
+    if(regleCond(c)) return condAuto(c,d,t);
+    return garde ? e.conds.indexOf(c.nom)>-1 : c.types.indexOf(t)>-1;
+  });
 }
 
 /* Conditions générales de vente DHC, reprises du modèle de devis (dernière page du PDF).
@@ -7094,14 +7119,16 @@ $('socDefaut').onclick=function(){
 };
 
 /* conditions particulières : bibliothèque de textes, liés ou non à un type de client */
-function condParts(){ return Array.isArray(params.condParts) ? params.condParts : COND_PARTS_DEF.map(function(c){ return {nom:c.nom, texte:c.texte, types:c.types.slice()}; }); }
-function modifCondParts(f){ var l=condParts().map(function(c){ return {nom:c.nom, texte:c.texte, types:c.types.slice()}; }); f(l); params.condParts=l; sauveParams(); renduCondParts(); }
+function copieCond(c){ var x={nom:c.nom, texte:c.texte, types:c.types.slice()}; if(typeof c.auto==='string') x.auto=c.auto; return x; }
+function condParts(){ return Array.isArray(params.condParts) ? params.condParts : COND_PARTS_DEF.map(copieCond); }
+function modifCondParts(f){ var l=condParts().map(copieCond); f(l); params.condParts=l; sauveParams(); renduCondParts(); }
 function renduCondParts(){
   var q=$('cpRecherche').value.trim().toLowerCase(), l=condParts();
   var lignes=l.map(function(c,i){ return {c:c,i:i}; }).filter(function(x){ return !q || (x.c.nom+' '+x.c.texte).toLowerCase().indexOf(q)>-1; });
   $('cpListe').innerHTML=lignes.length ? lignes.map(function(x){
     return '<tr><td>'+echappe(x.c.nom||'(sans nom)')+'</td><td class="texte">'+echappe(x.c.texte)+'</td>'
-      +'<td>'+(x.c.types.length?x.c.types.map(function(t){ return echappe(TYPES_CLIENT[t]); }).join(', '):'—')+'</td>'
+      +'<td>'+(x.c.types.length?x.c.types.map(function(t){ return echappe(TYPES_CLIENT[t]); }).join(', '):'—')
+      +(regleCond(x.c)?'<br><span class="note">si '+echappe(REGLES_COND[regleCond(x.c)].lib.charAt(0).toLowerCase()+REGLES_COND[regleCond(x.c)].lib.slice(1))+'</span>':'')+'</td>'
       +'<td class="actions"><button type="button" class="mini" data-cp-modif="'+x.i+'" title="Modifier">✎</button> '
       +'<button type="button" class="mini" data-cp-suppr="'+x.i+'" title="Supprimer">🗑</button></td></tr>';
   }).join('') : '<tr><td colspan="4" class="note">'+(l.length?'Aucune condition ne correspond à la recherche.':'Aucune condition particulière.')+'</td></tr>';
@@ -7112,11 +7139,15 @@ function editeCondPart(i){
     '<label class="champ" for="cpNom">Nom</label><input type="text" id="cpNom" value="'+echappe(c.nom)+'" placeholder="Ex. Retard de paiement">'
     +'<label class="champ" for="cpTexte" style="margin-top:10px">Texte</label><textarea id="cpTexte" rows="7" style="width:100%">'+echappe(c.texte)+'</textarea>'
     +'<div class="cp-cases"><span class="champ">Ajouter automatiquement pour</span>'
-    +Object.keys(TYPES_CLIENT).map(function(t){ return '<label><input type="checkbox" data-cp-type="'+t+'"'+(c.types.indexOf(t)>-1?' checked':'')+'> '+echappe(TYPES_CLIENT[t])+'</label>'; }).join('')+'</div>',
+    +Object.keys(TYPES_CLIENT).map(function(t){ return '<label><input type="checkbox" data-cp-type="'+t+'"'+(c.types.indexOf(t)>-1?' checked':'')+'> '+echappe(TYPES_CLIENT[t])+'</label>'; }).join('')+'</div>'
+    +'<label class="champ" for="cpAuto" style="margin-top:10px">Cocher automatiquement si…</label><select id="cpAuto">'
+    +'<option value="">Toujours (selon le type de client)</option>'
+    +Object.keys(REGLES_COND).map(function(k){ return '<option value="'+k+'"'+(regleCond(c)===k?' selected':'')+'>'+echappe(REGLES_COND[k].lib)+'</option>'; }).join('')+'</select>',
     [{lib:'Annuler', action:function(){}},
      {lib:'Enregistrer', plein:true, action:function(){
        var n={nom:$('cpNom').value.trim(), texte:$('cpTexte').value.replace(/\s+$/,''),
-              types:Array.prototype.filter.call(document.querySelectorAll('[data-cp-type]'),function(x){ return x.checked; }).map(function(x){ return x.getAttribute('data-cp-type'); })};
+              types:Array.prototype.filter.call(document.querySelectorAll('[data-cp-type]'),function(x){ return x.checked; }).map(function(x){ return x.getAttribute('data-cp-type'); }),
+              auto:$('cpAuto').value};
        if(!n.nom){ alert('Indiquez le nom de la condition.'); $('cpNom').focus(); return false; }
        if(!n.types.length){ alert('Cochez Particulier, Professionnel ou les deux.'); return false; }
        modifCondParts(function(l){ if(nouveau) l.push(n); else l[i]=n; });
