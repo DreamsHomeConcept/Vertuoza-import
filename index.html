@@ -88,6 +88,11 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .resp-ligne{display:flex;gap:8px;align-items:center;margin-bottom:6px;max-width:780px}
 .resp-ligne input{flex:1 1 0;min-width:0}
 .resp-ligne input.iban{flex:2 1 0}
+.cgv-art{border:1px solid var(--trait);border-radius:3px;padding:10px;margin-bottom:10px;max-width:900px;background:#fff}
+.cgv-art .tete{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.cgv-art .tete input{flex:1;font-weight:600}
+.cgv-art .num{min-width:28px;font-weight:600;color:var(--taupe-fonce);text-align:right}
+.cgv-art textarea{width:100%;font:inherit;font-size:12.5px;line-height:1.5}
 .resp-ligne .defaut{font-size:11.5px;color:var(--taupe-fonce);white-space:nowrap;min-width:92px;text-align:center}
 .unite-champ{display:flex;align-items:stretch}
 .unite-champ input{flex:1;min-width:0;text-align:right;border-radius:2px 0 0 2px}
@@ -705,12 +710,13 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
   <h2>Paramètres <span class="droite">Réglages conservés sur ce poste</span></h2>
   <div class="ong-param" id="ongParam" role="tablist">
     <button type="button" role="tab" data-ong="societe">Société</button>
-    <button type="button" role="tab" data-ong="lecture">Lecture IA</button>
+    <button type="button" role="tab" data-ong="cgv">CGV</button>
     <button type="button" role="tab" data-ong="prix">Prix et marges</button>
-    <button type="button" role="tab" data-ong="classement">Classement et textes</button>
+    <button type="button" role="tab" data-ong="pdf">Devis</button>
     <button type="button" role="tab" data-ong="export">Export Vertuoza</button>
-    <button type="button" role="tab" data-ong="pdf">Devis client PDF</button>
+    <button type="button" role="tab" data-ong="classement">Classement</button>
     <button type="button" role="tab" data-ong="partage">Partage et base de prix</button>
+    <button type="button" role="tab" data-ong="lecture">Lecture IA</button>
     <button type="button" role="tab" data-ong="apropos">À propos</button>
   </div>
   <div class="corps">
@@ -848,6 +854,14 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     </div>
     </div>
 
+    <div class="vue-param" data-vue="cgv">
+    <h3 class="st">Conditions générales de vente</h3>
+    <p class="note" style="margin-top:0">Ajoutées en fin de devis client PDF. Une ligne vide dans un texte crée un nouveau paragraphe. <code>{ACOMPTE}</code> est remplacé par le pourcentage du premier acompte, <code>{MEDIATEUR}</code> par le médiateur de l'onglet Société, <code>{SOCIETE}</code> par le nom de la société. Les articles sont numérotés automatiquement ; un titre commençant par « a. », « b. »… est un sous-article, non numéroté.</p>
+    <div id="cgvListe"></div>
+    <p style="margin:6px 0 0"><button type="button" class="mini" id="cgvAjout">+ Ajouter un article</button>
+      <button type="button" class="mini" id="cgvDefaut">Rétablir les CGV d'origine</button></p>
+    </div>
+
     <div class="vue-param" data-vue="partage">
     <h3 class="st">Base de prix (Supabase)</h3>
     <p class="aide">Chaque devis archivé alimente l'historique des prix : désignation, unité, quantité, prix reçu, émetteur et date. Le prix enregistré est toujours le <strong>déboursé</strong>, jamais le prix marge incluse.</p>
@@ -982,9 +996,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.09';
-var DATE_VERSION = '06/10/2026 17h35';   /* date et heure de livraison */
-var NOTES = 'Nouveau : onglet « Société » dans Paramètres (identité, siège, contact, identifiants légaux, assurance) ; l\'en-tête et le pied du devis PDF s\'en remplissent, adresse écrite « 5 rue de l\'Industrie, 74000 Annecy ».';
+var VERSION = '3.10';
+var DATE_VERSION = '06/10/2026 18h27';   /* date et heure de livraison */
+var NOTES = 'Nouveau : onglet « CGV » (articles modifiables et numérotés automatiquement, 8,5 points sur le PDF), médiateur CM2C dans l\'onglet Société, contrôle de cohérence CGV / devis à la création du PDF, onglets des Paramètres réordonnés.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1111,7 +1125,7 @@ function sauveParams(){
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule,
     devisProchain:params.devisProchain, devisResp:params.devisResp, devisEmail:params.devisEmail, devisTel:params.devisTel,
-    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe
+    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe, cgv:params.cgv
   }));
 }
 function chargeParams(){
@@ -1147,6 +1161,8 @@ function chargeParams(){
     if(Array.isArray(o.devisComptes)) params.devisComptes=o.devisComptes.filter(function(c){ return c && typeof c==='object'; })
       .map(function(c){ return {banque:String(c.banque||''), iban:String(c.iban||''), bic:String(c.bic||'')}; });
     if(o.societe && typeof o.societe==='object') params.societe=o.societe;
+    if(Array.isArray(o.cgv)) params.cgv=o.cgv.filter(function(a){ return a && typeof a==='object'; })
+      .map(function(a){ return {titre:String(a.titre||''), texte:String(a.texte||'')}; });
     if(Array.isArray(o.devisPaiements)) params.devisPaiements=o.devisPaiements.filter(function(x){ return typeof x==='string'; });
     /* poste réglé avant 3.04 : son IBAN unique devient le premier compte */
     if(!params.devisComptes.length && (params.devisIban.trim()||params.devisBic.trim()))
@@ -4171,9 +4187,9 @@ function versDevisClient(){
 $('btnVersClient').onclick=versDevisClient;
 
 /* ------------------------ onglets des paramètres ------------------------- */
-var CLE_ONG_PARAM='dhc_vertuoza_ongparam'+ESPACE, ongletParamActif='lecture';
+var CLE_ONG_PARAM='dhc_vertuoza_ongparam'+ESPACE, ongletParamActif='societe';
 function ongletParam(id){
-  if(!document.querySelector('.vue-param[data-vue="'+id+'"]')) id='lecture';
+  if(!document.querySelector('.vue-param[data-vue="'+id+'"]')) id='societe';
   ongletParamActif=id;
   Array.prototype.forEach.call(document.querySelectorAll('.vue-param'),function(v){ v.hidden = v.getAttribute('data-vue')!==id; });
   Array.prototype.forEach.call(document.querySelectorAll('#ongParam button'),function(b){
@@ -4182,7 +4198,7 @@ function ongletParam(id){
   ecrisStockage(CLE_ONG_PARAM,id);
 }
 $('ongParam').onclick=function(e){ var b=e.target.closest('button[data-ong]'); if(b) ongletParam(b.getAttribute('data-ong')); };
-ongletParam(lisStockage(CLE_ONG_PARAM)||'lecture');
+ongletParam(lisStockage(CLE_ONG_PARAM)||'societe');
 
 /* --------------------------- navigation 2 pages -------------------------- */
 function montre(page){
@@ -5657,7 +5673,9 @@ var SOCIETE_DEF={
   email:'d.degroutte@dreamshomeconcept.com', tel:'06 63 15 03 84', web:'www.dreamsconcept.com',
   tva:'FR60938913456', siret:'938 913 456 00019', rcs:'938 913 456', villeRcs:'Annecy', capital:'5 000', ape:'4321A',
   assureur:'APRIL / ERGO', garantie:'Garantie décennale', assRue:'12 bis rue de la Victoire', assCp:'75009', assVille:'Paris', assPays:'France',
-  zone:'France'
+  zone:'France',
+  medNom:'CM2C — Centre de la Médiation de la Consommation de Conciliateurs de Justice',
+  medAdresse:'49 rue de Ponthieu, 75008 Paris', medTel:'01 89 47 00 14', medWeb:'https://www.cm2c.net'
 };
 function societe(){
   var o={}, s=params.societe||{};
@@ -5757,7 +5775,7 @@ function dialogueDevisPdf(force){
     +paies.map(function(m,i){ return '<option value="'+i+'"'+(m===paieChoisie?' selected':'')+'>'+echappe(m)+(i===0?' (par défaut)':'')+'</option>'; }).join('')
     +'</select></div>'
     +'</div>'
-    +(manque.length?'<p class="note" style="color:#8a5a00">À compléter une fois dans Paramètres › Devis client PDF : '+manque.join(' et ')+'.</p>':'')
+    +(manque.length?'<p class="note" style="color:#8a5a00">À compléter une fois dans Paramètres › Devis : '+manque.join(' et ')+'.</p>':'')
     +'<p class="note">Le numéro suivant est proposé automatiquement. Coordonnées, comptes bancaires et acomptes viennent des Paramètres. Les conditions générales de vente sont ajoutées en dernière page.</p>';
   var v=function(id){ return String($(id).value||'').trim(); };
   var lisForm=function(){
@@ -5777,10 +5795,26 @@ function dialogueDevisPdf(force){
       var o=lisForm();
       if(!o.numero){ alert('Indiquez le numéro du devis.'); $('pdNum').focus(); return false; }
       if(!o.client){ alert('Indiquez le nom du client.'); $('pdClient').focus(); return false; }
+      var adrCh=v('pdAdrChantier'), pb=controleCgv(o);
+      if(pb.length){
+        /* écart entre les CGV et le devis : on l'affiche, la création reste possible */
+        ouvreModale('Contrôle CGV / devis — '+pb.length+' point'+(pb.length>1?'s':'')+' à vérifier',
+          '<p>Les conditions générales et le devis ne concordent pas :</p><ul>'+pb.map(function(x){ return '<li>'+echappe(x)+'</li>'; }).join('')+'</ul>'
+          +'<p class="note">Corrigez dans Paramètres › CGV (ou Société, Devis), ou créez le PDF tel quel.</p>',[
+          {lib:'Corriger', action:function(){ ongletParam(/acompte.*100|total/i.test(pb.join(' '))&&pb.length===1?'pdf':'cgv'); location.hash='#parametres'; }},
+          {lib:'Créer quand même', plein:true, action:function(){ creeDevisPdf(d,o,adrCh); }}
+        ]);
+        return false;
+      }
+      creeDevisPdf(d,o,adrCh);
+    }}
+  ]);
+}
+function creeDevisPdf(d,o,adrCh){
       if(o.resp){ params.devisResp=o.resp; sauveParams(); }
       if(!d._lecture){
         d.entete.numero=o.numero; d.entete.date=o.date; d.entete.client=o.client; d.entete.chantier=o.reference;
-        d.entete.adresseClient=o.adresseClient; d.entete.adresseChantier=v('pdAdrChantier'); d.entete.responsable=o.resp; d.entete.compteIban=o.iban; d.entete.paiement=o.paiement; d.entete.demarrage=o.demarrage;
+        d.entete.adresseClient=o.adresseClient; d.entete.adresseChantier=adrCh; d.entete.responsable=o.resp; d.entete.compteIban=o.iban; d.entete.paiement=o.paiement; d.entete.demarrage=o.demarrage;
         if(d===D()){ $('fClient').value=o.client; $('fChantier').value=o.reference; $('fDate').value=o.date; }
         diffuse();
       }
@@ -5792,8 +5826,42 @@ function dialogueDevisPdf(force){
       },function(err){
         info('Devis PDF impossible : '+(err&&err.message||err)+'. Vérifiez la connexion internet puis réessayez.',0,'err');
       });
-    }}
-  ]);
+}
+/* Contrôle de cohérence entre les CGV et le devis client ; renvoie la liste des écarts */
+function controleCgv(o){
+  var pb=[], arts=cgvArticles(), nums=cgvNumeros(arts), soc=societe();
+  var nomArt=function(i){ return (nums[i]?'article '+nums[i].replace(/\.\s*$/,''):'sous-article')+' « '+(arts[i].titre||'sans titre')+' »'; };
+  var cherche=function(re){ for(var i=0;i<arts.length;i++) if(re.test(arts[i].titre)) return i; return -1; };
+  var tout=arts.map(function(a){ return a.titre+'\n'+a.texte; }).join('\n');
+  /* 1. pourcentage de l'article Acompte = premier acompte du devis */
+  var ia=cherche(/^acompte/i), pc1=o.acomptes.length?o.acomptes[0].pc:null;
+  if(ia>-1 && pc1!=null && !/\{ACOMPTE\}/.test(arts[ia].texte)){
+    var m=String(arts[ia].texte).match(/(\d+(?:[.,]\d+)?)\s*%/);
+    if(m && Math.abs(parseFloat(m[1].replace(',','.'))-pc1)>0.001)
+      pb.push(nomArt(ia)+' : '+m[1]+' % dans les CGV, '+pct(pc1)+' pour le premier acompte du devis.');
+  }
+  /* 2. échéancier complet */
+  var tot=o.acomptes.reduce(function(s,a){ return s+a.pc; },0);
+  if(o.acomptes.length && Math.abs(tot-100)>0.001) pb.push('Les acomptes du devis font '+pct(tot)+' au lieu de 100 %.');
+  /* 3. médiateur */
+  var manque=[['medNom','nom'],['medAdresse','adresse'],['medTel','téléphone'],['medWeb','site']].filter(function(c){ return !String(soc[c[0]]||'').trim(); }).map(function(c){ return c[1]; });
+  if(cherche(/m[ée]diation|m[ée]diateur/i)<0) pb.push('Aucun article « Médiation de la consommation » dans les CGV.');
+  else if(!/\{MEDIATEUR\}/.test(tout) && !(soc.medNom && tout.indexOf(soc.medNom)>-1)) pb.push('Le médiateur de l\'onglet Société n\'est pas cité dans les CGV (mettre {MEDIATEUR}).');
+  if(manque.length) pb.push('Médiateur incomplet dans l\'onglet Société : '+manque.join(', ')+'.');
+  /* 4. nom de la société */
+  if(soc.nom && !/dreams home concept/i.test(soc.nom) && /dreams home concept/i.test(tout))
+    pb.push('Les CGV citent « Dreams Home Concept » alors que la société est « '+soc.nom+' » (mettre {SOCIETE}).');
+  /* 5. conditions de paiement : le devis indique « Paiement comptant » */
+  var ip=cherche(/d[ée]lai de paiement/i);
+  if(ip<0) pb.push('Aucun article « Délai de paiement » dans les CGV, alors que le devis indique « Paiement comptant ».');
+  else if(!/comptant/i.test(arts[ip].texte)) pb.push(nomArt(ip)+' ne parle pas de paiement comptant, alors que le devis indique « Paiement comptant ».');
+  /* 6. articles vides */
+  arts.forEach(function(a,i){
+    var sousSuit=arts[i+1] && !nums[i+1];
+    if(!String(a.titre||'').trim()) pb.push('L\'article '+(nums[i]||'').replace(/\.\s*$/,'')+' n\'a pas de titre.');
+    else if(!String(a.texte||'').trim() && !sousSuit) pb.push(nomArt(i)+' n\'a pas de texte.');
+  });
+  return pb;
 }
 
 /* Aperçu : le PDF tel qu'il partira, dans un nouvel onglet ; rien n'est enregistré, aucun numéro consommé.
@@ -5888,7 +5956,7 @@ async function genereDevisPdf(d,o,apercu){
   gras(8.6); doc.text(soc.nom,M,y); y+=4.3; normal(8.4);
   /* e-mail et téléphone : ceux du responsable, sinon ceux de la société */
   [soc.rue,[soc.cp,soc.ville].filter(Boolean).join(' '),o.email||soc.email,o.tel||soc.tel,
-   soc.tva?'N° TVA : '+soc.tva:'',soc.siret?'SIRET : '+soc.siret:'']
+   soc.tva?'N° Tva : '+soc.tva:'',soc.siret?'Siret : '+soc.siret:'']
     .filter(Boolean).forEach(function(l){ doc.text(l,M,y); y+=4; });
   y=Math.max(y,by+bh+3)+4;
   var adrCh=String(o.adresseChantier||'').split('\n').map(function(s){ return s.trim(); }).filter(Boolean).join(', ');
@@ -6014,13 +6082,14 @@ async function genereDevisPdf(d,o,apercu){
 
   /* conditions générales */
   doc.addPage();
+  var debutCgv=doc.getNumberOfPages();
   pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,o.acomptes.length?o.acomptes[0].pc:30);
   var nbPages=doc.getNumberOfPages();
 
   /* pied et numéros de page */
   for(var p=1;p<=nbPages;p++){
     doc.setPage(p); doc.setTextColor.apply(doc,ENCRE);
-    if(p<nbPages){
+    if(p<debutCgv){
       normal(6.9);
       var lp=[]; piedSociete().forEach(function(l){ lp=lp.concat(doc.splitTextToSize(l,W-2*M)); });
       lp.forEach(function(l,i){ doc.text(l,W/2,H-20+i*3.3,{align:'center'}); });
@@ -6033,11 +6102,40 @@ async function genereDevisPdf(d,o,apercu){
   return nom;
 }
 
-/* Conditions générales sur deux colonnes, police réduite jusqu'à tenir sur la page. */
-/* L'article 8 reprend le premier acompte de l'échéancier (30 % ou 40 % selon le marché). */
+/* CGV d'origine regroupées en articles {titre, texte} ; paragraphes séparés par une ligne vide */
+function cgvOrigine(){
+  var arts=[];
+  CGV_DHC.forEach(function(p){
+    var i=p.indexOf('|'), t=p.slice(0,i), x=p.slice(i+1);
+    if(t || !arts.length) arts.push({titre:t.replace(/^\d+\.\s*/,''), texte:x});
+    else arts[arts.length-1].texte+='\n\n'+x;
+  });
+  return arts;
+}
+function cgvArticles(){
+  return Array.isArray(params.cgv) ? params.cgv.map(function(a){ return {titre:String(a.titre||'').replace(/^\d+\.\s*/,''), texte:a.texte}; }) : cgvOrigine();
+}
+/* numérotation automatique : 1, 2, 3… dans l'ordre ; un titre « a. … », « b. … » est un sous-article, non numéroté */
+function cgvNumeros(l){
+  var n=0;
+  return l.map(function(a){ return /^[a-z]\.\s/.test(a.titre) ? '' : (++n)+'. '; });
+}
+
+/* Conditions générales sur deux colonnes, en 8,5 points, sur autant de pages que nécessaire. */
+/* {ACOMPTE} reprend le premier acompte de l'échéancier (30 % ou 40 % selon le marché). */
 function pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,acompte){
   var W=210, M=10, gout=6, cw=(W-2*M-gout)/2, haut=34, bas=284;
-  var paragraphes=CGV_DHC.map(function(p){ var i=p.indexOf('|'); return {t:p.slice(0,i), x:p.slice(i+1).replace('{ACOMPTE}',nbPdf(acompte).replace(/,00$/,''))}; });
+  var paragraphes=[], so=societe();
+  var med=[so.medNom, so.medAdresse, so.medTel?'Tél. '+so.medTel:'', so.medWeb].filter(Boolean).join(' — ');
+  var arts=cgvArticles(), nums=cgvNumeros(arts);
+  arts.forEach(function(a,ia){
+    String(a.texte||'').replace(/\r/g,'').split(/\n\s*\n/).forEach(function(x,k){
+      x=x.replace(/\s*\n\s*/g,' ').trim().replace(/\{ACOMPTE\}/g,nbPdf(acompte).replace(/,00$/,''))
+           .replace(/\{MEDIATEUR\}/g,med).replace(/\{SOCIETE\}/g,societe().nom);
+      var t=k===0&&String(a.titre||'').trim()?nums[ia]+String(a.titre).trim():'';
+      if(t||x) paragraphes.push({t:t, x:x});
+    });
+  });
   /* coupe un paragraphe en lignes de mots {mot, gras} */
   var coupe=function(par,taille){
     var mots=[];
@@ -6053,23 +6151,23 @@ function pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,acompte){
     if(cur.length) lignes.push(cur);
     return lignes;
   };
-  var taille=7.2, plan;
-  for(;taille>=5;taille-=0.1){
-    var ih=taille*0.42, col=0, yy=haut, ok=true; plan=[];
-    for(var i=0;i<paragraphes.length && ok;i++){
-      var ls=coupe(paragraphes[i],taille);
-      for(var k=0;k<ls.length;k++){
-        if(yy+ih>bas){ col++; yy=col===1?16:haut; if(col>1){ ok=false; break; } }
-        plan.push({col:col,y:yy,mots:ls[k],derniere:k===ls.length-1}); yy+=ih;
-      }
-      yy+=ih*0.25;
+  /* colonne gauche puis droite, puis page suivante ; titre seulement sur la première page */
+  var taille=8.5, ih=taille*0.42, plan=[], page=0, col=0, yy=haut;
+  for(var i=0;i<paragraphes.length;i++){
+    var ls=coupe(paragraphes[i],taille);
+    for(var k=0;k<ls.length;k++){
+      if(yy+ih>bas){ col++; if(col>1){ col=0; page++; } yy=(page===0&&col===0)?haut:16; }
+      plan.push({page:page,col:col,y:yy,mots:ls[k],derniere:k===ls.length-1}); yy+=ih;
     }
-    if(ok) break;
+    yy+=ih*0.35;
   }
+  var page0=doc.getNumberOfPages();
   gras(15); doc.setTextColor.apply(doc,ENCRE); doc.text('Conditions Générales de Ventes',M+cw/2,20,{align:'center'});
-  doc.setTextColor.apply(doc,TAUPE); doc.text('Dreams Home Concept',M+cw/2,27,{align:'center'});
+  doc.setTextColor.apply(doc,TAUPE); doc.text(societe().nom,M+cw/2,27,{align:'center'});
   doc.setTextColor.apply(doc,ENCRE);
   plan.forEach(function(l){
+    while(doc.getNumberOfPages()<page0+l.page) doc.addPage();
+    doc.setPage(page0+l.page);
     var x=M+l.col*(cw+gout), largeur=l.mots.reduce(function(s,w){ return s+w.l; },0);
     normal(taille); var esp=doc.getTextWidth(' ');
     if(!l.derniere && l.mots.length>1) esp=(cw-largeur)/(l.mots.length-1);   /* texte justifié */
@@ -6099,7 +6197,7 @@ var CGV_DHC=[
   '7. Réception de travaux|La réception des travaux, par laquelle le client déclare accepter l’ouvrage avec ou sans réserves, se fait en présence de l’entrepreneur et du client. Elle donne lieu à un procès-verbal signé des deux parties à raison d’un exemplaire pour l’entreprise et d’un exemplaire pour le client.',
   '|En l’absence d’acte de réception signé par les deux parties, il est expressément convenu que tout paiement des travaux à hauteur d’au moins 95 % manifestera la volonté non équivoque du maître d’ouvrage de réceptionner sans réserve ; la date de réception sera alors celle du règlement qui permet d’atteindre ce seuil de 95 %.',
   '8. Acompte|La signature du devis devra être accompagnée d’un versement d’un acompte représentant {ACOMPTE} % du montant du devis en tout état de cause, les travaux ne commenceront pas avant le versement de cet acompte. L’acompte perçu sera déduit au moment de l’établissement de la facture définitive.',
-  '|L’acompte versé n’est pas récupérable sauf si le chantier est annulé par la société Dreams Home Concept.',
+  '|L’acompte versé n’est pas récupérable sauf si le chantier est annulé par la société {SOCIETE}.',
   '9. Situations intermédiaires|Lorsque la durée des travaux sera supérieure à un mois, l’entreprise établira une situation des travaux réalisés le 30 de chaque mois. Ces situations devront être payées sous 8 jours à compter de leur date d’établissement.',
   '|Tout retard de paiement autorisera l’entreprise, même sans mise en demeure préalable et sans préavis, à suspendre immédiatement la réalisation des travaux jusqu’au paiement complet de ses situations intermédiaires.',
   '10. Délai de paiement|Les factures de l’entreprise sont payables comptant, sans retenue de garantie et sans escompte.',
@@ -6113,6 +6211,7 @@ var CGV_DHC=[
   '15. Éco-contribution|Le montant de l’éco-contribution envisagée dans le cadre de la responsabilité élargie du producteur (REP) pour les produits et matériaux de construction pour le bâtiment, instituée par la loi du 10 février 2020 relative à la lutte contre le gaspillage, sera répercuté sur la facture en sus du montant du devis, dès la mise en application de cette contribution.',
   '16. Utilisation de photographies|Le client autorise l’entreprise à prendre des photographies des travaux et ouvrages réalisés et à les utiliser sur tout support de son choix, et notamment sur son site Internet et ses supports de communication.',
   '17. Médiation de la consommation|En cas de litige non résolu par une solution amiable et ayant fait l’objet d’une réclamation écrite adressée par le client consommateur à l’entreprise, vous pouvez soumettre le différend au médiateur de la consommation dont les coordonnées sont les suivantes :',
+  '|{MEDIATEUR}',
   '18. Données|Les informations recueillies sur le client font l’objet d’un traitement informatique réalisé par notre entreprise et sont indispensables au traitement de sa commande. Ces informations et données personnelles sont également conservées à des fins de sécurité, afin de respecter les obligations légales et réglementaires. Elles seront conservées aussi longtemps que nécessaire pour l’exécution des travaux commandés et des garanties éventuellement applicables à l’issue de ces travaux.',
   '|Le responsable du traitement des données est notre entreprise, dont le nom, les coordonnées postales et email figurent au recto. L’accès aux données personnelles sera strictement limité aux employés du responsable de traitement, habilités à les traiter en raison de leurs fonctions. Les informations recueillies pourront éventuellement être communiquées à des tiers liés à l’entreprise par contrat pour l’exécution de tâches sous-traitées, sans que l’autorisation du Client ne soit nécessaire.',
   '|Conformément à la loi n° 78-17 du 6 janvier 1978 relative à l’informatique, aux fichiers et aux libertés, telle que modifiée par la loi n° 2004-801 du 6 août 2004, et par le Règlement Européen n° 2016/679, le Client dispose d’un droit d’accès, de rectification, d’effacement, et de portabilité des données le concernant, ainsi que du droit de s’opposer au traitement pour motif légitime, droits qu’il peut exercer en s’adressant au responsable de traitement à l’adresse postale ou email mentionnée ci-dessus, en joignant un justificatif de son identité valide. En cas de réclamation, le client peut contacter la Commission Nationale de l’Informatique et des Libertés (CNIL).'
@@ -6603,14 +6702,57 @@ $('compteAjout').onclick=function(){
   params.devisComptes.push({banque:'',iban:'',bic:''}); renduComptes();
   var ch=$('compteListe').querySelectorAll('input[data-k="banque"]'); ch[ch.length-1].focus();
 };
+/* Paramètres › CGV : un bloc par article (titre + texte) */
+function renduCgv(){
+  var l=cgvArticles(), nums=cgvNumeros(l);
+  $('cgvListe').innerHTML=l.map(function(a,i){
+    var lignes=Math.min(14,Math.max(3,Math.ceil(String(a.texte).length/110)+String(a.texte).split('\n').length));
+    return '<div class="cgv-art"><div class="tete">'
+      +'<span class="num">'+(nums[i]?nums[i].trim():'—')+'</span>'
+      +'<input type="text" data-cgv="'+i+'" data-k="titre" placeholder="Titre de l\'article" aria-label="Titre" value="'+echappe(a.titre)+'">'
+      +'<button type="button" class="mini" data-cgv-haut="'+i+'" title="Monter"'+(i===0?' disabled':'')+'>↑</button>'
+      +'<button type="button" class="mini" data-cgv-bas="'+i+'" title="Descendre"'+(i===l.length-1?' disabled':'')+'>↓</button>'
+      +'<button type="button" class="mini" data-cgv-suppr="'+i+'" title="Supprimer cet article">✕</button></div>'
+      +'<textarea data-cgv="'+i+'" data-k="texte" rows="'+lignes+'" aria-label="Texte">'+echappe(a.texte)+'</textarea></div>';
+  }).join('') || '<p class="note">Aucun article : le devis n\'aura pas de conditions générales.</p>';
+}
+function modifCgv(f){ var l=cgvArticles().map(function(a){ return {titre:a.titre, texte:a.texte}; }); f(l); params.cgv=l; sauveParams(); }
+renduCgv();
+$('cgvListe').addEventListener('change',function(e){
+  var t=e.target, i=+t.getAttribute('data-cgv'), k=t.getAttribute('data-k'); if(!k) return;
+  modifCgv(function(l){ if(l[i]) l[i][k]=k==='titre'?t.value.trim().replace(/^\d+\.\s*/,''):t.value.replace(/\s+$/,''); });
+  if(k==='titre') renduCgv();
+});
+$('cgvListe').addEventListener('click',function(e){
+  var b=e.target.closest('[data-cgv-suppr],[data-cgv-haut],[data-cgv-bas]'); if(!b) return;
+  var i=+(b.getAttribute('data-cgv-suppr')||b.getAttribute('data-cgv-haut')||b.getAttribute('data-cgv-bas'));
+  if(b.hasAttribute('data-cgv-suppr')){
+    if(!confirm('Supprimer l\'article « '+(cgvArticles()[i].titre||'sans titre')+' » ?')) return;
+    modifCgv(function(l){ l.splice(i,1); });
+  } else {
+    var j=b.hasAttribute('data-cgv-haut')?i-1:i+1;
+    modifCgv(function(l){ var x=l[i]; l[i]=l[j]; l[j]=x; });
+  }
+  renduCgv();
+});
+$('cgvAjout').onclick=function(){
+  modifCgv(function(l){ l.push({titre:'', texte:''}); }); renduCgv();
+  var ch=$('cgvListe').querySelectorAll('input[data-k="titre"]'); ch[ch.length-1].focus();
+};
+$('cgvDefaut').onclick=function(){
+  if(!confirm('Remettre les CGV d\'origine ? Vos modifications seront perdues.')) return;
+  params.cgv=null; sauveParams(); renduCgv();
+};
+
 /* Paramètres › Société */
 var SOC_CHAMPS=[
   ['Identité',[['nom','Société','p-moyen'],['nomAbrege','Nom abrégé','p-moyen']]],
   ['Adresse du siège social',[['rue','Rue','p-moyen'],['cp','Code postal','p-court'],['ville','Ville','p-court'],['pays','Pays','p-court']]],
   ['Coordonnées de contact',[['email','Adresse e-mail','p-moyen'],['tel','Téléphone','p-court'],['web','Site web','p-moyen']]],
-  ['Identifiants légaux',[['tva','N° TVA','p-court'],['siret','SIRET','p-court'],['rcs','RCS','p-court'],['villeRcs','Ville RCS','p-court'],['capital','Capital social (€)','p-court'],['ape','Code APE','p-court']]],
+  ['Identifiants légaux',[['tva','N° Tva','p-court'],['siret','Siret','p-court'],['rcs','RCS','p-court'],['villeRcs','Ville RCS','p-court'],['capital','Capital social (€)','p-court'],['ape','Code APE','p-court']]],
   ['Assurance',[['assureur','Nom de l\'assureur','p-moyen'],['garantie','Garantie','p-moyen'],['zone','Zone de couverture','p-court'],
-                ['assRue','Rue de l\'assureur','p-moyen'],['assCp','Code postal','p-court'],['assVille','Ville','p-court'],['assPays','Pays','p-court']]]
+                ['assRue','Rue de l\'assureur','p-moyen'],['assCp','Code postal','p-court'],['assVille','Ville','p-court'],['assPays','Pays','p-court']]],
+  ['Médiateur de la consommation (article 17 des CGV)',[['medNom','Nom','p-cle'],['medAdresse','Adresse','p-moyen'],['medTel','Téléphone','p-court'],['medWeb','Site','p-moyen']]]
 ];
 function renduSociete(){
   var x=societe();
