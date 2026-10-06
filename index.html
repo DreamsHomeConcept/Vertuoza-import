@@ -704,6 +704,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
 <section class="panneau" id="secParam">
   <h2>Paramètres <span class="droite">Réglages conservés sur ce poste</span></h2>
   <div class="ong-param" id="ongParam" role="tablist">
+    <button type="button" role="tab" data-ong="societe">Société</button>
     <button type="button" role="tab" data-ong="lecture">Lecture IA</button>
     <button type="button" role="tab" data-ong="prix">Prix et marges</button>
     <button type="button" role="tab" data-ong="classement">Classement et textes</button>
@@ -713,6 +714,12 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <button type="button" role="tab" data-ong="apropos">À propos</button>
   </div>
   <div class="corps">
+
+    <div class="vue-param" data-vue="societe">
+    <p class="note" style="margin-top:0">Ces informations remplissent l'en-tête et le pied de page du devis client PDF.</p>
+    <div id="socForm"></div>
+    <p style="margin:4px 0 0"><button type="button" class="mini" id="socDefaut">Rétablir les informations d'origine</button></p>
+    </div>
 
     <div class="vue-param" data-vue="lecture">
     <h3 class="st">Lecture des devis</h3>
@@ -975,9 +982,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.07';
-var DATE_VERSION = '06/10/2026 14h12';   /* date et heure de livraison */
-var NOTES = 'Toutes les fenêtres (contrôle de cohérence, devis client PDF…) ont une croix ✕ en haut à droite pour les fermer.';
+var VERSION = '3.08';
+var DATE_VERSION = '06/10/2026 17h32';   /* date et heure de livraison */
+var NOTES = 'Nouveau : onglet « Société » dans Paramètres (identité, siège, contact, identifiants légaux, assurance) ; l\'en-tête et le pied du devis PDF s\'en remplissent, adresse écrite « 5 rue de l\'Industrie, 74000 Annecy ».';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1104,7 +1111,7 @@ function sauveParams(){
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule,
     devisProchain:params.devisProchain, devisResp:params.devisResp, devisEmail:params.devisEmail, devisTel:params.devisTel,
-    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements
+    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe
   }));
 }
 function chargeParams(){
@@ -1139,6 +1146,7 @@ function chargeParams(){
       params.devisResps=[{nom:params.devisResp.trim(), email:params.devisEmail, tel:params.devisTel}];
     if(Array.isArray(o.devisComptes)) params.devisComptes=o.devisComptes.filter(function(c){ return c && typeof c==='object'; })
       .map(function(c){ return {banque:String(c.banque||''), iban:String(c.iban||''), bic:String(c.bic||'')}; });
+    if(o.societe && typeof o.societe==='object') params.societe=o.societe;
     if(Array.isArray(o.devisPaiements)) params.devisPaiements=o.devisPaiements.filter(function(x){ return typeof x==='string'; });
     /* poste réglé avant 3.04 : son IBAN unique devient le premier compte */
     if(!params.devisComptes.length && (params.devisIban.trim()||params.devisBic.trim()))
@@ -5642,12 +5650,31 @@ var LIBS_PDF=[
   {url:'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.8/jspdf.plugin.autotable.min.js',
    sri:'sha512-QLh0AACvI+3C+bmn3QdH6blN0NWBxwGvBDgV67TvKV5Q2knO9+/+lguVL23JQ9DR7CnfuOSYUBURlXjmJeK11Q=='}
 ];
-var ENTREPRISE={
-  nom:'Dreams Home Concept', adresse:'5 RUE DE L\'INDUSTRIE', ville:'74000 ANNECY',
-  tva:'FR60938913456', siret:'938 913 456 00019',
-  pied:['Dreams Home Concept ; 5 RUE DE L\'INDUSTRIE 74000 ANNECY - TVA N° FR60938913456 - SIREN N° 938 913 456 00019 - Au capital de 5 000 €',
-        'RCS ANNECY 938 913 456 - APE 4321A - Assureur : APRIL / ERGO 12 bis rue de la victoire 75009 Paris France - Garantie décennale - Couverture : France']
+/* Société : valeurs d'origine (fiche Vertuoza), modifiables dans Paramètres › Société */
+var SOCIETE_DEF={
+  nom:'Dreams Home Concept', nomAbrege:'Dreams Home Concept',
+  rue:'5 rue de l\'Industrie', cp:'74000', ville:'Annecy', pays:'France',
+  email:'d.degroutte@dreamshomeconcept.com', tel:'06 63 15 03 84', web:'www.dreamsconcept.com',
+  tva:'FR60938913456', siret:'938 913 456 00019', rcs:'938 913 456', villeRcs:'Annecy', capital:'5 000', ape:'4321A',
+  assureur:'APRIL / ERGO', garantie:'Garantie décennale', assRue:'12 bis rue de la Victoire', assCp:'75009', assVille:'Paris', assPays:'France',
+  zone:'France'
 };
+function societe(){
+  var o={}, s=params.societe||{};
+  Object.keys(SOCIETE_DEF).forEach(function(k){ o[k]=(typeof s[k]==='string') ? s[k].trim() : SOCIETE_DEF[k]; });
+  return o;
+}
+/* pied de page du devis, recomposé depuis la fiche Société */
+function piedSociete(){
+  var x=societe(), j=function(l,sep){ return l.filter(Boolean).join(sep); };
+  return [
+    j([j([x.nom, j([x.rue, j([x.cp,x.ville],' ')],' ')],' ; '),
+       x.tva?'TVA N° '+x.tva:'', x.siret?'SIREN N° '+x.siret:'', x.capital?'Au capital de '+x.capital+' €':''],' - '),
+    j([x.rcs?'RCS '+j([x.villeRcs,x.rcs],' '):'', x.ape?'APE '+x.ape:'',
+       x.assureur?'Assureur : '+j([x.assureur,x.assRue,j([x.assCp,x.assVille],' '),x.assPays],' '):'',
+       x.garantie, x.zone?'Couverture : '+x.zone:''],' - ')
+  ].filter(Boolean);
+}
 var NUM_DEPART='2026-209';     /* suite de la numérotation Vertuoza (dernier devis : 2026-208) */
 var ACOMPTES_DEF='30 % À la signature\n30 % Au démarrage des travaux\n40 % À l\'avancement';
 
@@ -5822,7 +5849,7 @@ async function genereDevisPdf(d,o,apercu){
   var J=window.jspdf.jsPDF, doc=new J({unit:'mm',format:'a4',compress:true});
   doc.addFileToVFS('Montserrat-Regular.ttf',RES_PDF.policeNormale); doc.addFont('Montserrat-Regular.ttf','Montserrat','normal');
   doc.addFileToVFS('Montserrat-Bold.ttf',RES_PDF.policeGrasse); doc.addFont('Montserrat-Bold.ttf','Montserrat','bold');
-  doc.setProperties({title:'Devis '+o.numero, author:ENTREPRISE.nom, subject:o.reference||'', creator:'DHC — outil devis'});
+  doc.setProperties({title:'Devis '+o.numero, author:societe().nom, subject:o.reference||'', creator:'DHC — outil devis'});
   var W=210, H=297, M=14, NUIT=[15,22,38], TAUPE=[171,152,122]   /* charte DHC : #0f1626, #ab987a */, ENCRE=[40,40,40], GRIS=[110,110,110];
   var gras=function(t){ doc.setFont('Montserrat','bold'); if(t) doc.setFontSize(t); };
   var normal=function(t){ doc.setFont('Montserrat','normal'); if(t) doc.setFontSize(t); };
@@ -5857,8 +5884,11 @@ async function genereDevisPdf(d,o,apercu){
 
   /* coordonnées DHC */
   var y=76;
-  gras(8.6); doc.text(ENTREPRISE.nom,M,y); y+=4.3; normal(8.4);
-  [ENTREPRISE.adresse,ENTREPRISE.ville,o.email,o.tel,'N° TVA : '+ENTREPRISE.tva,'SIRET : '+ENTREPRISE.siret]
+  var soc=societe();
+  gras(8.6); doc.text(soc.nom,M,y); y+=4.3; normal(8.4);
+  /* e-mail et téléphone : ceux du responsable, sinon ceux de la société */
+  [soc.rue,[soc.cp,soc.ville].filter(Boolean).join(' '),o.email||soc.email,o.tel||soc.tel,
+   soc.tva?'N° TVA : '+soc.tva:'',soc.siret?'SIRET : '+soc.siret:'']
     .filter(Boolean).forEach(function(l){ doc.text(l,M,y); y+=4; });
   y=Math.max(y,by+bh+3)+4;
   var adrCh=String(o.adresseChantier||'').split('\n').map(function(s){ return s.trim(); }).filter(Boolean).join(', ');
@@ -5992,7 +6022,7 @@ async function genereDevisPdf(d,o,apercu){
     doc.setPage(p); doc.setTextColor.apply(doc,ENCRE);
     if(p<nbPages){
       normal(6.9);
-      var lp=[]; ENTREPRISE.pied.forEach(function(l){ lp=lp.concat(doc.splitTextToSize(l,W-2*M)); });
+      var lp=[]; piedSociete().forEach(function(l){ lp=lp.concat(doc.splitTextToSize(l,W-2*M)); });
       lp.forEach(function(l,i){ doc.text(l,W/2,H-20+i*3.3,{align:'center'}); });
     }
     normal(8.6); doc.text('Page '+p+'/'+nbPages,W-M,H-8,{align:'right'});
@@ -6573,6 +6603,34 @@ $('compteAjout').onclick=function(){
   params.devisComptes.push({banque:'',iban:'',bic:''}); renduComptes();
   var ch=$('compteListe').querySelectorAll('input[data-k="banque"]'); ch[ch.length-1].focus();
 };
+/* Paramètres › Société */
+var SOC_CHAMPS=[
+  ['Identité',[['nom','Société','p-moyen'],['nomAbrege','Nom abrégé','p-moyen']]],
+  ['Adresse du siège social',[['rue','Rue','p-moyen'],['cp','Code postal','p-court'],['ville','Ville','p-court'],['pays','Pays','p-court']]],
+  ['Coordonnées de contact',[['email','Adresse e-mail','p-moyen'],['tel','Téléphone','p-court'],['web','Site web','p-moyen']]],
+  ['Identifiants légaux',[['tva','N° TVA','p-court'],['siret','SIRET','p-court'],['rcs','RCS','p-court'],['villeRcs','Ville RCS','p-court'],['capital','Capital social (€)','p-court'],['ape','Code APE','p-court']]],
+  ['Assurance',[['assureur','Nom de l\'assureur','p-moyen'],['garantie','Garantie','p-moyen'],['zone','Zone de couverture','p-court'],
+                ['assRue','Rue de l\'assureur','p-moyen'],['assCp','Code postal','p-court'],['assVille','Ville','p-court'],['assPays','Pays','p-court']]]
+];
+function renduSociete(){
+  var x=societe();
+  $('socForm').innerHTML=SOC_CHAMPS.map(function(g){
+    return '<h3 class="st" style="margin-top:6px">'+g[0]+'</h3><div class="grille-param">'
+      +g[1].map(function(c){ return '<div class="'+c[2]+'"><label class="champ" for="soc_'+c[0]+'">'+c[1]+'</label>'
+        +'<input type="text" id="soc_'+c[0]+'" data-soc="'+c[0]+'" spellcheck="false" value="'+echappe(x[c[0]])+'"></div>'; }).join('')
+      +'</div>';
+  }).join('');
+}
+renduSociete();
+$('socForm').addEventListener('change',function(e){
+  var k=e.target.getAttribute('data-soc'); if(!k) return;
+  params.societe=params.societe||{}; params.societe[k]=e.target.value.trim(); sauveParams();
+});
+$('socDefaut').onclick=function(){
+  if(!confirm('Remettre les informations de la société d\'origine ?')) return;
+  params.societe=null; sauveParams(); renduSociete();
+};
+
 /* méthodes de paiement : la première est la méthode par défaut */
 function renduPaiements(){
   var l=params.devisPaiements;
