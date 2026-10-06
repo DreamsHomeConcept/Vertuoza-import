@@ -208,8 +208,11 @@ tr.r-chapitre td.des .prefixe{color:var(--taupe)}
 .modale{position:fixed;inset:0;z-index:60;background:rgba(15,22,38,.55);display:flex;align-items:flex-start;justify-content:center;
   padding:40px 14px;overflow:auto}
 .modale[hidden]{display:none}
-.modale-in{background:#fff;border-radius:4px;border-top:4px solid var(--taupe);width:100%;max-width:720px;padding:18px 20px;box-shadow:0 12px 40px rgba(15,22,38,.35)}
-.modale-in h3{margin:0 0 12px;font-size:16px;color:var(--nuit)}
+.modale-in{position:relative;background:#fff;border-radius:4px;border-top:4px solid var(--taupe);width:100%;max-width:720px;padding:18px 20px;box-shadow:0 12px 40px rgba(15,22,38,.35)}
+.modale-in h3{margin:0 0 12px;padding-right:36px;font-size:16px;color:var(--nuit)}
+.mod-ferme{position:absolute;top:10px;right:10px;width:32px;height:32px;padding:0;border:1px solid var(--trait);border-radius:4px;
+  background:#fff;color:var(--nuit);font-size:16px;line-height:1;cursor:pointer}
+.mod-ferme:hover{background:var(--taupe-pale);border-color:var(--taupe)}
 .modale .grille{margin-bottom:10px}
 .mod-liste{max-height:48vh;overflow:auto;border:1px solid var(--trait);border-radius:3px}
 .mod-grp{background:var(--taupe-pale);padding:6px 10px;font-weight:600;font-size:12.5px;color:var(--nuit)}
@@ -910,6 +913,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
 
 <div id="modale" class="modale" hidden>
   <div class="modale-in" role="dialog" aria-modal="true" aria-labelledby="modTitre">
+    <button type="button" class="mod-ferme" id="modFerme" aria-label="Fermer la fenêtre" title="Fermer">✕</button>
     <h3 id="modTitre"></h3>
     <div id="modCorps"></div>
     <div class="rangee-boutons" id="modActions"></div>
@@ -971,9 +975,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.06';
-var DATE_VERSION = '06/10/2026 14h08';   /* date et heure de livraison */
-var NOTES = 'Nouveau : méthodes de paiement au choix (Virement bancaire par défaut, d\'autres à ajouter dans Paramètres) ; les coordonnées bancaires du compte choisi passent sous « Méthodes de Paiement » du devis PDF ; bouton « Importer un RIB » qui remplit banque, IBAN et BIC ; N° TVA et SIRET sous l\'adresse DHC.';
+var VERSION = '3.07';
+var DATE_VERSION = '06/10/2026 14h12';   /* date et heure de livraison */
+var NOTES = 'Toutes les fenêtres (contrôle de cohérence, devis client PDF…) ont une croix ✕ en haut à droite pour les fermer.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2407,6 +2411,7 @@ function ouvreModale(titre,corps,boutons){
 }
 function fermeModale(){ $('modale').hidden=true; $('modCorps').innerHTML=''; }
 $('modale').addEventListener('click',function(e){ if(e.target===this) fermeModale(); });
+$('modFerme').onclick=fermeModale;
 document.addEventListener('keydown',function(e){ if(e.key==='Escape' && !$('modale').hidden) fermeModale(); });
 
 /* --------------------------- enregistrer un modèle --------------------------- */
