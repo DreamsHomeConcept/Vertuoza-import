@@ -1122,9 +1122,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.39';
-var DATE_VERSION = '07/10/2026 18h45';   /* date et heure de livraison */
-var NOTES = 'Le nom de l’onglet suit automatiquement la « Référence du devis ».';
+var VERSION = '3.40';
+var DATE_VERSION = '07/10/2026 19h10';   /* date et heure de livraison */
+var NOTES = 'Devis PDF : « Conditions de paiements » placé après les acomptes, avant les méthodes de paiement.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6484,8 +6484,6 @@ async function genereDevisPdf(d,o,apercu){
     y+=4.6;
   };
   if(y>H-basPage-60){ doc.addPage(); y=20; }
-  ecrit('Conditions de paiements : ','Paiement comptant à la réception de la facture');
-  y+=4.6;   /* une ligne d'espace avant les acomptes */
   if(o.acomptes.length){
     ecrit('Acomptes :','');
     var reste=Math.round(ttc*100)/100;
@@ -6498,6 +6496,8 @@ async function genereDevisPdf(d,o,apercu){
       doc.text('•',M+4,y); doc.text(doc.splitTextToSize(t,W-2*M-10),M+9,y); y+=4.6;
     });
   }
+  if(o.acomptes.length) y+=4.6;   /* une ligne d'espace après les acomptes */
+  ecrit('Conditions de paiements : ','Paiement comptant à la réception de la facture');   /* après les acomptes, avant les méthodes (Moussa) */
   var paie=o.paiement||'Virement bancaire';
   y+=4.6;   /* une ligne d'espace avant les méthodes de paiement */
   ecrit('Méthodes de Paiement : ',paie);
