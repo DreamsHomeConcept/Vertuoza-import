@@ -961,6 +961,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <div class="vue-param" data-vue="garde">
     <h3 class="st">Pages de garde du devis</h3>
     <p class="note" style="margin-top:0">Importe ta page de couverture complète, format A4. Dans un PDF, les champs client, adresse du chantier, référence et date du devis sont remplis automatiquement, en blanc. Pour une image (JPG / PNG), une phrase est écrite par-dessus, <code>{CLIENT}</code> étant remplacé par le nom du client : clique sur l'aperçu pour la placer. La page de garde se choisit dans la fenêtre « Devis client PDF » ; elle est proposée d'après les chapitres du devis (mots-clés).</p>
+    <p style="margin:0 0 10px"><button type="button" class="mini" id="gardeAjout">+ Ajouter une page de garde</button></p>
     <div id="gardeListe"></div>
     <input type="file" id="gardeFichier" accept=".pdf,application/pdf,image/jpeg,image/png" hidden>
     <p class="note" id="gardeEtat"></p>
@@ -1122,9 +1123,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.43';
-var DATE_VERSION = '07/10/2026 21h59';   /* date et heure de livraison */
-var NOTES = 'Page de garde sans champs (PowerPoint) : valeurs écrites en blanc sous les intitulés Réalisé pour, Adresse du chantier, Référence du devis et Date.';
+var VERSION = '3.44';
+var DATE_VERSION = '07/10/2026 23h59';   /* date et heure de livraison */
+var NOTES = 'Bouton « + Ajouter une page de garde » et page imposée par type de projet ; petit espace blanc avant le Total TTC du devis PDF.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6480,7 +6481,7 @@ async function genereDevisPdf(d,o,apercu){
   });
   var finG=doc.lastAutoTable.finalY;
   var lignesD=[['Total Net HTVA',eurPdf(ht),'t']].concat(ventil.map(function(v){ return ['TVA '+tvaPdf(v.taux),eurPdf(v.tva),'c']; }))
-              .concat([['Total TVA',eurPdf(tva),'t'],['Total TTC à payer',eurPdf(ttc),'n']]);
+              .concat([['Total TVA',eurPdf(tva),'t'],['','','e'],['Total TTC à payer',eurPdf(ttc),'n']]);   /* 'e' : petit espace blanc avant le TTC (Moussa) */
   window.autoTable(doc,{
     startY:y, margin:{left:134,right:M}, tableWidth:W-M-134, theme:'plain',
     styles:Object.assign({},styleT,{halign:'right'}),
@@ -6489,6 +6490,7 @@ async function genereDevisPdf(d,o,apercu){
       var k=lignesD[h.row.index][2], s=h.cell.styles;
       if(k==='t'){ s.fontStyle='bold'; s.fillColor=TAUPE; s.textColor=NUIT; }
       else if(k==='n'){ s.fontStyle='bold'; s.fillColor=NUIT; s.textColor=[255,255,255]; }
+      else if(k==='e'){ s.fillColor=[255,255,255]; s.cellPadding=0; s.minCellHeight=2.2; s.fontSize=1; }
       else s.fillColor=[255,255,255];
     }
   });
@@ -7521,20 +7523,23 @@ $('socDefaut').onclick=function(){
    la phrase (avec {CLIENT}) est écrite par-dessus à l'endroit choisi sur l'aperçu. */
 var GARDES_DEF=[
   {id:'renovation', nom:'Rénovation', mots:'rénovation, aménagement, plâtrerie, peinture, intérieur'},
-  {id:'renovation_globale', nom:'Rénovation globale', mots:''},   /* choisie seulement par le type de projet « Rénovation globale » */
-  {id:'toiture', nom:'Toiture rénovation', mots:'toiture, charpente, couverture, zinguerie'},
-  {id:'toiture_neuve', nom:'Toiture neuve', mots:''},   /* choisie seulement par le type de projet « Toiture neuve » */
+  {id:'renovation_globale', nom:'Rénovation globale', mots:'', type:'renovation_globale'},   /* imposée par le type de projet « Rénovation globale » */
+  {id:'toiture', nom:'Toiture rénovation', mots:'toiture, charpente, couverture, zinguerie', type:'toiture_reno'},
+  {id:'toiture_neuve', nom:'Toiture neuve', mots:'', type:'toiture_neuve'},   /* imposée par le type de projet « Toiture neuve » */
   {id:'ossature', nom:'Ossature Métallique', mots:'ossature, métallique, sweelco, structure maison'},
   {id:'menuiseries', nom:'Menuiseries', mots:'menuiserie, fenêtre, porte, volet, baie'}
-].map(function(g){ return Object.assign({phrase:'Devis personnalisé pour {CLIENT}', x:50, y:40, taille:14, couleur:'#ffffff'},g); });
+].map(function(g){ return Object.assign({phrase:'Devis personnalisé pour {CLIENT}', x:50, y:40, taille:14, couleur:'#ffffff', type:''},g); });
 var GARDE_IMG={};   /* id → image JPEG (data URL), lue au démarrage depuis IndexedDB */
 var CLIENT_EXEMPLE='M. Dupont Nicolas';
 function gardes(){
   var s=Array.isArray(params.gardes)?params.gardes:[];
-  return GARDES_DEF.map(function(g){
+  /* pages ajoutées par l'utilisateur (bouton « + ») en tête, puis les pages de base */
+  var perso=s.filter(function(o){ return o && o.perso && o.id; }).map(function(o){ return Object.assign({},GARDES_DEF[0],{nom:'Nouvelle page de garde', mots:'', type:''},{id:o.id, perso:true}); });
+  return perso.concat(GARDES_DEF).map(function(g){
     var x=Object.assign({},g), o=s.find(function(y){ return y.id===g.id; });
     if(o){
-      ['nom','mots','couleur'].forEach(function(k){ if(typeof o[k]==='string' && o[k].trim()) x[k]=o[k]; });
+      ['nom','mots','couleur'].forEach(function(k){ if(typeof o[k]==='string' && (o[k].trim() || (g.perso && k==='mots'))) x[k]=o[k]; });
+      if(typeof o.type==='string') x.type=o.type;
       if(g.id==='toiture' && o.nom==='Toiture') x.nom=g.nom;   /* ancien nom par défaut (avant la v3.37) */
       if(typeof o.phrase==='string') x.phrase=o.phrase;
       ['x','y','taille'].forEach(function(k){ var v=parseFloat(o[k]); if(isFinite(v) && v>0) x[k]=v; });
@@ -7578,10 +7583,12 @@ function renduGardes(){
   zone.innerHTML=gardes().map(function(g){
     var c=function(k,lib,cls,type,extra){ return '<div class="'+cls+'"><label class="champ" for="g_'+g.id+'_'+k+'">'+lib+'</label><input type="'+(type||'text')+'" id="g_'+g.id+'_'+k+'" data-g="'+g.id+'" data-k="'+k+'" value="'+echappe(String(g[k]))+'"'+(extra||'')+'></div>'; };
     return '<div class="garde-carte"><canvas width="300" height="424" data-g-can="'+g.id+'" title="Clique pour placer la phrase"></canvas><div class="gc-champs">'
-      +'<div class="grille-param">'+c('nom','Nom','p-moyen')+c('mots','Mots-clés des chapitres (séparés par des virgules)','p-moyen')+'</div>'
+      +'<div class="grille-param">'+c('nom','Nom','p-moyen')+c('mots','Mots-clés des chapitres (séparés par des virgules)','p-moyen')
+      +'<div class="p-moyen"><label class="champ" for="g_'+g.id+'_type">Imposée pour le type de projet</label><select id="g_'+g.id+'_type" data-g="'+g.id+'" data-k="type"><option value="">—</option>'
+      +[].slice.call(document.querySelectorAll('#fType option')).filter(function(o){ return o.value; }).map(function(o){ return '<option value="'+o.value+'"'+(o.value===g.type?' selected':'')+'>'+echappe(o.textContent)+'</option>'; }).join('')+'</select></div></div>'
       +((g.champs||[]).length && GARDE_IMG[g.id]?'':'<div class="grille-param">'+c('phrase','Phrase sur la page','p-moyen')+c('taille','Taille (pt)','p-court','number',' min="6" max="40" step="0.5"')+c('couleur','Couleur','p-court','color')+'</div>')
       +'<p style="margin:4px 0"><button type="button" class="mini" data-g-imp="'+g.id+'">'+(GARDE_IMG[g.id]?'Remplacer la page':'Importer la page')+'</button> '
-      +(GARDE_IMG[g.id]?'<button type="button" class="mini" data-g-suppr="'+g.id+'">Retirer</button>':'')+'</p>'
+      +(GARDE_IMG[g.id]||g.perso?'<button type="button" class="mini" data-g-suppr="'+g.id+'">Retirer</button>':'')+'</p>'
       +'<p class="note" style="margin:4px 0 0">'+(GARDE_IMG[g.id]?((g.champs||[]).length?'Mots-clés remplis automatiquement, en blanc : '+g.champs.map(function(c){ return '{'+c.cle+'}'; }).join(' ')+'.':'Clique sur l\'aperçu pour placer la phrase.'):'Pas encore de page : elle ne sera pas proposée dans le devis.')+'</p>'
       +'</div></div>';
   }).join('');
@@ -7672,6 +7679,11 @@ async function imageGarde(f){
 }
 renduGardes();
 var gardeCible='';
+$('gardeAjout').onclick=function(){
+  var l=gardes(); l.unshift(Object.assign({},GARDES_DEF[0],{id:'p'+Date.now().toString(36), perso:true, nom:'Nouvelle page de garde', mots:'', type:''}));
+  params.gardes=l; sauveParams(); renduGardes();
+  var n=document.querySelector('#gardeListe input[data-k="nom"]'); if(n){ n.focus(); n.select(); }
+};
 $('gardeListe').addEventListener('click',function(e){
   var b=e.target.closest('button'), cv=e.target.closest('canvas[data-g-can]');
   if(cv){
@@ -7683,8 +7695,9 @@ $('gardeListe').addEventListener('click',function(e){
   if(b.hasAttribute('data-g-imp')){ gardeCible=b.getAttribute('data-g-imp'); $('gardeFichier').value=''; $('gardeFichier').click(); }
   if(b.hasAttribute('data-g-suppr')){
     var id2=b.getAttribute('data-g-suppr'), g2=gardes().find(function(g){ return g.id===id2; });
-    if(!confirm('Retirer la page de garde « '+g2.nom+' » de ce poste ?')) return;
-    delete GARDE_IMG[id2]; effaceModele('garde:'+id2).then(renduGardes);
+    if(!confirm((g2.perso?'Supprimer la page de garde « ':'Retirer la page de garde « ')+g2.nom+' » de ce poste ?')) return;
+    if(g2.perso){ params.gardes=gardes().filter(function(g){ return g.id!==id2; }); sauveParams(); }
+    delete GARDE_IMG[id2]; effaceModele('garde:'+id2).then(renduGardes).catch(renduGardes);
   }
 });
 $('gardeListe').addEventListener('change',function(e){
@@ -7714,10 +7727,8 @@ $('gardeFichier').onchange=async function(){
 function sansAccent(t){ return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 function gardeAuto(d){
   var l=gardes().filter(function(g){ return GARDE_IMG[g.id]; }); if(!l.length) return '';
-  /* type Toiture : page de garde imposée selon neuf ou rénovation */
-  if(d.typeProjet==='renovation_globale' && GARDE_IMG.renovation_globale) return 'renovation_globale';
-  if(d.typeProjet==='toiture_neuve' && GARDE_IMG.toiture_neuve) return 'toiture_neuve';
-  if(d.typeProjet==='toiture_reno' && GARDE_IMG.toiture) return 'toiture';
+  /* page imposée par le type de projet du chantier */
+  var imp=d.typeProjet && l.find(function(g){ return g.type===d.typeProjet; }); if(imp) return imp.id;
   var score={}, chap='';
   lignesExport(d).forEach(function(r){
     if(r.type==='chapitre'){ chap=sansAccent(r.designation); return; }
