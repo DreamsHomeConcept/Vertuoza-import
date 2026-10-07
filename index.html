@@ -607,6 +607,8 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
           <option value="extension">Extension</option>
           <option value="surelevation">Surélévation</option>
           <option value="renovation">Rénovation</option>
+          <option value="toiture_neuve">Toiture neuve</option>
+          <option value="toiture_reno">Toiture rénovation</option>
           <option value="autre">Autre</option>
         </select>
       </div>
@@ -1119,9 +1121,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.35';
-var DATE_VERSION = '07/10/2026 17h55';   /* date et heure de livraison */
-var NOTES = 'À l’ouverture, l’écran démarre vide : les chantiers de la dernière session sont rangés dans « Mes chantiers ».';
+var VERSION = '3.36';
+var DATE_VERSION = '07/10/2026 18h15';   /* date et heure de livraison */
+var NOTES = 'Type de projet : ajout de « Toiture neuve » (TVA 20 %) et « Toiture rénovation » (TVA 10 %, 5,5 % possible), page de garde Toiture imposée.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1833,7 +1835,7 @@ function renduRecapSt(){
       html+='<tr class="it'+(ret?'':' refuse')+'">'
         +'<td class="c-ret" data-l="Retenu"><input type="checkbox" data-retenu="'+echappe(x.nom)+'"'+(ret?' checked':'')+' title="Décochez si ce devis a été consulté mais écarté"></td>'
         +'<td class="c-nom" data-l="Intervenant"><b>'+echappe(x.nom.replace(/\s*\(\d+\)$/,''))+'</b>'+etiquetteBiblio(d,x.nom)+ecart
-          +(a55(d,x.nom)?'<span class="badge-tva'+(d.typeProjet==='renovation'?'':' ko')+'" title="'+(d.typeProjet==='renovation'?'Rénovation : lignes facturées au client à 5,5 %':estNeuf(d)?'Construction neuve : 5,5 % non applicable, client au taux du devis':'Type de projet à renseigner')+'">TVA 5,5 %'+(d.typeProjet==='renovation'?' appliquée':estNeuf(d)?' non applicable':' ?')+'</span>':'')
+          +(a55(d,x.nom)?'<span class="badge-tva'+(estReno(d)?'':' ko')+'" title="'+(estReno(d)?'Rénovation : lignes facturées au client à 5,5 %':estNeuf(d)?'Construction neuve : 5,5 % non applicable, client au taux du devis':'Type de projet à renseigner')+'">TVA 5,5 %'+(estReno(d)?' appliquée':estNeuf(d)?' non applicable':' ?')+'</span>':'')
           +(autoliqAttendue(d,x.nom)?'<span class="badge-tva ko" title="Un sous-traitant du bâtiment facture DHC en autoliquidation, sans TVA">autoliquidation attendue</span>':'')
           +(estLotOssature(lotDe(d,x.nom))?'<button class="lien-mt" data-montage="'+echappe(x.nom)+'">'+((d.montages||{})[x.nom]?'⚒ montage : '+d.montages[x.nom].jours.toLocaleString('fr-FR')+' j — modifier':'+ montage')+'</button>':'')
           +'</td>'
@@ -2757,7 +2759,7 @@ async function dialogueEnregistrement(d,nom){
   if(!lignes.some(function(l){return l.type==='ligne';})){ info('Aucune ligne chiffrée à enregistrer.',0,'err'); return; }
   var inter = nom || (d.entete.emetteur||d.entete.client||d.feuille||'Devis');
   var lot = nom ? lotDe(d,nom) : devineLot(d.lignes);
-  var cat = d.typeProjet==='renovation' ? 'renovation' : (/^(maison|extension|surelevation)$/.test(d.typeProjet||'') ? 'neuf' : 'intervenant');
+  var cat = estReno(d) ? 'renovation' : (estNeuf(d) ? 'neuf' : 'intervenant');
   var dateDef = dateIso(d.entete.date) || new Date().toISOString().slice(0,10);
   var total = lignes.reduce(function(t,l){ return t+(l.type==='ligne'?nombreFr(l.qte)*nombreFr(l.pu):0); },0);
   var existants = await lisModeles();
@@ -4472,7 +4474,7 @@ $('listeSt').addEventListener('input',function(e){
 });
 
 /* TVA de vente par défaut selon la nature des travaux — modifiable ensuite. */
-var TVA_PAR_TYPE={maison:20, extension:20, surelevation:20, renovation:10};
+var TVA_PAR_TYPE={maison:20, extension:20, surelevation:20, renovation:10, toiture_neuve:20, toiture_reno:10};
 $('fType').addEventListener('change',function(){
   var d=D(); d.typeProjet=this.value;
   if(TVA_PAR_TYPE[this.value]!=null){
@@ -5712,7 +5714,9 @@ function estLotOssature(lot){
 /* ------- contrôle TVA des devis reçus -------
    5,5 % : rénovation énergétique d'un logement achevé depuis plus de 2 ans. Jamais en construction neuve.
    Un sous-traitant du bâtiment facture DHC en autoliquidation, sans TVA. */
-function estNeuf(d){ return /^(maison|extension|surelevation)$/.test(d.typeProjet||''); }
+function estNeuf(d){ return /^(maison|extension|surelevation|toiture_neuve)$/.test(d.typeProjet||''); }
+/* Toiture neuve = règles du neuf (20 %) ; toiture en rénovation = règles de la rénovation (10 %, 5,5 % possible). */
+function estReno(d){ return /^(renovation|toiture_reno)$/.test(d.typeProjet||''); }
 function tvaLues(d,nom){ return ((d.tvaLues||{})[nom]||[]).map(Number).filter(function(x){ return x>0; }); }
 function a55(d,nom){ return tvaLues(d,nom).some(function(x){ return Math.abs(x-5.5)<0.01; }); }
 function autoliqAttendue(d,nom){
@@ -5725,7 +5729,7 @@ function regleTva(d){
     if(!d.lignes.some(function(r){ return r.intervenant===nom; })) return;
     if(!a55(d,nom)) return;
     var lignes=d.lignes.filter(function(r){ return r.intervenant===nom && r.type==='ligne'; });
-    if(d.typeProjet==='renovation'){
+    if(estReno(d)){
       var n=0;
       lignes.forEach(function(r){ if(r.tva==null || r.tvaAuto){ r.tva=5.5; r.tvaAuto=true; n++; } });
       if(n && !params.multiTaux){ params.multiTaux=true; sauveParams(); if($('optMulti')) $('optMulti').checked=true; }
@@ -7648,6 +7652,7 @@ $('gardeFichier').onchange=async function(){
 function sansAccent(t){ return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 function gardeAuto(d){
   var l=gardes().filter(function(g){ return GARDE_IMG[g.id]; }); if(!l.length) return '';
+  if(/^toiture_/.test(d.typeProjet||'') && GARDE_IMG.toiture) return 'toiture';   /* type Toiture : page Toiture imposée */
   var score={}, chap='';
   lignesExport(d).forEach(function(r){
     if(r.type==='chapitre'){ chap=sansAccent(r.designation); return; }
