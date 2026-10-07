@@ -957,7 +957,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
 
     <div class="vue-param" data-vue="garde">
     <h3 class="st">Pages de garde du devis</h3>
-    <p class="note" style="margin-top:0">Importe ta page de couverture complète (image JPG / PNG ou PDF, format A4), sans le nom du client. La phrase ci-dessous est écrite par-dessus, <code>{CLIENT}</code> étant remplacé par le nom du client. Clique sur l'aperçu pour placer la phrase. La page de garde se choisit dans la fenêtre « Devis client PDF » ; elle est proposée d'après les chapitres du devis (mots-clés).</p>
+    <p class="note" style="margin-top:0">Importe ta page de couverture complète, format A4. Dans un PDF, les champs client, adresse du chantier, référence et date du devis sont remplis automatiquement, en blanc. Pour une image (JPG / PNG), une phrase est écrite par-dessus, <code>{CLIENT}</code> étant remplacé par le nom du client : clique sur l'aperçu pour la placer. La page de garde se choisit dans la fenêtre « Devis client PDF » ; elle est proposée d'après les chapitres du devis (mots-clés).</p>
     <div id="gardeListe"></div>
     <input type="file" id="gardeFichier" accept=".pdf,application/pdf,image/jpeg,image/png" hidden>
     <p class="note" id="gardeEtat"></p>
@@ -1119,9 +1119,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.32';
-var DATE_VERSION = '07/10/2026 02h28';   /* date et heure de livraison */
-var NOTES = 'Pages de garde en PDF : champs client, adresse du chantier, numéro et date du devis remplis automatiquement en blanc, sans cadre.';
+var VERSION = '3.33';
+var DATE_VERSION = '07/10/2026 02h57';   /* date et heure de livraison */
+var NOTES = 'Page de garde : phrase, taille et couleur masquées quand le PDF a ses champs remplis automatiquement ; explication de l’onglet reformulée.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -7536,10 +7536,10 @@ function renduGardes(){
     var c=function(k,lib,cls,type,extra){ return '<div class="'+cls+'"><label class="champ" for="g_'+g.id+'_'+k+'">'+lib+'</label><input type="'+(type||'text')+'" id="g_'+g.id+'_'+k+'" data-g="'+g.id+'" data-k="'+k+'" value="'+echappe(String(g[k]))+'"'+(extra||'')+'></div>'; };
     return '<div class="garde-carte"><canvas width="300" height="424" data-g-can="'+g.id+'" title="Clique pour placer la phrase"></canvas><div class="gc-champs">'
       +'<div class="grille-param">'+c('nom','Nom','p-moyen')+c('mots','Mots-clés des chapitres (séparés par des virgules)','p-moyen')+'</div>'
-      +'<div class="grille-param">'+c('phrase','Phrase sur la page','p-moyen')+c('taille','Taille (pt)','p-court','number',' min="6" max="40" step="0.5"')+c('couleur','Couleur','p-court','color')+'</div>'
+      +((g.champs||[]).length && GARDE_IMG[g.id]?'':'<div class="grille-param">'+c('phrase','Phrase sur la page','p-moyen')+c('taille','Taille (pt)','p-court','number',' min="6" max="40" step="0.5"')+c('couleur','Couleur','p-court','color')+'</div>')
       +'<p style="margin:4px 0"><button type="button" class="mini" data-g-imp="'+g.id+'">'+(GARDE_IMG[g.id]?'Remplacer la page':'Importer la page')+'</button> '
       +(GARDE_IMG[g.id]?'<button type="button" class="mini" data-g-suppr="'+g.id+'">Retirer</button>':'')+'</p>'
-      +'<p class="note" style="margin:4px 0 0">'+(GARDE_IMG[g.id]?((g.champs||[]).length?'Mots-clés remplis automatiquement, en blanc : '+g.champs.map(function(c){ return '{'+c.cle+'}'; }).join(' ')+'. ':'')+'Clique sur l\'aperçu pour placer la phrase.':'Pas encore de page : elle ne sera pas proposée dans le devis.')+'</p>'
+      +'<p class="note" style="margin:4px 0 0">'+(GARDE_IMG[g.id]?((g.champs||[]).length?'Mots-clés remplis automatiquement, en blanc : '+g.champs.map(function(c){ return '{'+c.cle+'}'; }).join(' ')+'.':'Clique sur l\'aperçu pour placer la phrase.'):'Pas encore de page : elle ne sera pas proposée dans le devis.')+'</p>'
       +'</div></div>';
   }).join('');
   gardes().forEach(function(g){ dessineGarde(zone.querySelector('[data-g-can="'+g.id+'"]'),g); });
