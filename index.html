@@ -1119,9 +1119,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.33';
-var DATE_VERSION = '07/10/2026 02h57';   /* date et heure de livraison */
-var NOTES = 'Page de garde : phrase, taille et couleur masquées quand le PDF a ses champs remplis automatiquement ; explication de l’onglet reformulée.';
+var VERSION = '3.34';
+var DATE_VERSION = '07/10/2026 03h29';   /* date et heure de livraison */
+var NOTES = 'Devis PDF : la page de garde n’est plus numérotée ni comptée, la numérotation commence au devis.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6530,13 +6530,13 @@ async function genereDevisPdf(d,o,apercu){
   /* pied et numéros de page */
   for(var p=1;p<=nbPages;p++){
     doc.setPage(p); doc.setTextColor.apply(doc,ENCRE);
-    if(p<pDevis) doc.setTextColor.apply(doc,rgbHex(garde.couleur));   /* numéro de la page de garde : couleur de la phrase */
+    if(p<pDevis) continue;   /* page de garde : ni pied ni numéro, et elle n'est pas comptée */
     if(p<debutCgv && p>=pDevis){
       normal(6.9);
       var lp=[]; piedSociete().forEach(function(l){ lp=lp.concat(doc.splitTextToSize(l,W-2*M)); });
       lp.forEach(function(l,i){ doc.text(l,W/2,H-20+i*3.3,{align:'center'}); });
     }
-    normal(8.6); doc.text((p>=debutCgv?'DHC '+new Date().getFullYear()+'   ·   ':'')+'Page '+p+'/'+nbPages,W-M,H-8,{align:'right'});
+    normal(8.6); doc.text((p>=debutCgv?'DHC '+new Date().getFullYear()+'   ·   ':'')+'Page '+(p-pDevis+1)+'/'+(nbPages-pDevis+1),W-M,H-8,{align:'right'});
   }
   var nom=((o.client?o.client+' ':'')+o.numero)   /* ex. « Mr Collet Jean Marc 2026-209.pdf » */.replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,90)+'.pdf';
   if(apercu) return doc.output('bloburl');
