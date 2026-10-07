@@ -598,7 +598,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <div><label class="champ" for="fChantier">Chantier</label><input type="text" id="fChantier"></div>
       <div><label class="champ" for="fRef">Référence du devis</label><input type="text" id="fRef"></div>
       <div><label class="champ" for="fDate">Date</label><input type="text" id="fDate" placeholder="jj/mm/aaaa"></div>
-      <div><label class="champ" for="fFeuille">Nom de l'onglet Excel</label><input type="text" id="fFeuille"></div>
+      <div hidden><label class="champ" for="fFeuille">Nom de l'onglet Excel</label><input type="text" id="fFeuille"></div>
       <div>
         <label class="champ" for="fType">Type de projet</label>
         <select id="fType">
@@ -1122,9 +1122,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.38';
-var DATE_VERSION = '07/10/2026 18h30';   /* date et heure de livraison */
-var NOTES = 'Type de projet « Rénovation globale » (règles de la rénovation) avec sa propre page de garde.';
+var VERSION = '3.39';
+var DATE_VERSION = '07/10/2026 18h45';   /* date et heure de livraison */
+var NOTES = 'Le nom de l’onglet suit automatiquement la « Référence du devis ».';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2069,6 +2069,7 @@ function memoriseReplis(d){
   } else if(!estVide(d) || d._connu){ planifieSauvegarde(); }
 }
 function rendu(){
+  dossier.forEach(feuilleSurRef);
   var d=D();
   nettoieSelection(d);
   memoriseReplis(d);
@@ -4364,6 +4365,7 @@ $('addTexte').onclick=function(){ ajouteEnBas('texte'); };
 ['fClient','fChantier','fRef','fDate'].forEach(function(id){
   $(id).addEventListener('input',function(){
     D().entete[{fClient:'client',fChantier:'chantier',fRef:'reference',fDate:'date'}[id]]=this.value; diffuse();
+    if(id==='fRef' && feuilleSurRef(D())) renduOnglets();
   });
 });
 $('fFeuille').addEventListener('input',function(){ D().feuille=this.value; renduOnglets(); });
@@ -5816,6 +5818,14 @@ function dialogueMontage(d,source){
   $('mtSurf').addEventListener('input',calc); $('mtRend').addEventListener('input',calc); calc();
 }
 
+/* Le nom de l'onglet suit la « Référence du devis » quand elle est remplie (demande de Moussa, v3.39). */
+function feuilleSurRef(d){
+  var ref=String((d && d.entete && d.entete.reference)||'').trim();
+  if(!ref || d._lecture) return false;
+  var n=nomFeuilleSure(ref,d);
+  if(d.feuille===n) return false;
+  d.feuille=n; return true;
+}
 function nomFeuilleSure(brut,sauf){
   var n=String(brut||'Devis').replace(/[\\\/\?\*\[\]:]/g,' ').replace(/\s+/g,' ').trim().slice(0,31)||'Devis';
   var base=n.slice(0,28), i=2;
