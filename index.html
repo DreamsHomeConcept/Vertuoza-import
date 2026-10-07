@@ -606,6 +606,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
           <option value="maison">Maison neuve</option>
           <option value="extension">Extension</option>
           <option value="surelevation">Surélévation</option>
+          <option value="renovation_globale">Rénovation globale</option>
           <option value="renovation">Rénovation</option>
           <option value="toiture_neuve">Toiture neuve</option>
           <option value="toiture_reno">Toiture rénovation</option>
@@ -1121,9 +1122,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.37';
-var DATE_VERSION = '07/10/2026 18h25';   /* date et heure de livraison */
-var NOTES = 'Pages de garde : « Toiture » devient « Toiture rénovation » et un modèle « Toiture neuve » est ajouté, chacun imposé par son type de projet.';
+var VERSION = '3.38';
+var DATE_VERSION = '07/10/2026 18h30';   /* date et heure de livraison */
+var NOTES = 'Type de projet « Rénovation globale » (règles de la rénovation) avec sa propre page de garde.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4474,7 +4475,7 @@ $('listeSt').addEventListener('input',function(e){
 });
 
 /* TVA de vente par défaut selon la nature des travaux — modifiable ensuite. */
-var TVA_PAR_TYPE={maison:20, extension:20, surelevation:20, renovation:10, toiture_neuve:20, toiture_reno:10};
+var TVA_PAR_TYPE={maison:20, extension:20, surelevation:20, renovation:10, renovation_globale:10, toiture_neuve:20, toiture_reno:10};
 $('fType').addEventListener('change',function(){
   var d=D(); d.typeProjet=this.value;
   if(TVA_PAR_TYPE[this.value]!=null){
@@ -5716,7 +5717,7 @@ function estLotOssature(lot){
    Un sous-traitant du bâtiment facture DHC en autoliquidation, sans TVA. */
 function estNeuf(d){ return /^(maison|extension|surelevation|toiture_neuve)$/.test(d.typeProjet||''); }
 /* Toiture neuve = règles du neuf (20 %) ; toiture en rénovation = règles de la rénovation (10 %, 5,5 % possible). */
-function estReno(d){ return /^(renovation|toiture_reno)$/.test(d.typeProjet||''); }
+function estReno(d){ return /^(renovation|renovation_globale|toiture_reno)$/.test(d.typeProjet||''); }
 function tvaLues(d,nom){ return ((d.tvaLues||{})[nom]||[]).map(Number).filter(function(x){ return x>0; }); }
 function a55(d,nom){ return tvaLues(d,nom).some(function(x){ return Math.abs(x-5.5)<0.01; }); }
 function autoliqAttendue(d,nom){
@@ -7485,6 +7486,7 @@ $('socDefaut').onclick=function(){
    la phrase (avec {CLIENT}) est écrite par-dessus à l'endroit choisi sur l'aperçu. */
 var GARDES_DEF=[
   {id:'renovation', nom:'Rénovation', mots:'rénovation, aménagement, plâtrerie, peinture, intérieur'},
+  {id:'renovation_globale', nom:'Rénovation globale', mots:''},   /* choisie seulement par le type de projet « Rénovation globale » */
   {id:'toiture', nom:'Toiture rénovation', mots:'toiture, charpente, couverture, zinguerie'},
   {id:'toiture_neuve', nom:'Toiture neuve', mots:''},   /* choisie seulement par le type de projet « Toiture neuve » */
   {id:'ossature', nom:'Ossature Métallique', mots:'ossature, métallique, sweelco, structure maison'},
@@ -7655,6 +7657,7 @@ function sansAccent(t){ return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g
 function gardeAuto(d){
   var l=gardes().filter(function(g){ return GARDE_IMG[g.id]; }); if(!l.length) return '';
   /* type Toiture : page de garde imposée selon neuf ou rénovation */
+  if(d.typeProjet==='renovation_globale' && GARDE_IMG.renovation_globale) return 'renovation_globale';
   if(d.typeProjet==='toiture_neuve' && GARDE_IMG.toiture_neuve) return 'toiture_neuve';
   if(d.typeProjet==='toiture_reno' && GARDE_IMG.toiture) return 'toiture';
   var score={}, chap='';
