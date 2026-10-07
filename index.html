@@ -1119,9 +1119,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.34';
-var DATE_VERSION = '07/10/2026 03h29';   /* date et heure de livraison */
-var NOTES = 'Devis PDF : la page de garde n’est plus numérotée ni comptée, la numérotation commence au devis.';
+var VERSION = '3.35';
+var DATE_VERSION = '07/10/2026 17h30';   /* date et heure de livraison */
+var NOTES = 'À l’ouverture, l’écran démarre vide : les chantiers de la dernière session sont rangés dans « Mes chantiers ».';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -7852,7 +7852,8 @@ majNoteCle();
 rendu();
 routeur();
 
-/* Restauration des chantiers ouverts lors de la dernière session */
+/* Démarrage à vide : les chantiers laissés ouverts sont rangés dans « Mes chantiers »
+   (rien n'est effacé) ; on rouvre ensuite uniquement ceux sur lesquels on travaille. */
 (async function(){
   try{
     if(!window.indexedDB) throw new Error('indisponible');
@@ -7862,11 +7863,13 @@ routeur();
     setTimeout(recoitModeles,5000);
     var recs=await lisTous();
     var ouverts=recs.filter(function(r){return r.ouvert;}).sort(function(a,b){return (a.ordre||0)-(b.ordre||0);});
-    if(ouverts.length && dossier.length===1 && estVide(dossier[0])){
-      dossier=ouverts.map(function(r){ r.devis._connu=true; return r.devis; });
-      actif=0; rendu(); routeur();
-      info(ouverts.length>1 ? ouverts.length+' chantiers rouverts tels que vous les aviez laissés.'
-                            : 'Chantier rouvert tel que vous l\'aviez laissé.',100,'ok');
+    if(ouverts.length){
+      for(var k=0;k<ouverts.length;k++){ var r=ouverts[k];
+        if(dossier.some(function(x){ return x.id===r.id; })) continue;   /* déjà rouvert entre-temps */
+        r.ouvert=false; r.ordre=999; await ecrisChantier(r);
+      }
+      info(ouverts.length>1 ? ouverts.length+' chantiers de la dernière session sont rangés dans « Mes chantiers ».'
+                            : 'Le chantier de la dernière session est rangé dans « Mes chantiers ».',100,'ok');
     }
   }catch(e){
     stockageOk=false;
