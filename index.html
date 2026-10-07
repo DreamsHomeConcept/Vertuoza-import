@@ -597,7 +597,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
       <div><label class="champ" for="fClient">Client</label><input type="text" id="fClient"></div>
       <div><label class="champ" for="fChantier">Chantier</label><input type="text" id="fChantier"></div>
       <div><label class="champ" for="fRef">Référence du devis</label><input type="text" id="fRef"></div>
-      <div><label class="champ" for="fDate">Date</label><input type="text" id="fDate" placeholder="jj/mm/aaaa"></div>
+      <div><label class="champ" for="fDate">Date</label><div style="position:relative"><input type="text" id="fDate" placeholder="jj/mm/aaaa" style="padding-right:38px"><button type="button" id="fDateCal" title="Choisir dans le calendrier" aria-label="Choisir la date dans le calendrier" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:17px;padding:4px 6px;line-height:1">📅</button><input type="date" id="fDatePick" tabindex="-1" aria-hidden="true" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none"></div></div>
       <div hidden><label class="champ" for="fFeuille">Nom de l'onglet Excel</label><input type="text" id="fFeuille"></div>
       <div>
         <label class="champ" for="fType">Type de projet</label>
@@ -1123,9 +1123,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.44';
-var DATE_VERSION = '07/10/2026 23h59';   /* date et heure de livraison */
-var NOTES = 'Bouton « + Ajouter une page de garde » et page imposée par type de projet ; petit espace blanc avant le Total TTC du devis PDF.';
+var VERSION = '3.45';
+var DATE_VERSION = '08/10/2026 00h10';   /* date et heure de livraison */
+var NOTES = 'Champ Date du devis : bouton calendrier 📅 pour choisir la date.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4368,6 +4368,17 @@ $('addTexte').onclick=function(){ ajouteEnBas('texte'); };
     D().entete[{fClient:'client',fChantier:'chantier',fRef:'reference',fDate:'date'}[id]]=this.value; diffuse();
     if(id==='fRef' && feuilleSurRef(D())) renduOnglets();
   });
+});
+/* Calendrier du champ Date (v3.44) : ouvre le sélecteur du navigateur, écrit jj/mm/aaaa. */
+$('fDateCal').addEventListener('click',function(){
+  var p=$('fDatePick'); p.value=dateIso($('fDate').value)||new Date().toISOString().slice(0,10);
+  try{ if(p.showPicker){ p.showPicker(); return; } }catch(e){}
+  p.style.pointerEvents='auto'; p.focus(); p.click(); p.style.pointerEvents='none';
+});
+$('fDatePick').addEventListener('change',function(){
+  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(this.value); if(!m) return;
+  var f=$('fDate'); f.value=m[3]+'/'+m[2]+'/'+m[1];
+  f.dispatchEvent(new Event('input',{bubbles:true}));
 });
 $('fFeuille').addEventListener('input',function(){ D().feuille=this.value; renduOnglets(); });
 $('fTva').addEventListener('change',function(){ D().tva=parseFloat(this.value); rendu(); });
