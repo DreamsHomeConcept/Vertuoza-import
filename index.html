@@ -7621,6 +7621,28 @@ async function imageGarde(f){
       var t=it.transform, h=Math.hypot(t[2],t[3])||it.height||10;
       champs.push({cle:m[1], x:t[4]/vp1.width*100, y:(vp1.height-t[5])/vp1.height*100, taille:Math.round(h*10)/10, couleur:'#ffffff'});
     });
+    /* page sans champ ni mot-clé (PowerPoint…) : valeurs écrites sous les intitulés RÉALISÉ POUR, ADRESSE DU CHANTIER,
+       RÉFÉRENCE DU DEVIS, DATE… repérés dans le texte de la page */
+    if(!champs.length){
+      var LIBS=[[/^(realise pour|client)$/,'CLIENT'],[/^adresse du chantier$/,'ADRESSE_CHANTIER'],[/^adresse du client$/,'ADRESSE_CLIENT'],
+                [/^(reference du devis|numero du devis|devis n.?)$/,'REFERENCE_DEVIS'],[/^(date|date du devis)$/,'DATE_DEVIS'],
+                [/^responsable$/,'RESPONSABLE'],[/^date de demarrage$/,'DATE_DEMARRAGE']];
+      var rangs={};
+      tc.items.forEach(function(it){ if((it.str||'').trim()) (rangs[Math.round(it.transform[5])]=rangs[Math.round(it.transform[5])]||[]).push(it); });
+      Object.keys(rangs).forEach(function(k){
+        var grp=[], cur=null;
+        rangs[k].sort(function(a,b){ return a.transform[4]-b.transform[4]; }).forEach(function(it){
+          var t=it.transform, h=Math.hypot(t[2],t[3])||it.height||10;
+          if(cur && t[4]-cur.fin<h*2.5){ cur.txt+=' '+it.str.trim(); cur.fin=t[4]+it.width; }
+          else { cur={x:t[4], fin:t[4]+it.width, txt:it.str.trim(), h:h}; grp.push(cur); }
+        });
+        grp.forEach(function(g){
+          var lib=LIBS.find(function(l){ return l[0].test(sansAccent(g.txt).replace(/\s+/g,' ').trim()); }); if(!lib) return;
+          champs.push({cle:lib[1], libelle:true, x:g.x/vp1.width*100, y:(vp1.height-(+k)+g.h*2)/vp1.height*100,
+                       taille:Math.round(g.h*1.2*10)/10, couleur:'#ffffff'});
+        });
+      });
+    }
     /* largeur de chaque champ : jusqu'au champ suivant sur la même ligne, sinon jusqu'à la marge de droite (symétrique) */
     champs.forEach(function(c){
       if(c.widget) return;
@@ -7630,6 +7652,7 @@ async function imageGarde(f){
     /* efface texte, trait et bord du cadre : couleur du fond prise juste à gauche du champ */
     var sc=src.getContext('2d'), kx=src.width/100, ky=src.height/100;
     champs.forEach(function(c){
+      if(c.libelle) return;
       if(c.widget){   /* cadre dessiné dans la page sous le champ : recouvert par le fond pris juste à gauche */
         var r=c._r, e=3, X0=(r[0]-e)*vp.scale, Y0=(vp1.height-r[3]-e)*vp.scale, X1=(r[2]+e)*vp.scale, Y1=(vp1.height-r[1]+e)*vp.scale;
         var q=sc.getImageData(Math.max(0,Math.round(X0-6*vp.scale)),Math.round((Y0+Y1)/2),1,1).data;
