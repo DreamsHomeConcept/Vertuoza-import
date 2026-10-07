@@ -1121,9 +1121,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.36';
-var DATE_VERSION = '07/10/2026 18h15';   /* date et heure de livraison */
-var NOTES = 'Type de projet : ajout de « Toiture neuve » (TVA 20 %) et « Toiture rénovation » (TVA 10 %, 5,5 % possible), page de garde Toiture imposée.';
+var VERSION = '3.37';
+var DATE_VERSION = '07/10/2026 18h25';   /* date et heure de livraison */
+var NOTES = 'Pages de garde : « Toiture » devient « Toiture rénovation » et un modèle « Toiture neuve » est ajouté, chacun imposé par son type de projet.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -7485,7 +7485,8 @@ $('socDefaut').onclick=function(){
    la phrase (avec {CLIENT}) est écrite par-dessus à l'endroit choisi sur l'aperçu. */
 var GARDES_DEF=[
   {id:'renovation', nom:'Rénovation', mots:'rénovation, aménagement, plâtrerie, peinture, intérieur'},
-  {id:'toiture', nom:'Toiture', mots:'toiture, charpente, couverture, zinguerie'},
+  {id:'toiture', nom:'Toiture rénovation', mots:'toiture, charpente, couverture, zinguerie'},
+  {id:'toiture_neuve', nom:'Toiture neuve', mots:''},   /* choisie seulement par le type de projet « Toiture neuve » */
   {id:'ossature', nom:'Ossature Métallique', mots:'ossature, métallique, sweelco, structure maison'},
   {id:'menuiseries', nom:'Menuiseries', mots:'menuiserie, fenêtre, porte, volet, baie'}
 ].map(function(g){ return Object.assign({phrase:'Devis personnalisé pour {CLIENT}', x:50, y:40, taille:14, couleur:'#ffffff'},g); });
@@ -7497,6 +7498,7 @@ function gardes(){
     var x=Object.assign({},g), o=s.find(function(y){ return y.id===g.id; });
     if(o){
       ['nom','mots','couleur'].forEach(function(k){ if(typeof o[k]==='string' && o[k].trim()) x[k]=o[k]; });
+      if(g.id==='toiture' && o.nom==='Toiture') x.nom=g.nom;   /* ancien nom par défaut (avant la v3.37) */
       if(typeof o.phrase==='string') x.phrase=o.phrase;
       ['x','y','taille'].forEach(function(k){ var v=parseFloat(o[k]); if(isFinite(v) && v>0) x[k]=v; });
       if(Array.isArray(o.champs)) x.champs=o.champs.filter(function(c){ return c && CHAMPS_GARDE[c.cle]; });
@@ -7652,7 +7654,9 @@ $('gardeFichier').onchange=async function(){
 function sansAccent(t){ return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 function gardeAuto(d){
   var l=gardes().filter(function(g){ return GARDE_IMG[g.id]; }); if(!l.length) return '';
-  if(/^toiture_/.test(d.typeProjet||'') && GARDE_IMG.toiture) return 'toiture';   /* type Toiture : page Toiture imposée */
+  /* type Toiture : page de garde imposée selon neuf ou rénovation */
+  if(d.typeProjet==='toiture_neuve' && GARDE_IMG.toiture_neuve) return 'toiture_neuve';
+  if(d.typeProjet==='toiture_reno' && GARDE_IMG.toiture) return 'toiture';
   var score={}, chap='';
   lignesExport(d).forEach(function(r){
     if(r.type==='chapitre'){ chap=sansAccent(r.designation); return; }
