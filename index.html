@@ -1122,9 +1122,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.40';
-var DATE_VERSION = '07/10/2026 19h10';   /* date et heure de livraison */
-var NOTES = 'Devis PDF : « Conditions de paiements » placé après les acomptes, avant les méthodes de paiement.';
+var VERSION = '3.41';
+var DATE_VERSION = '07/10/2026 19h16';   /* date et heure de livraison */
+var NOTES = 'Devis PDF nommé « client-numéro » ; l’Aperçu a un bouton Télécharger qui garde ce nom.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6274,8 +6274,20 @@ function apercuDevisPdf(d,o){
   var onglet=window.open('','_blank');
   if(onglet) onglet.document.title='Aperçu du devis…';
   info('Préparation de l\'aperçu…',40);
-  genereDevisPdf(d,o,true).then(function(url){
-    if(onglet) onglet.location.href=url; else window.open(url,'_blank');
+  genereDevisPdf(d,o,true).then(function(r){
+    var url=r.url;
+    if(!onglet){ window.open(url,'_blank'); }
+    else {
+      /* page d'aperçu : barre avec « Télécharger » (nom client-numéro garanti) au-dessus du PDF */
+      var h=function(t){ return String(t).replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+      onglet.document.open();
+      onglet.document.write('<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>'+h(r.nom)+'</title>'
+        +'<style>html,body{margin:0;height:100%;font-family:Montserrat,Arial,sans-serif}.barre{display:flex;align-items:center;gap:14px;padding:8px 14px;background:#0f1626;color:#fff;font-size:13px}'
+        +'.barre a{background:#ab987a;color:#0f1626;text-decoration:none;font-weight:600;padding:6px 14px;border-radius:3px}.barre span{opacity:.8}iframe{border:0;width:100%;height:calc(100% - 46px)}</style></head>'
+        +'<body><div class="barre"><a href="'+h(url)+'" download="'+h(r.nom)+'">Télécharger</a><span>'+h(r.nom)+' · aperçu, aucun numéro consommé</span></div>'
+        +'<iframe src="'+h(url)+'" title="Aperçu du devis"></iframe></body></html>');
+      onglet.document.close();
+    }
     info('Aperçu ouvert dans un nouvel onglet — rien n\'a été enregistré.',100,'ok');
   },function(err){
     if(onglet) onglet.close();
@@ -6338,6 +6350,11 @@ function casseTexte(t,adresse){
     var n=0, num=false;
     return l.replace(/[^\s,]+/g,function(m){ var r=casseMot(m,n===0,num && n===1,adresse); num=n===0 && /^\d{5}$/.test(m); n++; return r; });
   }).join('\n');
+}
+/* nom du fichier : client puis numéro, ex. « Mr Collet Jean Marc-2026-209.pdf » (Aperçu et Créer le PDF) */
+function nomDevisPdf(o){
+  var c=String(o.client||'').replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,80);
+  return (c?c+'-':'')+String(o.numero||'').replace(/[\\\/:*?"<>|\s]/g,'')+'.pdf';
 }
 async function genereDevisPdf(d,o,apercu){
   o=Object.assign({},o,{client:casseTexte(o.client,false), adresseClient:casseTexte(o.adresseClient,true), adresseChantier:casseTexte(o.adresseChantier,true)});
@@ -6553,8 +6570,8 @@ async function genereDevisPdf(d,o,apercu){
     }
     normal(8.6); doc.text((p>=debutCgv?'DHC '+new Date().getFullYear()+'   ·   ':'')+'Page '+(p-pDevis+1)+'/'+(nbPages-pDevis+1),W-M,H-8,{align:'right'});
   }
-  var nom=((o.client?o.client+' ':'')+o.numero)   /* ex. « Mr Collet Jean Marc 2026-209.pdf » */.replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,90)+'.pdf';
-  if(apercu) return doc.output('bloburl');
+  var nom=nomDevisPdf(o);
+  if(apercu) return {url:doc.output('bloburl'), nom:nom};
   doc.save(nom);
   return nom;
 }
