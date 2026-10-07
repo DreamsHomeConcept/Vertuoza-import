@@ -1119,9 +1119,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.31';
-var DATE_VERSION = '07/10/2026 01h32';   /* date et heure de livraison */
-var NOTES = 'Pages de garde du devis (onglet Page de garde : 4 modèles importés, phrase « Devis personnalisé pour {CLIENT} », proposée d’après les chapitres) ; onglet Devis en deux sous-onglets.';
+var VERSION = '3.32';
+var DATE_VERSION = '07/10/2026 02h28';   /* date et heure de livraison */
+var NOTES = 'Pages de garde en PDF : champs client, adresse du chantier, numéro et date du devis remplis automatiquement en blanc, sans cadre.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6338,7 +6338,7 @@ async function genereDevisPdf(d,o,apercu){
 
   /* page de garde choisie : page 1, le devis commence à la suivante */
   var garde=o.garde && GARDE_IMG[o.garde] ? gardes().find(function(g){ return g.id===o.garde; }) : null;
-  if(garde){ dessineGardePdf(doc,garde,o.client); doc.addPage(); doc.setTextColor.apply(doc,ENCRE); }
+  if(garde){ dessineGardePdf(doc,garde,o); doc.addPage(); doc.setTextColor.apply(doc,ENCRE); }
   var pDevis=doc.getNumberOfPages();
 
   /* en-tête */
@@ -7495,6 +7495,7 @@ function gardes(){
       ['nom','mots','couleur'].forEach(function(k){ if(typeof o[k]==='string' && o[k].trim()) x[k]=o[k]; });
       if(typeof o.phrase==='string') x.phrase=o.phrase;
       ['x','y','taille'].forEach(function(k){ var v=parseFloat(o[k]); if(isFinite(v) && v>0) x[k]=v; });
+      if(Array.isArray(o.champs)) x.champs=o.champs.filter(function(c){ return c && CHAMPS_GARDE[c.cle]; });
     }
     return x;
   });
@@ -7513,6 +7514,12 @@ function chargeGardes(){
 function dessineGarde(can,g){
   var ctx=can.getContext('2d'), w=can.width, h=can.height, src=GARDE_IMG[g.id];
   var fin=function(){
+    (g.champs||[]).forEach(function(c){
+      var v=valeurChamp(c,EXEMPLE_GARDE), px=c.taille*0.3528*w/210;
+      ctx.fillStyle=c.couleur||'#fff'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+      do{ ctx.font=px+'px Arial, Helvetica, sans-serif'; px-=0.25; } while(ctx.measureText(v).width>w*c.larg/100 && px>2);
+      ctx.fillText(v,w*c.x/100,h*c.y/100);
+    });
     var t=phraseGarde(g,CLIENT_EXEMPLE); if(!t) return;
     var px=g.taille*0.3528*w/210;   /* points → mm → pixels de l'aperçu */
     ctx.fillStyle=g.couleur; ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -7532,25 +7539,70 @@ function renduGardes(){
       +'<div class="grille-param">'+c('phrase','Phrase sur la page','p-moyen')+c('taille','Taille (pt)','p-court','number',' min="6" max="40" step="0.5"')+c('couleur','Couleur','p-court','color')+'</div>'
       +'<p style="margin:4px 0"><button type="button" class="mini" data-g-imp="'+g.id+'">'+(GARDE_IMG[g.id]?'Remplacer la page':'Importer la page')+'</button> '
       +(GARDE_IMG[g.id]?'<button type="button" class="mini" data-g-suppr="'+g.id+'">Retirer</button>':'')+'</p>'
-      +'<p class="note" style="margin:4px 0 0">'+(GARDE_IMG[g.id]?'Page importée. Clique sur l\'aperçu pour placer la phrase.':'Pas encore de page : elle ne sera pas proposée dans le devis.')+'</p>'
+      +'<p class="note" style="margin:4px 0 0">'+(GARDE_IMG[g.id]?((g.champs||[]).length?'Mots-clés remplis automatiquement, en blanc : '+g.champs.map(function(c){ return '{'+c.cle+'}'; }).join(' ')+'. ':'')+'Clique sur l\'aperçu pour placer la phrase.':'Pas encore de page : elle ne sera pas proposée dans le devis.')+'</p>'
       +'</div></div>';
   }).join('');
   gardes().forEach(function(g){ dessineGarde(zone.querySelector('[data-g-can="'+g.id+'"]'),g); });
 }
+/* mots-clés d'une page de garde PDF : remplacés par les informations du devis */
+var CHAMPS_GARDE={CLIENT:'client', ADRESSE_CHANTIER:'adresseChantier', ADRESSE_CLIENT:'adresseClient',
+  REFERENCE_DEVIS:'numero', NUMERO_DEVIS:'numero', NUMERO:'numero', REFERENCE:'reference', CHANTIER:'reference',
+  DATE_DEVIS:'date', DATE:'date', RESPONSABLE:'resp', DATE_DEMARRAGE:'demarrage'};
+var EXEMPLE_GARDE={client:CLIENT_EXEMPLE, adresseChantier:'8 allée des Pins, 74000 Annecy', adresseClient:'12 rue de la Paix, 69300 Caluire',
+  numero:'2026-209', reference:'Maison Dupont', date:'07/10/2026', resp:'Didier', demarrage:'02/11/2026'};
+function valeurChamp(c,o){ return String(o[CHAMPS_GARDE[c.cle]]||'').split('\n').map(function(x){ return x.trim(); }).filter(Boolean).join(', '); }
 async function imageGarde(f){
-  /* page entière au format A4 (1240 x 1754 px, 150 dpi), en JPEG */
-  var can=document.createElement('canvas'), ctx=can.getContext('2d'), src;
+  /* page entière au format A4 (1240 x 1754 px, 150 dpi), en JPEG ; dans un PDF, les mots-clés {CLIENT}…
+     sont repérés, effacés avec leur cadre (fond reconstitué) et seront réécrits en blanc */
+  var can=document.createElement('canvas'), ctx=can.getContext('2d'), src, champs=[];
   can.width=1240; can.height=1754; ctx.fillStyle='#fff'; ctx.fillRect(0,0,can.width,can.height);
   if(/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name)){
     var pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer(), isEvalSupported:false}).promise, page=await pdf.getPage(1);
-    var vp=page.getViewport({scale:1}); vp=page.getViewport({scale:Math.max(can.width/vp.width,can.height/vp.height)});
+    var vp1=page.getViewport({scale:1}), vp=page.getViewport({scale:Math.max(can.width/vp1.width,can.height/vp1.height)});
     src=document.createElement('canvas'); src.width=Math.round(vp.width); src.height=Math.round(vp.height);
-    await page.render({canvasContext:src.getContext('2d'), viewport:vp}).promise;
+    /* champs de formulaire (Canva, Acrobat…) contenant un mot-clé : la page est dessinée sans eux ni leur cadre */
+    var hex=function(c){ return c && c.length>2 ? '#'+[0,1,2].map(function(i){ return ('0'+Math.round(c[i]).toString(16)).slice(-2); }).join('') : '#ffffff'; };
+    (await page.getAnnotations()).forEach(function(a){
+      var m=/\{\s*([A-Z_]+)\s*\}?/.exec(String(a.fieldValue||'')), n=sansAccent(a.fieldName).replace(/^.*[_.]/,'');
+      /* champ vide : reconnu d'après son nom (…_client, …_chantier, …_reference, …_date) */
+      if(!m || !CHAMPS_GARDE[m[1]]) m=[0,{client:'CLIENT', chantier:'ADRESSE_CHANTIER', adresse:'ADRESSE_CHANTIER', reference:'REFERENCE_DEVIS', numero:'REFERENCE_DEVIS', date:'DATE_DEVIS', responsable:'RESPONSABLE', demarrage:'DATE_DEMARRAGE'}[n]];
+      if(a.subtype!=='Widget' || !m[1]) return;
+      var r=a.rect, da=a.defaultAppearanceData||{}, fs=da.fontSize||11;
+      champs.push({cle:m[1], widget:true, _r:r, x:(r[0]+2)/vp1.width*100, y:(vp1.height-((r[1]+r[3])/2-fs*0.35))/vp1.height*100,
+                   taille:fs, larg:(r[2]-r[0]-4)/vp1.width*100, couleur:hex(da.fontColor && [da.fontColor[0],da.fontColor[1],da.fontColor[2]])});
+    });
+    await page.render({canvasContext:src.getContext('2d'), viewport:vp, annotationMode:champs.length?pdfjsLib.AnnotationMode.DISABLE:pdfjsLib.AnnotationMode.ENABLE}).promise;
+    var tc=await page.getTextContent();
+    tc.items.forEach(function(it){
+      var m=/\{\s*([A-Z_]+)\s*\}?/.exec(it.str||''); if(!m || !CHAMPS_GARDE[m[1]]) return;
+      var t=it.transform, h=Math.hypot(t[2],t[3])||it.height||10;
+      champs.push({cle:m[1], x:t[4]/vp1.width*100, y:(vp1.height-t[5])/vp1.height*100, taille:Math.round(h*10)/10, couleur:'#ffffff'});
+    });
+    /* largeur de chaque champ : jusqu'au champ suivant sur la même ligne, sinon jusqu'à la marge de droite (symétrique) */
+    champs.forEach(function(c){
+      if(c.widget) return;
+      var voisins=champs.filter(function(o){ return o!==c && Math.abs(o.y-c.y)<1 && o.x>c.x; }).map(function(o){ return o.x; });
+      c.larg=(voisins.length?Math.min.apply(null,voisins)-3:100-Math.min(c.x,12))-c.x;
+    });
+    /* efface texte, trait et bord du cadre : couleur du fond prise juste à gauche du champ */
+    var sc=src.getContext('2d'), kx=src.width/100, ky=src.height/100;
+    champs.forEach(function(c){
+      if(c.widget){   /* cadre dessiné dans la page sous le champ : recouvert par le fond pris juste à gauche */
+        var r=c._r, e=3, X0=(r[0]-e)*vp.scale, Y0=(vp1.height-r[3]-e)*vp.scale, X1=(r[2]+e)*vp.scale, Y1=(vp1.height-r[1]+e)*vp.scale;
+        var q=sc.getImageData(Math.max(0,Math.round(X0-6*vp.scale)),Math.round((Y0+Y1)/2),1,1).data;
+        sc.fillStyle='rgb('+q[0]+','+q[1]+','+q[2]+')'; sc.fillRect(X0,Y0,X1-X0,Y1-Y0);
+        delete c._r; return;
+      }
+      var hp=c.taille/vp1.height*src.height, x0=Math.max(0,c.x*kx-hp*0.9), base=c.y*ky;
+      var px=sc.getImageData(Math.max(0,x0-hp*0.6),Math.round(base-hp*0.4),1,1).data;
+      sc.fillStyle='rgb('+px[0]+','+px[1]+','+px[2]+')';
+      sc.fillRect(x0,base-hp*1.65,(c.x+c.larg)*kx-x0+hp*0.6,hp*2.65);
+    });
   } else src=await createImageBitmap(f);
   /* remplit la page en gardant les proportions (un bord en trop est rogné) */
   var k=Math.max(can.width/src.width,can.height/src.height), w=src.width*k, h=src.height*k;
   ctx.drawImage(src,(can.width-w)/2,(can.height-h)/2,w,h);
-  return can.toDataURL('image/jpeg',0.85);
+  return {url:can.toDataURL('image/jpeg',0.85), champs:champs};
 }
 renduGardes();
 var gardeCible='';
@@ -7584,11 +7636,12 @@ $('gardeFichier').onchange=async function(){
   var f=this.files[0], etat=$('gardeEtat'); if(!f||!gardeCible) return;
   etat.className='note'; etat.textContent='Préparation de la page…';
   try{
-    var url=await imageGarde(f);
+    var lu=await imageGarde(f), url=lu.url;
+    modifGarde(gardeCible,'champs',lu.champs); if(lu.champs.length) modifGarde(gardeCible,'phrase','');
     if(!BASE) throw new Error('sauvegarde locale indisponible sur ce navigateur');
     await ecrisModele({id:'garde:'+gardeCible, type:'garde', image:url, maj:Date.now()});
     GARDE_IMG[gardeCible]=url; renduGardes();
-    etat.className='note'; etat.textContent='Page importée ('+Math.round(url.length*0.75/1024)+' Ko). Pour la copier sur un autre poste : À propos › Exporter mes réglages.';
+    etat.className='note'; etat.textContent='Page importée ('+Math.round(url.length*0.75/1024)+' Ko)'+(lu.champs.length?', '+lu.champs.length+' mot'+(lu.champs.length>1?'s':'')+'-clé'+(lu.champs.length>1?'s':'')+' reconnu'+(lu.champs.length>1?'s':'')+' : '+lu.champs.map(function(c){ return '{'+c.cle+'}'; }).join(' '):'')+'. Pour la copier sur un autre poste : À propos › Exporter mes réglages.';
   }catch(err){ etat.style.color='#a33'; etat.textContent='Import impossible : '+(err&&err.message||err); }
 };
 /* page de garde proposée : celle dont les mots-clés couvrent le plus gros montant de chapitres */
@@ -7608,9 +7661,15 @@ function gardeAuto(d){
   if(!score[best.id]){ var r=l.find(function(g){ return g.id==='renovation'; }); return (r||l[0]).id; }
   return best.id;
 }
-function dessineGardePdf(doc,g,client){
+function dessineGardePdf(doc,g,o){
   doc.addImage(GARDE_IMG[g.id],'JPEG',0,0,210,297);
-  var t=phraseGarde(g,client); if(!t) return;
+  (g.champs||[]).forEach(function(c){
+    var v=valeurChamp(c,o); if(!v) return;
+    var fs=c.taille; doc.setFont('helvetica','normal'); doc.setFontSize(fs);
+    while(doc.getTextWidth(v)>210*c.larg/100 && fs>5){ fs-=0.25; doc.setFontSize(fs); }
+    doc.setTextColor.apply(doc,rgbHex(c.couleur)); doc.text(v,210*c.x/100,297*c.y/100);
+  });
+  var client=o.client, t=phraseGarde(g,client); if(!t) return;
   var fs=g.taille; doc.setFont('Montserrat','normal'); doc.setFontSize(fs);
   while(doc.getTextWidth(t)>210*0.94 && fs>5){ fs-=0.5; doc.setFontSize(fs); }
   doc.setTextColor.apply(doc,rgbHex(g.couleur));
