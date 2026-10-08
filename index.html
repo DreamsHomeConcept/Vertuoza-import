@@ -96,6 +96,11 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .cp-barre{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px}
 .cp-barre input{max-width:240px}
 .cp-table{border-collapse:collapse;width:100%;background:#fff;font-size:12.5px}
+.fr-table input{width:100%;box-sizing:border-box}.fr-table td{padding:3px 6px 3px 0}.fr-table th:nth-child(n+2):nth-child(-n+4){width:130px}.fr-table th:last-child{width:34px}
+#fraisChoix{position:absolute;z-index:60;background:#fff;border:1px solid var(--trait);border-radius:3px;box-shadow:0 4px 14px rgba(0,0,0,.15);min-width:260px;max-width:460px;max-height:260px;overflow:auto;font-size:12.5px}
+#fraisChoix div{padding:6px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:12px}
+#fraisChoix div.on,#fraisChoix div:hover{background:var(--taupe-voile)}
+#fraisChoix div.vide{cursor:default;color:#777}#fraisChoix small{color:#777;white-space:nowrap}
 .cp-table th{text-align:left;font-weight:600;border-bottom:1px solid var(--trait);padding:6px 8px}
 .cp-table td{border-bottom:1px solid var(--trait);padding:6px 8px;vertical-align:top}
 .cp-table td.texte{white-space:pre-line;text-align:justify}
@@ -964,6 +969,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
     <div class="sous-ong" id="sousOngPdf" role="tablist">
       <button type="button" role="tab" data-sous="coord">Responsables, banque et paiement</button>
       <button type="button" role="tab" data-sous="conds">Conditions particulières</button>
+      <button type="button" role="tab" data-sous="frais">Frais</button>
     </div>
     <div class="sous-vue" data-sous-vue="coord">
     <label class="champ">Responsables (au choix dans le devis)</label>
@@ -989,6 +995,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
     <table class="cp-table"><thead><tr><th>Nom</th><th>Conditions particulières</th><th>Ajout automatique</th><th></th></tr></thead><tbody id="cpListe"></tbody></table>
     </div>
     <p style="margin:6px 0 0"><button type="button" class="mini" id="cpDefaut">Rétablir la bibliothèque d'origine</button></p>
+    </div>
+    <div class="sous-vue" data-sous-vue="frais">
+    <p class="note" style="margin-top:0">Types de frais proposés dans le devis : tapez « frais » dans la désignation d'une ligne, puis choisissez. La ligne reçoit le nom, l'unité et le coût (prix d'achat). Marge vide : la marge habituelle s'applique (chapitre, intervenant ou devis). Marge remplie : elle est posée sur la ligne, et reste modifiable par ⋯ « % Marge… ».</p>
+    <table class="cp-table fr-table"><thead><tr><th>Nom</th><th>Unité</th><th>Coût unitaire (€ HT)</th><th>Marge (%)</th><th></th></tr></thead><tbody id="fraisListe"></tbody></table>
+    <p style="margin:6px 0 0"><button type="button" class="mini" id="fraisAjout">+ Ajouter un type de frais</button></p>
     </div>
     </div>
 
@@ -1166,9 +1177,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.56';
-var DATE_VERSION = '08/10/2026 16h03';   /* date et heure de livraison */
-var NOTES = 'En-tête du devis : champs « Adresse du client » et « Adresse du chantier », partagés avec la fenêtre Devis client PDF.';
+var VERSION = '3.57';
+var DATE_VERSION = '08/10/2026 16h33';   /* date et heure de livraison */
+var NOTES = 'Nouveau : types de frais (Paramètres › Devis › Frais : nom, unité, coût, marge facultative) ; tapez « frais » dans la désignation d\'une ligne pour en choisir un.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1227,7 +1238,8 @@ var params = {
   seuils55:{perdus:7, combles:6, terrasses:4.5, murs:3.7, ite:3.7, planchers:3, uw1:1.3, sw1:0.3, uw2:1.7, sw2:0.36, ud:1.7},   /* TVA 5,5 % : performances minimales */
   gardes:null,   /* pages de garde : réglages (les images sont dans IndexedDB, id « garde:… ») */
   condParts:null,   /* conditions particulières du devis client ; null = bibliothèque d'origine (COND_PARTS_DEF) */
-  devisPaiements:['Virement bancaire'],   /* méthodes de paiement du devis client ; la première est la méthode par défaut */
+  devisPaiements:['Virement bancaire'],
+  frais:[{nom:'Frais kilométriques', unite:'km', cout:null, marge:null}],   /* types de frais proposés en tapant « frais » dans une ligne */   /* méthodes de paiement du devis client ; la première est la méthode par défaut */
   devisComptes:[]        /* comptes bancaires du devis client : {banque, iban, bic} ; le premier est le compte par défaut */
 };
 var dossier = [];      /* liste de devis */
@@ -1298,7 +1310,7 @@ function sauveParams(){
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule,
     devisProchain:params.devisProchain, devisResp:params.devisResp, devisEmail:params.devisEmail, devisTel:params.devisTel,
-    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, societe:params.societe, cgv:params.cgv, condParts:params.condParts, seuils55:params.seuils55, gardes:params.gardes
+    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, frais:params.frais, societe:params.societe, cgv:params.cgv, condParts:params.condParts, seuils55:params.seuils55, gardes:params.gardes
   }));
 }
 /* copie des réglages d'un poste à l'autre : jamais les clés ni le compteur de devis */
@@ -1375,6 +1387,9 @@ function chargeParams(){
         if(typeof c.auto==='string') x.auto=c.auto; return x; });
     if(Array.isArray(o.gardes)) params.gardes=o.gardes.filter(function(g){ return g && typeof g==='object' && typeof g.id==='string'; });
     if(Array.isArray(o.devisPaiements)) params.devisPaiements=o.devisPaiements.filter(function(x){ return typeof x==='string'; });
+    if(Array.isArray(o.frais)) params.frais=o.frais.filter(function(x){ return x && typeof x==='object'; }).map(function(x){
+      var n=function(v){ v=parseFloat(v); return isFinite(v)?v:null; };
+      return {nom:String(x.nom||''), unite:String(x.unite||''), cout:n(x.cout), marge:n(x.marge)}; });
     /* poste réglé avant 3.04 : son IBAN unique devient le premier compte */
     if(!params.devisComptes.length && (params.devisIban.trim()||params.devisBic.trim()))
       params.devisComptes=[{banque:'', iban:params.devisIban.trim(), bic:params.devisBic.trim()}];
@@ -8408,6 +8423,93 @@ $('paieAjout').onclick=function(){
   params.devisPaiements.push(''); renduPaiements();
   var ch=$('paieListe').querySelectorAll('input'); ch[ch.length-1].focus();
 };
+
+/* types de frais (Paramètres › Devis › Frais) */
+function chiffreFr(v){ return v==null?'':String(v).replace('.',','); }
+function renduFrais(){
+  var l=params.frais;
+  $('fraisListe').innerHTML=l.length ? l.map(function(f,i){
+    return '<tr><td><input type="text" data-fr="'+i+'" data-k="nom" value="'+echappe(f.nom)+'" placeholder="Ex. Frais kilométriques" aria-label="Nom"></td>'
+      +'<td><input type="text" data-fr="'+i+'" data-k="unite" value="'+echappe(f.unite)+'" placeholder="km" aria-label="Unité"></td>'
+      +'<td><input type="text" data-fr="'+i+'" data-k="cout" value="'+chiffreFr(f.cout==null?null:f.cout.toFixed(2))+'" placeholder="0,60" aria-label="Coût unitaire"></td>'
+      +'<td><input type="text" data-fr="'+i+'" data-k="marge" value="'+chiffreFr(f.marge)+'" placeholder="habituelle" aria-label="Marge"></td>'
+      +'<td><button type="button" class="mini" data-fr-suppr="'+i+'" title="Retirer ce type de frais">✕</button></td></tr>';
+  }).join('') : '<tr><td colspan="5" class="note">Aucun type de frais.</td></tr>';
+}
+renduFrais();
+$('fraisListe').addEventListener('change',function(e){
+  var t=e.target, i=+t.getAttribute('data-fr'), k=t.getAttribute('data-k'), f=params.frais[i]; if(!f||!k) return;
+  if(k==='cout'||k==='marge'){
+    var v=t.value.trim();
+    if(v===''){ f[k]=null; }
+    else { var n=nombreFr(v); if(!isFinite(n)||n<0){ alert(k==='cout'?'Coût invalide.':'Marge invalide.'); t.value=chiffreFr(f[k]); return; } f[k]=Math.round(n*100)/100; }
+    t.value=chiffreFr(f[k]==null?null:(k==='cout'?f[k].toFixed(2):f[k]));
+  } else f[k]=t.value.trim();
+  sauveParams();
+});
+$('fraisListe').addEventListener('click',function(e){
+  var b=e.target.closest('[data-fr-suppr]'); if(!b) return;
+  params.frais.splice(+b.getAttribute('data-fr-suppr'),1); sauveParams(); renduFrais();
+});
+$('fraisAjout').onclick=function(){
+  params.frais.push({nom:'', unite:'', cout:null, marge:null}); renduFrais();
+  var ch=$('fraisListe').querySelectorAll('input[data-k="nom"]'); ch[ch.length-1].focus();
+};
+
+/* dans le devis : « frais » tapé au début de la désignation d'une ligne ouvre la liste des types de frais */
+var FRAIS_CIBLE=null;
+function fermeFrais(){ var x=$('fraisChoix'); if(x) x.remove(); FRAIS_CIBLE=null; }
+function ouvreFrais(ta){
+  var tr=ta.closest('tr'), r=tr&&trouve(tr.getAttribute('data-id'));
+  var mots=sansAccent(ta.value).split(/\s+/).filter(Boolean);
+  if(!r || r.type!=='ligne' || !mots.length || mots[0]!=='frais' || mots.length>6){ fermeFrais(); return; }
+  var reste=mots.slice(1);
+  var l=params.frais.map(function(f,i){ return {f:f,i:i}; }).filter(function(o){
+    if(!o.f.nom) return false;
+    var t=sansAccent(o.f.nom+' '+o.f.unite); return reste.every(function(m){ return t.indexOf(m)>-1; }); });
+  var box=$('fraisChoix');
+  if(!box){ box=document.createElement('div'); box.id='fraisChoix'; box.setAttribute('role','listbox'); document.body.appendChild(box); }
+  FRAIS_CIBLE={id:r.id, sel:0, n:l.length};
+  box.innerHTML=l.length ? l.map(function(o,k){
+    return '<div data-frais="'+o.i+'"'+(k===0?' class="on"':'')+'><span>'+echappe(o.f.nom)+'</span><small>'
+      +(o.f.cout!=null?chiffreFr(o.f.cout.toFixed(2))+' €':'—')+(o.f.unite?' / '+echappe(o.f.unite):'')+(o.f.marge!=null?' · marge '+chiffreFr(o.f.marge)+' %':'')+'</small></div>'; }).join('')
+    : '<div class="vide">'+(params.frais.length?'Aucun type de frais ne correspond.':'Aucun type de frais : Paramètres › Devis › Frais.')+'</div>';
+  var b=ta.getBoundingClientRect();
+  box.style.left=(b.left+window.scrollX)+'px'; box.style.top=(b.bottom+window.scrollY+2)+'px';
+}
+function choisitFrais(i){
+  var f=params.frais[i], d=D(), r=FRAIS_CIBLE&&trouve(FRAIS_CIBLE.id); fermeFrais();
+  if(!f||!r) return;
+  memorise(d,'type de frais');
+  r.designation=f.nom; r.unite=f.unite; r.pu=f.cout!=null?f.cout:'';
+  if(f.marge!=null) r.marge=f.marge; else delete r.marge;
+  rendu();
+}
+$('corpsTable').addEventListener('input',function(e){
+  if(e.target.tagName==='TEXTAREA' && e.target.getAttribute('data-c')==='designation') ouvreFrais(e.target);
+});
+$('corpsTable').addEventListener('keydown',function(e){
+  if(!FRAIS_CIBLE || e.target.getAttribute('data-c')!=='designation') return;
+  var box=$('fraisChoix'); if(!box) return;
+  var it=box.querySelectorAll('div[data-frais]');
+  if(e.key==='Escape'){ e.preventDefault(); fermeFrais(); return; }
+  if(!it.length) return;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault();
+    FRAIS_CIBLE.sel=(FRAIS_CIBLE.sel+(e.key==='ArrowDown'?1:-1)+it.length)%it.length;
+    Array.prototype.forEach.call(it,function(x,k){ x.classList.toggle('on',k===FRAIS_CIBLE.sel); }); it[FRAIS_CIBLE.sel].scrollIntoView({block:'nearest'}); }
+  else if(e.key==='Enter'){ e.preventDefault(); choisitFrais(+it[FRAIS_CIBLE.sel].getAttribute('data-frais')); }
+});
+$('corpsTable').addEventListener('focusout',function(e){ if(e.target.getAttribute('data-c')==='designation') setTimeout(function(){ if(!document.activeElement||document.activeElement.getAttribute('data-c')!=='designation') fermeFrais(); },150); });
+document.addEventListener('mousedown',function(e){
+  var o=e.target.closest && e.target.closest('#fraisChoix div[data-frais]');
+  if(o){ e.preventDefault(); choisitFrais(+o.getAttribute('data-frais')); }
+  else if(!(e.target.closest && e.target.closest('#fraisChoix'))) { if($('fraisChoix') && !(e.target.getAttribute && e.target.getAttribute('data-c')==='designation')) fermeFrais(); }
+});
+window.addEventListener('scroll',function(e){   /* la liste suit la ligne quand la page défile */
+  var box=$('fraisChoix'); if(!box || !FRAIS_CIBLE || e.target===box) return;
+  var ta=document.querySelector('#corpsTable tr[data-id="'+FRAIS_CIBLE.id+'"] textarea[data-c="designation"]'); if(!ta){ fermeFrais(); return; }
+  var b=ta.getBoundingClientRect(); box.style.left=(b.left+window.scrollX)+'px'; box.style.top=(b.bottom+window.scrollY+2)+'px';
+},true);
 
 /* Import d'un RIB : texte du PDF lu sur le poste ; RIB scanné ou photo → lecture par l'IA */
 var BANQUES_BIC={QNTO:'Qonto',AGRI:'Crédit Agricole',BNPA:'BNP Paribas',SOGE:'Société Générale',CCBP:'Banque Populaire',
