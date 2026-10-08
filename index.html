@@ -541,6 +541,12 @@ pre.brut{max-height:260px;overflow:auto;background:var(--nuit);color:#D6CDBC;pad
 h3.st{font-size:13px;font-weight:600;color:var(--nuit);margin:0 0 10px}
 h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faible)}
 @media (max-width:640px){.wrap{padding:14px 10px 180px}h1{font-size:18px}}
+
+/* calendrier 📅 identique partout (v3.53) */
+input[type=date]{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ctext x='1' y='17' font-size='17'%3E%F0%9F%93%85%3C/text%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;background-size:22px 22px;padding-right:38px}
+input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;width:26px;height:26px;margin-right:-4px}
+.btn-cal{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:17px;padding:4px 6px;line-height:1}
+.cal-cache{position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none;background:none}
 </style>
 </head>
 <body>
@@ -1158,9 +1164,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.53';
-var DATE_VERSION = '08/10/2026 14h25';   /* date et heure de livraison */
-var NOTES = 'Fiches techniques : épaisseurs regroupées par version, repliées à l\'ouverture, avec plier / déplier et Tout replier / Tout déplier.';
+var VERSION = '3.54';
+var DATE_VERSION = '08/10/2026 14h30';   /* date et heure de livraison */
+var NOTES = 'Même calendrier 📅 sur toutes les dates (fenêtre Devis client PDF, bibliothèque).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4518,17 +4524,30 @@ $('addTexte').onclick=function(){ ajouteEnBas('texte'); };
     if(id==='fRef' && feuilleSurRef(D())) renduOnglets();
   });
 });
-/* Calendrier du champ Date (v3.44) : ouvre le sélecteur du navigateur, écrit jj/mm/aaaa. */
-$('fDateCal').addEventListener('click',function(){
-  var p=$('fDatePick'); p.value=dateIso($('fDate').value)||new Date().toISOString().slice(0,10);
-  try{ if(p.showPicker){ p.showPicker(); return; } }catch(e){}
-  p.style.pointerEvents='auto'; p.focus(); p.click(); p.style.pointerEvents='none';
-});
-$('fDatePick').addEventListener('change',function(){
-  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(this.value); if(!m) return;
-  var f=$('fDate'); f.value=m[3]+'/'+m[2]+'/'+m[1];
-  f.dispatchEvent(new Event('input',{bubbles:true}));
-});
+/* Calendrier 📅 sur un champ date texte jj/mm/aaaa (v3.45, généralisé v3.53) :
+   ouvre le sélecteur du navigateur, écrit jj/mm/aaaa et prévient le champ. */
+function calendrierTexte(champ,bouton,cache){
+  bouton.addEventListener('click',function(){
+    cache.value=dateIso(champ.value)||new Date().toISOString().slice(0,10);
+    try{ if(cache.showPicker){ cache.showPicker(); return; } }catch(e){}
+    cache.style.pointerEvents='auto'; cache.focus(); cache.click(); cache.style.pointerEvents='none';
+  });
+  cache.addEventListener('change',function(){
+    var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(this.value); if(!m) return;
+    champ.value=m[3]+'/'+m[2]+'/'+m[1];
+    champ.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+}
+/* même chose pour un champ créé à la volée (fenêtre Devis client PDF) */
+function ajouteCalendrier(champ){
+  if(!champ || champ.dataset.cal) return; champ.dataset.cal='1';
+  var w=document.createElement('div'); w.style.position='relative';
+  champ.parentNode.insertBefore(w,champ); w.appendChild(champ);
+  champ.style.paddingRight='38px';
+  w.insertAdjacentHTML('beforeend','<button type="button" class="btn-cal" title="Choisir dans le calendrier" aria-label="Choisir la date dans le calendrier">📅</button><input type="date" class="cal-cache" tabindex="-1" aria-hidden="true">');
+  calendrierTexte(champ,w.querySelector('.btn-cal'),w.querySelector('.cal-cache'));
+}
+calendrierTexte($('fDate'),$('fDateCal'),$('fDatePick'));
 $('fFeuille').addEventListener('input',function(){ D().feuille=this.value; renduOnglets(); });
 $('fTva').addEventListener('change',function(){ D().tva=parseFloat(this.value); rendu(); });
 function borneMarge(v){
@@ -6338,7 +6357,7 @@ function dialogueDevisPdf(force){
             resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:pm,
             typeClient:v('pdType')||'part', conds:lisConds(), garde:v('pdGarde')};
   };
-  setTimeout(function(){ cases(condsDevis(e,d)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value},d)); }; },0);
+  setTimeout(function(){ ajouteCalendrier($('pdDate')); cases(condsDevis(e,d)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value},d)); }; },0);
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
     {lib:'Annuler', action:function(){}},
     /* Aperçu : le PDF tel qu'il partira, dans un nouvel onglet ; rien n'est enregistré, aucun numéro consommé */
