@@ -34,6 +34,11 @@ body{background:var(--fond);color:var(--encre);
 header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;
   border-bottom:3px solid var(--taupe);padding-bottom:14px;margin-bottom:18px}
 .logo{display:block;height:46px;width:auto;margin:0 0 10px}
+.client-liste{position:absolute;left:0;right:0;top:100%;z-index:40;background:#fff;border:1px solid var(--trait);border-radius:3px;box-shadow:0 4px 14px rgba(0,0,0,.15);max-height:300px;overflow:auto;margin-top:2px}
+.client-liste[hidden]{display:none}
+.client-liste .cl-op{padding:6px 10px;cursor:pointer;font-size:13px;line-height:1.35;border-bottom:1px solid #F0ECE5}
+.client-liste .cl-op.actif,.client-liste .cl-op:hover{background:var(--taupe-voile)}
+.client-liste .cl-op small{display:block;color:var(--encre-faible);font-size:11.5px}
 /* barre du haut fixe au défilement, compacte une fois descendu (v3.60) ; écrans larges seulement */
 @media (min-width:800px){
   header.top{position:sticky;top:var(--h-ban,0px);z-index:26;background:var(--fond);padding-top:8px}
@@ -649,7 +654,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
           <option value="client">Notre devis client</option>
         </select>
       </div>
-      <div><label class="champ" for="fClient">Client</label><input type="text" id="fClient"></div>
+      <div style="position:relative"><label class="champ" for="fClient">Client</label><input type="text" id="fClient" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="fClientListe"><div id="fClientListe" class="client-liste" role="listbox" hidden></div></div>
       <div><label class="champ" for="fChantier">Chantier</label><input type="text" id="fChantier"></div>
       <div><label class="champ" for="fAdrClient">Adresse du client</label><textarea id="fAdrClient" rows="2" placeholder="Numéro et rue&#10;Code postal VILLE" style="resize:vertical"></textarea></div>
       <div><label class="champ" for="fAdrChantier">Adresse du chantier</label><textarea id="fAdrChantier" rows="2" placeholder="Vide : même adresse que le client" style="resize:vertical"></textarea></div>
@@ -1106,6 +1111,16 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
 
     <hr class="separateur">
 
+    <h3 class="st">Base clients</h3>
+    <p class="note" style="margin-top:0">Importez votre fichier Excel de clients (pros et particuliers), par exemple l'export des contacts Vertuoza. Les fournisseurs et sous-traitants sont ignorés. La base reste sur ce poste ; dans l'en-tête du devis, tapez les premières lettres du client pour remplir le nom, l'adresse, le contact et le type de client. Un nouvel import remplace la base.</p>
+    <div class="rangee-boutons" style="margin-top:6px">
+      <button class="fant" id="btnImpClients">Importer la base clients (Excel)</button>
+      <input type="file" id="fImpClients" accept=".xlsx,.xls,.csv" hidden>
+    </div>
+    <p class="etat-sync" id="etatClients"></p>
+
+    <hr class="separateur">
+
     <h3 class="st">Copier mes réglages sur un autre poste</h3>
     <p class="note" style="margin-top:0">Les réglages sont enregistrés sur ce poste seulement. « Exporter mes réglages » télécharge un fichier avec la société, les CGV, les conditions particulières, les comptes bancaires (IBAN compris), les méthodes de paiement, les acomptes, les responsables, les marges, le classement, les pages de garde et les fiches techniques avec leurs documents. Ouvrez ce fichier sur l'autre poste avec « Importer des réglages ». Les clés (IA, édition de la base de prix) et le numéro du prochain devis ne sont jamais copiés : chaque poste garde les siens. Le fichier contient l'IBAN : envoyez-le seulement à vos collaborateurs.</p>
     <div class="rangee-boutons" style="margin-top:6px">
@@ -1201,9 +1216,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.72';
-var DATE_VERSION = '08/10/2026 19h02';   /* date et heure de livraison */
-var NOTES = 'Compteur « devis » des devis d\'origine : un onglet vide n\'est plus compté (0 devis au démarrage).';
+var VERSION = '3.73';
+var DATE_VERSION = '08/10/2026 19h18';   /* date et heure de livraison */
+var NOTES = 'Base clients : import Excel dans Paramètres › À propos ; dans l\'en-tête, le client se propose dès 2 lettres et remplit nom, adresse, contact et type de client.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1345,7 +1360,7 @@ function exporteReglages(){
   sauveParams();
   var o={}; try{ o=JSON.parse(lisStockage(CLE_PARAMS)||'{}'); }catch(e){}
   REGLAGES_LOCAUX.forEach(function(k){ delete o[k]; });
-  var f={type:'dhc-reglages', version:VERSION, date:new Date().toISOString(), params:o, gardes:Object.assign({},GARDE_IMG), fiches:FICHES};   /* + fiches techniques avec leurs documents */   /* images des pages de garde */
+  var f={type:'dhc-reglages', version:VERSION, date:new Date().toISOString(), params:o, gardes:Object.assign({},GARDE_IMG), fiches:FICHES, clients:CLIENTS_BASE};   /* + fiches techniques avec leurs documents */   /* images des pages de garde */
   var blob=new Blob([JSON.stringify(f,null,1)],{type:'application/json'}), a=document.createElement('a');
   var j=new Date(), nom='Reglages DHC '+j.getFullYear()+'-'+pad2(j.getMonth()+1)+'-'+pad2(j.getDate())+'.json';
   a.href=URL.createObjectURL(blob); a.download=nom; document.body.appendChild(a); a.click();
@@ -1365,7 +1380,8 @@ function importeReglages(fichier){
     var imgs=f.gardes && typeof f.gardes==='object' ? Object.keys(f.gardes).filter(function(k){ return /^data:image\/(jpeg|png);base64,/.test(String(f.gardes[k])); }) : [];
     e.className='etat-sync ok'; e.textContent='Réglages importés. La page se recharge…';
     var fiches=Array.isArray(f.fiches)?f.fiches.filter(function(x){ return x && x.type==='fiche' && /^fiche:/.test(String(x.id)); }):[];
-    Promise.all(imgs.map(function(k){ return ecrisModele({id:'garde:'+k, type:'garde', image:f.gardes[k]}); }).concat(fiches.map(ecrisModele)))
+    var cl=(f.clients && Array.isArray(f.clients.liste)) ? [ecrisModele({id:'clients:base', type:'clients', liste:f.clients.liste, fichier:f.clients.fichier||'', date:f.clients.date||Date.now()})] : [];
+    Promise.all(imgs.map(function(k){ return ecrisModele({id:'garde:'+k, type:'garde', image:f.gardes[k]}); }).concat(fiches.map(ecrisModele)).concat(cl))
       .then(function(){ setTimeout(function(){ location.reload(); },600); });
   };
   lu.readAsText(fichier);
@@ -2971,7 +2987,7 @@ var CATEGORIES={neuf:'Devis type — neuf', renovation:'Devis type — rénovati
 function lisModeles(){
   return new Promise(function(ok){
     if(!BASE) return ok([]);
-    try{ var q=magasin('readonly','modeles').getAll(); q.onsuccess=function(){ ok((q.result||[]).filter(function(m){ return m.type!=='garde' && m.type!=='fiche'; })); }; q.onerror=function(){ ok([]); }; }
+    try{ var q=magasin('readonly','modeles').getAll(); q.onsuccess=function(){ ok((q.result||[]).filter(function(m){ return m.type!=='garde' && m.type!=='fiche' && m.type!=='clients'; })); }; q.onerror=function(){ ok([]); }; }
     catch(e){ ok([]); }
   });
 }
@@ -4704,6 +4720,123 @@ function renduPliage(){
   $('fResume').textContent='· '+r.join(' · '); $('fResume').hidden=!plie;
 }
 $('fPlier').onclick=function(){ var d=D(); if(DEPLIES.has(d)) DEPLIES.delete(d); else DEPLIES.add(d); renduPliage(); };
+/* Base clients (v3.73) : import Excel (export des contacts Vertuoza ou fichier équivalent),
+   gardée sur le poste (IndexedDB modeles, id clients:base), jamais en ligne ; incluse dans
+   « Exporter mes réglages ». Saisie du client : liste dès 2 lettres, remplit nom, adresse,
+   premier contact et type de client. */
+var CLIENTS_BASE=null;
+function chargeClients(){
+  if(!BASE) return;
+  try{ var q=magasin('readonly','modeles').get('clients:base'); q.onsuccess=function(){ CLIENTS_BASE=q.result||null; etatClients(); }; }catch(e){}
+}
+function etatClients(){
+  var e=$('etatClients'); if(!e) return;
+  var b=CLIENTS_BASE;
+  if(!b || !b.liste || !b.liste.length){ e.className='etat-sync'; e.textContent='Aucune base clients sur ce poste.'; return; }
+  var pros=b.liste.filter(function(c){ return c.pro; }).length;
+  e.className='etat-sync ok';
+  e.textContent=b.liste.length+' clients ('+pros+' pro'+(pros>1?'s':'')+', '+(b.liste.length-pros)+' particulier'+(b.liste.length-pros>1?'s':'')+')'
+    +(b.fichier?' — « '+b.fichier+' »':'')+(b.date?', importée le '+new Date(b.date).toLocaleDateString('fr-FR'):'')+'.';
+}
+function cleCol(t){ return sansAccent(t).replace(/[^a-z0-9]+/g,' ').trim(); }
+function lisBaseClients(rows){
+  /* ligne d'en-tête : la première qui contient une colonne « nom » */
+  var hi=-1;
+  for(var i=0;i<Math.min(rows.length,15);i++){ if((rows[i]||[]).some(function(c){ return /^(nom|nom du client|raison sociale|client)$/.test(cleCol(c)); })){ hi=i; break; } }
+  if(hi<0) return null;
+  var h=rows[hi].map(cleCol);
+  var col=function(){ for(var k=0;k<arguments.length;k++){ var j=h.indexOf(arguments[k]); if(j>-1) return j; } return -1; };
+  var C={civ:col('civilite'), prenom:col('prenom'), nom:col('nom','nom du client','client'), ent:col('entreprise','societe','raison sociale'),
+    mail:col('email','e mail','mail','courriel'), mail2:col('email bis'), tel:col('telephone','tel','portable','mobile'), tel2:col('telephone secondaire'),
+    rue:col('rue','adresse'), num:col('numero'), cp:col('code postal','cp'), ville:col('localite','ville','commune'), pays:col('pays'),
+    tva:col('numero de tva','n tva','tva intracommunautaire'), siren:col('siren','siret'), profil:col('profil','type','categorie')};
+  var v=function(r,j){ return j<0 || r[j]==null ? '' : String(r[j]).trim(); };
+  var liste=[], ignores=0;
+  rows.slice(hi+1).forEach(function(r){
+    if(!r || !r.some(function(x){ return x!=null && String(x).trim(); })) return;
+    var profil=v(r,C.profil);
+    if(/fournisseur|sous.?traitant|co.?traitant/i.test(profil)){ ignores++; return; }
+    var nom=v(r,C.nom), ent=v(r,C.ent), prenom=v(r,C.prenom), civ=v(r,C.civ).replace(/^mme\.?$/i,'Mme').replace(/^m\.?$/i,'M.');
+    if(!nom && !ent) return;
+    var personne=[civ,prenom,nom.toUpperCase()].filter(Boolean).join(' ');
+    var pays=v(r,C.pays), l1=[v(r,C.num),v(r,C.rue)].filter(Boolean).join(' '), l2=[v(r,C.cp),v(r,C.ville)].filter(Boolean).join(' ');
+    if(pays && !/^france$/i.test(pays)) l2=(l2?l2+' ':'')+pays.toUpperCase();
+    var pro=/\bpro\b|professionnel|entreprise/i.test(profil) || !!(ent || v(r,C.tva) || v(r,C.siren));
+    if(/particulier/i.test(profil)) pro=!!ent;
+    liste.push({nom:ent||personne, personne:personne, entreprise:ent, mail:v(r,C.mail)||v(r,C.mail2), tel:v(r,C.tel)||v(r,C.tel2),
+      adresse:[l1,l2].filter(Boolean).join('\n'), ville:v(r,C.ville), pro:pro});
+  });
+  return {liste:liste, ignores:ignores};
+}
+$('btnImpClients').onclick=function(){ $('fImpClients').value=''; $('fImpClients').click(); };
+$('fImpClients').onchange=function(){
+  var f=this.files[0], e=$('etatClients'); if(!f) return;
+  if(typeof XLSX==='undefined'){ e.className='etat-sync err'; e.textContent='La lecture Excel n\'est pas disponible (connexion ?).'; return; }
+  var lu=new FileReader();
+  lu.onload=function(){
+    var res=null;
+    try{
+      var wb=XLSX.read(new Uint8Array(lu.result),{type:'array'});
+      for(var k=0;k<wb.SheetNames.length && !(res && res.liste.length);k++)
+        res=lisBaseClients(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[k]],{header:1,raw:false,defval:null}));
+    }catch(x){ res=null; }
+    if(!res || !res.liste.length){ e.className='etat-sync err'; e.textContent='Aucun client trouvé : le fichier doit avoir une colonne « Nom ».'; return; }
+    if(CLIENTS_BASE && CLIENTS_BASE.liste && CLIENTS_BASE.liste.length
+       && !confirm('Remplacer la base actuelle ('+CLIENTS_BASE.liste.length+' clients) par celle du fichier ('+res.liste.length+' clients) ?\nLes devis déjà faits ne changent pas.')) return;
+    CLIENTS_BASE={id:'clients:base', type:'clients', liste:res.liste, fichier:f.name, date:Date.now()};
+    ecrisModele(CLIENTS_BASE).then(function(){
+      etatClients();
+      if(res.ignores) e.textContent+=' '+res.ignores+' fournisseur'+(res.ignores>1?'s':'')+' ou sous-traitant'+(res.ignores>1?'s':'')+' ignoré'+(res.ignores>1?'s':'')+'.';
+    });
+  };
+  lu.readAsArrayBuffer(f);
+};
+/* saisie du client : propositions dès 2 lettres */
+var clientChoix=[], clientActif=-1;
+function chercheClients(t){
+  var b=CLIENTS_BASE; t=sansAccent(t).trim(); if(!b || !b.liste || t.length<2) return [];
+  var mots=t.split(/\s+/), r=[];
+  b.liste.forEach(function(c){
+    var foin=sansAccent(c.nom+' '+c.personne+' '+c.ville);
+    if(!mots.every(function(m){ return foin.indexOf(m)>-1; })) return;
+    var debut=foin.split(/[\s.,'-]+/).some(function(w){ return w.indexOf(mots[0])===0; });
+    r.push({c:c, score:(sansAccent(c.nom).indexOf(t)===0?0:debut?1:2)});
+  });
+  r.sort(function(a,b){ return a.score-b.score || a.c.nom.localeCompare(b.c.nom,'fr'); });
+  return r.slice(0,8).map(function(x){ return x.c; });
+}
+function montreClients(){
+  var l=$('fClientListe'), ch=clientChoix;
+  if(!ch.length){ l.hidden=true; $('fClient').setAttribute('aria-expanded','false'); return; }
+  l.innerHTML=ch.map(function(c,i){
+    var sous=[c.entreprise && c.personne ? c.personne : '', c.ville, c.pro?'Pro':'Particulier'].filter(Boolean).join(' · ');
+    return '<div class="cl-op'+(i===clientActif?' actif':'')+'" role="option" data-cl="'+i+'" aria-selected="'+(i===clientActif)+'">'+echappe(c.nom)+'<small>'+echappe(sous)+'</small></div>';
+  }).join('');
+  l.hidden=false; $('fClient').setAttribute('aria-expanded','true');
+}
+function choisitClient(c){
+  var d=D(), e=d.entete;
+  e.client=c.nom;
+  if(c.adresse) e.adresseClient=c.adresse;
+  e.typeClient=c.pro?'pro':'part';
+  if(c.personne || c.mail || c.tel){
+    /* le contact d'un client choisi avant est remplacé ; ceux tapés à la main restent */
+    var l=contactsDe(d).filter(function(x){ return !x.base && (x.nom||x.mail||x.tel) && !(c.mail && x.mail===c.mail); });
+    l.unshift({nom:c.personne||c.nom, mail:c.mail||'', tel:c.tel||'', base:true});
+    e.contacts=l;
+  }
+  clientChoix=[]; montreClients();
+  diffuse(); rendu();
+}
+$('fClient').addEventListener('input',function(){ clientChoix=chercheClients(this.value); clientActif=-1; montreClients(); });
+$('fClient').addEventListener('keydown',function(ev){
+  if($('fClientListe').hidden) return;
+  if(ev.key==='ArrowDown'||ev.key==='ArrowUp'){ ev.preventDefault(); var n=clientChoix.length; clientActif=(clientActif+(ev.key==='ArrowDown'?1:-1)+n)%n; montreClients(); }
+  else if(ev.key==='Enter' && clientActif>-1){ ev.preventDefault(); choisitClient(clientChoix[clientActif]); }
+  else if(ev.key==='Escape'){ clientChoix=[]; montreClients(); }
+});
+$('fClient').addEventListener('blur',function(){ setTimeout(function(){ clientChoix=[]; montreClients(); },150); });
+$('fClientListe').addEventListener('mousedown',function(ev){ var o=ev.target.closest('[data-cl]'); if(!o) return; ev.preventDefault(); choisitClient(clientChoix[+o.getAttribute('data-cl')]); });
 /* Contacts du chantier (v3.58) : nom, e-mail, téléphone. Gardés dans d.entete.contacts
    pour l'envoi du devis (étape signature en ligne) ; jamais affichés sur le PDF. */
 function contactsDe(d){ if(!Array.isArray(d.entete.contacts)) d.entete.contacts=[]; return d.entete.contacts; }
@@ -4722,7 +4855,7 @@ $('fContacts').addEventListener('input',function(e){
   var t=e.target, k=t.getAttribute('data-ct'); if(!k) return;
   var l=contactsDe(D()), i=+t.getAttribute('data-i');
   if(!l[i]) l[i]={nom:'',mail:'',tel:''};
-  l[i][k]=t.value; diffuse();
+  l[i][k]=t.value; delete l[i].base; diffuse();
   var x=$('fContacts').querySelector('[data-ct-suppr="'+i+'"]'); if(x) x.hidden=false;
 });
 $('fContacts').addEventListener('click',function(e){
@@ -8870,7 +9003,7 @@ routeur();
   try{
     if(!window.indexedDB) throw new Error('indisponible');
     BASE=await ouvreBase(); stockageOk=true;
-    chargeGardes(); chargeFiches();
+    chargeGardes(); chargeFiches(); chargeClients();
     setTimeout(function(){ if(peutPublier()) synchronise(); },3000);
     setTimeout(recoitModeles,5000);
     var recs=await lisTous();
