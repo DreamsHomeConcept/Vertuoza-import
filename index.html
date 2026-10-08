@@ -97,7 +97,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .cp-barre{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px}
 .cp-barre input{max-width:240px}
 .cp-table{border-collapse:collapse;width:100%;background:#fff;font-size:12.5px}
-.fr-table input{width:100%;box-sizing:border-box}.fr-table td{padding:3px 6px 3px 0}.fr-table th:nth-child(n+2):nth-child(-n+4){width:130px}.fr-table th:last-child{width:34px}
+.fr-table input{width:100%;box-sizing:border-box}.fr-table td{padding:3px 6px 3px 0}.fr-table th:nth-child(n+2):nth-child(-n+4){width:130px}.fr-table th:nth-child(5){width:170px}.fr-table select{width:100%;box-sizing:border-box}.fr-table th:last-child{width:34px}
 #fraisChoix{position:absolute;z-index:60;background:#fff;border:1px solid var(--trait);border-radius:3px;box-shadow:0 4px 14px rgba(0,0,0,.15);min-width:260px;max-width:460px;max-height:260px;overflow:auto;font-size:12.5px}
 #fraisChoix div{padding:6px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:12px}
 #fraisChoix div.on,#fraisChoix div:hover{background:var(--taupe-voile)}
@@ -214,7 +214,7 @@ td.outils button{margin-right:2px}
 td.des .des-in{display:flex;align-items:flex-start;gap:4px}
 td.des .des-in textarea{flex:1;min-width:0}
 /* étiquettes (déplacé, intervenant, marge, MO, TVA, QP) centrées verticalement dans la ligne */
-td.des .des-in>.badge-inter,td.des .des-in>.badge-mg,td.des .des-in>.badge-mo,td.des .des-in>.badge-depl,td.des .des-in>.badge-tva,td.des .des-in>.badge-qp{align-self:center;margin-top:0;margin-bottom:0}
+td.des .des-in>.badge-inter,td.des .des-in>.badge-mg,td.des .des-in>.badge-masq,td.des .des-in>.badge-mo,td.des .des-in>.badge-depl,td.des .des-in>.badge-tva,td.des .des-in>.badge-qp{align-self:center;margin-top:0;margin-bottom:0}
 td.des .prefixe{color:var(--taupe-fonce);font-size:12px;padding-top:8px;flex:none}
 /* Les navigateurs récents dimensionnent seuls la zone sur son contenu */
 @supports (field-sizing:content){ td.des textarea{field-sizing:content;height:auto} }
@@ -320,9 +320,12 @@ tr.r-chapitre td.des textarea{text-transform:uppercase}
 .menu-ins button.danger{color:#a3322a}
 .menu-sep{border-top:1px solid var(--trait);margin:4px 0;padding:4px 10px 0;font-size:11px;color:#8a8275;text-transform:uppercase;letter-spacing:.04em}
 .menu-sep:empty{padding:0}
-.badge-inter,.badge-mg,.badge-mo{display:inline-block;margin:2px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;vertical-align:middle}
+.badge-inter,.badge-mg,.badge-masq,.badge-mo{display:inline-block;margin:2px 6px 0 0;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;vertical-align:middle}
 .badge-inter{background:#e8e2d6;color:#5a5245}
 .badge-mg{background:#fff3d6;color:#7a5a00}
+.badge-masq{background:#ece8f6;color:#4b3b80}
+td.total .reparti{color:#8a8a8a;font-weight:400;font-style:italic;font-size:11.5px;white-space:nowrap}
+tr.r-ligne.r-masque textarea{color:#6d6d6d}
 .badge-mo{background:#e3eef8;color:#1f4f7a}
 .pastille-coh{border:1px solid transparent;border-radius:12px;padding:5px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 .pastille-coh.ok{background:#e3f2e6;color:#23633a}
@@ -1000,8 +1003,8 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
     <p style="margin:6px 0 0"><button type="button" class="mini" id="cpDefaut">Rétablir la bibliothèque d'origine</button></p>
     </div>
     <div class="sous-vue" data-sous-vue="frais">
-    <p class="note" style="margin-top:0">Types de frais proposés dans le devis : tapez « frais » dans la désignation d'une ligne, puis choisissez. La ligne reçoit le nom, l'unité et le coût (prix d'achat). Marge vide : la marge habituelle s'applique (chapitre, intervenant ou devis). Marge remplie : elle est posée sur la ligne, et reste modifiable par ⋯ « % Marge… ».</p>
-    <table class="cp-table fr-table"><thead><tr><th>Nom</th><th>Unité</th><th>Coût unitaire (€ HT)</th><th>Marge (%)</th><th></th></tr></thead><tbody id="fraisListe"></tbody></table>
+    <p class="note" style="margin-top:0">Types de frais proposés dans le devis : tapez « frais » dans la désignation d'une ligne, puis choisissez. La ligne reçoit le nom, l'unité, le coût (prix d'achat) et la marge (0 % par défaut), modifiable ensuite par ⋯ « % Marge… ». Client « Non visible » : la ligne n'apparaît ni dans le devis client PDF ni dans l'export ; son montant est réparti sur les autres lignes de son chapitre, au prorata. Se change ligne par ligne par ⋯.</p>
+    <table class="cp-table fr-table"><thead><tr><th>Nom</th><th>Unité</th><th>Coût unitaire (€ HT)</th><th>Marge (%)</th><th>Client</th><th></th></tr></thead><tbody id="fraisListe"></tbody></table>
     <p style="margin:6px 0 0"><button type="button" class="mini" id="fraisAjout">+ Ajouter un type de frais</button></p>
     </div>
     </div>
@@ -1180,9 +1183,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.59';
-var DATE_VERSION = '08/10/2026 17h54';   /* date et heure de livraison */
-var NOTES = 'En-tête du devis : titre « Informations du devis » cliquable pour plier ou déplier le bloc, état retenu par chantier.';
+var VERSION = '3.60';
+var DATE_VERSION = '08/10/2026 18h01';   /* date et heure de livraison */
+var NOTES = 'Frais : unité en liste (km, Nbre…), marge 0 % par défaut, ligne « non visible » pour le client (menu ⋯) dont le montant est réparti sur les autres lignes de son chapitre.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1193,7 +1196,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 var CFG = window.VERTUOZA_CONFIG || {};
 
 var UNITES = ['ml','u','unité','Boîte(s)','Forfait','Heure(s)','Jour(s)','kg','l','m²','mc','m³',
-              'Palette(s)','Paquet(s)','Pièce(s)','PM','Rouleau(x)','Tonne(s)'];
+              'Palette(s)','Paquet(s)','Pièce(s)','PM','Rouleau(x)','Tonne(s)','km','Nbre'];
 var TAUX = [0,5.5,10,20];
 var FORMAT_EURO = '_-* #,##0.00\\ [$€-40C]_-;\\-* #,##0.00\\ [$€-40C]_-;_-* "-"??\\ [$€-40C]_-;_-@_-';
 /* Tout ce qui est publié sur dreamshomeconcept.github.io partage le même stockage
@@ -1242,7 +1245,7 @@ var params = {
   gardes:null,   /* pages de garde : réglages (les images sont dans IndexedDB, id « garde:… ») */
   condParts:null,   /* conditions particulières du devis client ; null = bibliothèque d'origine (COND_PARTS_DEF) */
   devisPaiements:['Virement bancaire'],
-  frais:[{nom:'Frais kilométriques', unite:'km', cout:null, marge:null}],   /* types de frais proposés en tapant « frais » dans une ligne */   /* méthodes de paiement du devis client ; la première est la méthode par défaut */
+  frais:[{nom:'Frais kilométriques', unite:'km', cout:null, marge:0, client:'afficher'}],   /* types de frais proposés en tapant « frais » dans une ligne */   /* méthodes de paiement du devis client ; la première est la méthode par défaut */
   devisComptes:[]        /* comptes bancaires du devis client : {banque, iban, bic} ; le premier est le compte par défaut */
 };
 var dossier = [];      /* liste de devis */
@@ -1392,7 +1395,7 @@ function chargeParams(){
     if(Array.isArray(o.devisPaiements)) params.devisPaiements=o.devisPaiements.filter(function(x){ return typeof x==='string'; });
     if(Array.isArray(o.frais)) params.frais=o.frais.filter(function(x){ return x && typeof x==='object'; }).map(function(x){
       var n=function(v){ v=parseFloat(v); return isFinite(v)?v:null; };
-      return {nom:String(x.nom||''), unite:String(x.unite||''), cout:n(x.cout), marge:n(x.marge)}; });
+      var m=n(x.marge); return {nom:String(x.nom||''), unite:String(x.unite||''), cout:n(x.cout), marge:m==null?0:m, client:x.client==='masque'?'masque':'afficher'}; });   /* marge 0 par défaut (Moussa) */
     /* poste réglé avant 3.04 : son IBAN unique devient le premier compte */
     if(!params.devisComptes.length && (params.devisIban.trim()||params.devisBic.trim()))
       params.devisComptes=[{banque:'', iban:params.devisIban.trim(), bic:params.devisBic.trim()}];
@@ -1514,8 +1517,41 @@ function repareMO(d){
   return fusions;
 }
 function qteRepartie(r){ var q=nombreFr(r.qte); return q>0?q:1; }
-function puVente(d,r){ return Math.round((puAchat(r)*coefficient(d,r) + moVente(d,r)/qteRepartie(r))*100)/100; }
-function totalLigne(d,r){ return (r.type==='ligne'&&!r.option)?nombreFr(r.qte)*puVente(d,r):0; }
+function puVente(d,r){ return Math.round((venteBrute(d,r) + partMasquee(d,r)/qteRepartie(r))*100)/100; }
+function venteBrute(d,r){ return puAchat(r)*coefficient(d,r) + moVente(d,r)/qteRepartie(r); }
+function totalLigne(d,r){ return (r.type==='ligne'&&!r.option&&!r.masque)?nombreFr(r.qte)*puVente(d,r):0; }
+/* Ligne « non visible pour le client » (r.masque, ex. des frais) : son montant de vente est réparti sur les
+   autres lignes de son chapitre, au prorata de leur montant ; chapitre sans autre ligne → réparti sur tout le devis.
+   La ligne elle-même ne compte plus (total 0) et ne part ni dans le devis client PDF ni dans l'export. */
+function estMasquee(d,r){ return r.type==='ligne' && !!r.masque && !r.option && !refuse(d,r); }
+function estPorteuse(d,r){ return r.type==='ligne' && !r.masque && !r.option && !refuse(d,r); }
+var CACHE_MASQ=null;
+function partMasquee(d,r){
+  if(!d || !d.lignes || !estPorteuse(d,r)) return 0;
+  if(!CACHE_MASQ || CACHE_MASQ.d!==d || CACHE_MASQ.lignes!==d.lignes){
+    var part=null;
+    if(d.lignes.some(function(x){ return x.masque; })){
+      var g={}, ch=-1, own=[];
+      d.lignes.forEach(function(x,k){
+        if(x.type==='chapitre') ch=k;
+        var e=g[ch]||(g[ch]={m:0,b:0});
+        if(estMasquee(d,x)) e.m+=nombreFr(x.qte)*venteBrute(d,x);
+        else if(estPorteuse(d,x)){ own[k]=Math.max(0,nombreFr(x.qte)*venteBrute(d,x)); e.b+=own[k]; }
+      });
+      var orph=0, tb=0; Object.keys(g).forEach(function(k){ tb+=g[k].b; if(g[k].b<=0) orph+=g[k].m; });
+      part={}; ch=-1;
+      d.lignes.forEach(function(x,k){
+        if(x.type==='chapitre') ch=k;
+        if(own[k]==null) return;
+        var e=g[ch]; part[k]=(e.b>0?e.m*own[k]/e.b:0)+(tb>0?orph*own[k]/tb:0);
+      });
+    }
+    CACHE_MASQ={d:d, lignes:d.lignes, part:part};
+    Promise.resolve().then(function(){ CACHE_MASQ=null; });   /* valable le temps d'un calcul */
+  }
+  if(!CACHE_MASQ.part) return 0;
+  var i=positionLigne(d,r); return i>-1 ? (CACHE_MASQ.part[i]||0) : 0;
+}
 function debourseLigne(r){ return (r.type==='ligne'&&!r.option)?nombreFr(r.qte)*puAchat(r)+moDeb(r):0; }
 /* Un intervenant décoché n'est plus compté : ses lignes restent visibles, grisées. */
 /* ---------------- TVA 5,5 % : performances des isolants, fenêtres et portes ---------------- */
@@ -2090,7 +2126,7 @@ function majEnDirect(){
 function controleCoherence(d){
   var ecarts=[], alertes=[], cts=function(v){ return Math.round(v*100)/100; };
   if(!d || !d.lignes) return {ecarts:ecarts, alertes:alertes};
-  var compte=function(r){ return r.type==='ligne' && !r.option && !refuse(d,r); };
+  var compte=function(r){ return r.type==='ligne' && !r.option && !r.masque && !refuse(d,r); };   /* ligne non visible : répartie sur ses voisines */
   var nom=function(r){ return String(r.designation||'(sans désignation)').slice(0,60); };
   /* 1. total HT = somme indépendante des lignes comptées */
   var somme=0; d.lignes.forEach(function(r){ if(compte(r)) somme+=nombreFr(r.qte)*puVente(d,r); });
@@ -2101,7 +2137,7 @@ function controleCoherence(d){
   d.lignes.forEach(function(r,i){
     if(r.type!=='chapitre' && r.type!=='sous') return;
     var b=bloc(d,i), t=0;
-    for(var k=b.debut+1;k<b.fin;k++){ var x=d.lignes[k]; if(x.type==='ligne' && (!x.option || (r.type==='sous' && r.option))) t+=nombreFr(x.qte)*puVente(d,x); }
+    for(var k=b.debut+1;k<b.fin;k++){ var x=d.lignes[k]; if(x.type==='ligne' && !x.masque && (!x.option || (r.type==='sous' && r.option))) t+=nombreFr(x.qte)*puVente(d,x); }
     if(Math.abs(cts(t)-cts(S[i]||0))>0.01) ecarts.push({id:r.id, msg:(r.type==='chapitre'?'Chapitre':'Sous-chapitre')+' « '+nom(r)+' » : '+eur(S[i]||0)+' affiché ≠ '+eur(t)+' de lignes'});
   });
   /* 3. écran à jour : chaque somme et chaque ligne affichées correspondent au calcul */
@@ -2111,7 +2147,7 @@ function controleCoherence(d){
       var tr=tb.querySelector('tr[data-id="'+r.id+'"]'); if(!tr) return;
       var cel=tr.querySelector('td.total'); if(!cel) return;
       var aff=nombreFr(cel.textContent.replace(/[^\d,.\-]/g,'')), att=(r.type==='ligne')?totalLigne(d,Object.assign({},r,{option:false})):(S[i]!=null?S[i]:null);
-      if(att==null || (r.type==='ligne' && r.option)) return;
+      if(att==null || (r.type==='ligne' && (r.option || r.masque))) return;
       if(Math.abs(cts(aff)-cts(att))>0.01) ecarts.push({id:r.id, msg:'Affichage en retard sur « '+nom(r)+' » : '+eur(aff)+' affiché, '+eur(att)+' calculé'});
     });
     var tht=$('tHt'); if(tht && Math.abs(nombreFr(tht.textContent.replace(/[^\d,.\-]/g,''))-cts(ht))>0.01) ecarts.push({msg:'Total HT affiché en retard : '+tht.textContent+' pour '+eur(ht)});
@@ -2254,7 +2290,7 @@ function rendu(){
     var prefixe=(estLigne&&params.prefixe&&r.numLigne&&!d.dpgf)?'<span class="prefixe">'+r.numLigne+'.</span>':'';
     var ph=r.type==='chapitre'?'Intitulé du chapitre':r.type==='sous'?'Intitulé du sous-chapitre'
           :r.type==='texte'?'Commentaire libre':'Désignation de l\'ouvrage';
-    return '<tr class="r-'+r.type+(r.option?' r-option':'')+(refuse(d,r)?' r-refuse':'')+(r.deplace?' deplace':'')+(SEL.ids[r.id]?' sel':'')+'" data-id="'+r.id+'">'
+    return '<tr class="r-'+r.type+(r.option?' r-option':'')+(r.masque&&r.type==='ligne'?' r-masque':'')+(refuse(d,r)?' r-refuse':'')+(r.deplace?' deplace':'')+(SEL.ids[r.id]?' sel':'')+'" data-id="'+r.id+'">'
       +'<td class="num"><input type="checkbox" class="sel" title="Sélectionner (Maj + clic : toute une plage)"'+(SEL.ids[r.id]?' checked':'')+'>'+(titre?'<button class="plie" data-a="plie" aria-expanded="'+(!replie)+'" title="'+(replie?'Déplier':'Replier')+'">'+(replie?'▸':'▾')+'</button>':'')+echappe(d.dpgf&&r.code?r.code:r.article)+'</td>'
       +'<td class="des"><div class="des-in">'+prefixe
         +'<textarea rows="1" data-c="designation" placeholder="'+ph+'"'+(r.auto?' readonly title="Rempli automatiquement depuis les champs Surface et Hauteur sous plafond du devis"':'')+'>'+echappe(r.designation)+'</textarea>'
@@ -2262,6 +2298,7 @@ function rendu(){
         +(r.sansIA?'<span class="badge-tva ko" title="Lu sans l\'IA : découpage approximatif. Menu ⋯ → Marquer comme vérifié">lu sans IA — à vérifier</span>':'')
         +(r.type==='chapitre'&&d.mode==='st'&&r.intervenant?'<span class="badge-inter" title="Intervenant — non exporté">'+echappe(r.intervenant)+'</span>':'')
         +(estLigne&&typeMarche(r)==='QP'?'<span class="badge-qp" title="Quantité présumée — exportée en TM = QP">QP</span>':'')
+        +(estLigne&&r.masque?'<span class="badge-masq" title="Ligne non visible pour le client : son montant est réparti sur les autres lignes du chapitre. Menu ⋯ pour l\'afficher">non visible</span>':'')
         +(estLigne&&r.marge!=null&&r.marge!==''?'<span class="badge-mg" title="Marge propre à cette ligne">marge '+String(r.marge).replace('.',',')+' %</span>':'')
         +(titre&&margeFixee(r)?'<span class="badge-mg" title="Marge appliquée à toutes les lignes de ce '+(r.type==='chapitre'?'chapitre':'sous-chapitre')+', sauf celles qui ont leur propre marge">marge '+String(r.marge).replace('.',',')+' %</span>':'')
         +(estLigne&&r.mo?'<span class="badge-mo" title="Main-d\'œuvre DHC incluse dans le prix">+ MO '+eur(moDeb(r))+'</span>':'')
@@ -2275,7 +2312,7 @@ function rendu(){
       +'<td class="pu">'+(estLigne?'<input type="text" data-c="pu" value="'+echappe(affichePu(r.pu))+'">':'')+'</td>'
       +(params.multiTaux?'<td class="tvl">'+(estLigne?selectTaux(r.tva,d.tva):'')+'</td>':'')
       +(margeVisible(d)?'<td class="pv">'+(estLigne?eur(puVente(d,r)):'')+'</td>':'')
-      +'<td class="total">'+(estLigne?eur(totalLigne(d,r)):(titre?'<span class="somme">'+eur(sommes[i]||0)+'</span>':''))+'</td>'
+      +'<td class="total">'+(estLigne?totalAffiche(d,r):(titre?'<span class="somme">'+eur(sommes[i]||0)+'</span>':''))+'</td>'
       +'<td class="outils">'
         +'<button class="mini poignee" data-a="poignee" draggable="true" title="Glisser pour déplacer'+(titre?' ce bloc, ses sous-chapitres et ses lignes':' cette ligne')+'">⠿</button>'
         +'<button class="mini" data-a="plus" title="Insérer juste en dessous">+</button>'
@@ -2323,10 +2360,20 @@ function ajusteToutes(){
 function ajusteToutesMaintenant(){
   Array.prototype.forEach.call($('corpsTable').querySelectorAll('textarea'), ajusteHauteur);
 }
+function totalAffiche(d,r){
+  if(r.masque && !r.option) return '<span class="reparti" title="Montant réparti sur les autres lignes du chapitre">'+eur(nombreFr(r.qte)*puVente(d,r))+' réparti</span>';
+  return eur(totalLigne(d,r));
+}
 function rafraichitLigne(tr,r){
   var d=D();
   var pv=tr.querySelector('td.pv'); if(pv) pv.textContent=eur(puVente(d,r));
-  tr.querySelector('td.total').textContent=eur(totalLigne(d,r));
+  tr.querySelector('td.total').innerHTML=totalAffiche(d,r);
+  /* une ligne non visible est répartie sur ses voisines : leurs prix bougent aussi */
+  if(d.lignes.some(function(x){ return x.masque; })) Array.prototype.forEach.call($('corpsTable').querySelectorAll('tr.r-ligne'),function(t){
+    if(t===tr) return; var x=trouve(t.getAttribute('data-id')); if(!x) return;
+    var p2=t.querySelector('td.pv'); if(p2) p2.textContent=eur(puVente(d,x));
+    var t2=t.querySelector('td.total'); if(t2) t2.innerHTML=totalAffiche(d,x);
+  });
 }
 function selectUnite(v){
   var o='<option value=""></option>'+UNITES.map(function(u){
@@ -4415,6 +4462,7 @@ function menuActions(bouton,i){
       ajoute('⚒ Modifier la main-d\'œuvre ('+String(nombreFr(r.mo.jours)).replace('.',',')+' j)…',function(){ moLigne(d,i); });
       ajoute('Retirer la main-d\'œuvre',function(){ delete r.mo; rendu(); info('Main-d\'œuvre retirée de « '+(r.designation||'la ligne')+' ».',100,'ok'); });
     }
+    if(r.type==='ligne') ajoute(r.masque?'👁 Afficher cette ligne au client':'Rendre non visible pour le client',function(){ if(r.masque) delete r.masque; else r.masque=true; rendu(); });
     if(r.type==='ligne') ajoute('% Marge de cette ligne…'+(r.marge!=null&&r.marge!==''?' ('+String(r.marge).replace('.',',')+' %)':''),function(){ margeLigne(d,i); });
     var titre=(r.type==='chapitre'||r.type==='sous');
     if(titre) ajoute('% Marge de ce '+(r.type==='chapitre'?'chapitre':'sous-chapitre')+'…'+(margeFixee(r)?' ('+String(r.marge).replace('.',',')+' %)':''),function(){ margeChapitre(d,i); });
@@ -6096,9 +6144,21 @@ function designationExport(r){
 /* Un texte libre placé juste sous une ligne chiffrée en est le détail de composition :
    à l'export il rejoint la désignation, dans la même cellule. Seul, sous un chapitre,
    il reste une ligne de texte. Sinon Vertuoza le prend pour un titre. */
+function titreQueMasque(d,i){
+  var b=bloc(d,i), m=false;
+  for(var k=b.debut+1;k<b.fin;k++){ var x=d.lignes[k]; if(x.type!=='ligne' || x.option || refuse(d,x)) continue; if(!x.masque) return false; m=true; }
+  return m;
+}
 function lignesExport(d){
   /* ni options, ni offres refusées, ni notes internes */
-  var l=d.lignes.filter(function(r){ return !r.option && !refuse(d,r) && r.type!=='note'; });
+  var l=[], apresMasque=false, saute=-1;
+  d.lignes.forEach(function(r,i){
+    if(i<saute) return;
+    if(r.type==='texte' && apresMasque) return;          /* le texte sous une ligne non visible reste caché */
+    if((r.type==='chapitre'||r.type==='sous') && titreQueMasque(d,i)){ saute=bloc(d,i).fin; return; }   /* bloc dont toutes les lignes sont non visibles */
+    apresMasque = r.type==='ligne' && !!r.masque;
+    if(!r.option && !r.masque && !refuse(d,r) && r.type!=='note') l.push(r);
+  });
   numerote({lignes:l});
   var out=[], dernier=null, parent='';
   l.forEach(function(r){
@@ -8476,18 +8536,19 @@ function renduFrais(){
   var l=params.frais;
   $('fraisListe').innerHTML=l.length ? l.map(function(f,i){
     return '<tr><td><input type="text" data-fr="'+i+'" data-k="nom" value="'+echappe(f.nom)+'" placeholder="Ex. Frais kilométriques" aria-label="Nom"></td>'
-      +'<td><input type="text" data-fr="'+i+'" data-k="unite" value="'+echappe(f.unite)+'" placeholder="km" aria-label="Unité"></td>'
+      +'<td><select data-fr="'+i+'" data-k="unite" aria-label="Unité"><option value=""></option>'+UNITES.concat(f.unite&&UNITES.indexOf(f.unite)<0?[f.unite]:[]).map(function(u){ return '<option value="'+echappe(u)+'"'+(u===f.unite?' selected':'')+'>'+echappe(u)+'</option>'; }).join('')+'</select></td>'
       +'<td><input type="text" data-fr="'+i+'" data-k="cout" value="'+chiffreFr(f.cout==null?null:f.cout.toFixed(2))+'" placeholder="0,60" aria-label="Coût unitaire"></td>'
-      +'<td><input type="text" data-fr="'+i+'" data-k="marge" value="'+chiffreFr(f.marge)+'" placeholder="habituelle" aria-label="Marge"></td>'
+      +'<td><input type="text" data-fr="'+i+'" data-k="marge" value="'+chiffreFr(f.marge)+'" placeholder="0" aria-label="Marge"></td>'
+      +'<td><select data-fr="'+i+'" data-k="client" aria-label="Client"><option value="afficher"'+(f.client!=='masque'?' selected':'')+'>Afficher cette ligne</option><option value="masque"'+(f.client==='masque'?' selected':'')+'>Non visible</option></select></td>'
       +'<td><button type="button" class="mini" data-fr-suppr="'+i+'" title="Retirer ce type de frais">✕</button></td></tr>';
-  }).join('') : '<tr><td colspan="5" class="note">Aucun type de frais.</td></tr>';
+  }).join('') : '<tr><td colspan="6" class="note">Aucun type de frais.</td></tr>';
 }
 renduFrais();
 $('fraisListe').addEventListener('change',function(e){
   var t=e.target, i=+t.getAttribute('data-fr'), k=t.getAttribute('data-k'), f=params.frais[i]; if(!f||!k) return;
   if(k==='cout'||k==='marge'){
     var v=t.value.trim();
-    if(v===''){ f[k]=null; }
+    if(v===''){ f[k]=k==='marge'?0:null; }
     else { var n=nombreFr(v); if(!isFinite(n)||n<0){ alert(k==='cout'?'Coût invalide.':'Marge invalide.'); t.value=chiffreFr(f[k]); return; } f[k]=Math.round(n*100)/100; }
     t.value=chiffreFr(f[k]==null?null:(k==='cout'?f[k].toFixed(2):f[k]));
   } else f[k]=t.value.trim();
@@ -8498,7 +8559,7 @@ $('fraisListe').addEventListener('click',function(e){
   params.frais.splice(+b.getAttribute('data-fr-suppr'),1); sauveParams(); renduFrais();
 });
 $('fraisAjout').onclick=function(){
-  params.frais.push({nom:'', unite:'', cout:null, marge:null}); renduFrais();
+  params.frais.push({nom:'', unite:'', cout:null, marge:0, client:'afficher'}); renduFrais();
   var ch=$('fraisListe').querySelectorAll('input[data-k="nom"]'); ch[ch.length-1].focus();
 };
 
@@ -8518,7 +8579,7 @@ function ouvreFrais(ta){
   FRAIS_CIBLE={id:r.id, sel:0, n:l.length};
   box.innerHTML=l.length ? l.map(function(o,k){
     return '<div data-frais="'+o.i+'"'+(k===0?' class="on"':'')+'><span>'+echappe(o.f.nom)+'</span><small>'
-      +(o.f.cout!=null?chiffreFr(o.f.cout.toFixed(2))+' €':'—')+(o.f.unite?' / '+echappe(o.f.unite):'')+(o.f.marge!=null?' · marge '+chiffreFr(o.f.marge)+' %':'')+'</small></div>'; }).join('')
+      +(o.f.cout!=null?chiffreFr(o.f.cout.toFixed(2))+' €':'—')+(o.f.unite?' / '+echappe(o.f.unite):'')+' · marge '+chiffreFr(o.f.marge||0)+' %'+(o.f.client==='masque'?' · non visible':'')+'</small></div>'; }).join('')
     : '<div class="vide">'+(params.frais.length?'Aucun type de frais ne correspond.':'Aucun type de frais : Paramètres › Devis › Frais.')+'</div>';
   var b=ta.getBoundingClientRect();
   box.style.left=(b.left+window.scrollX)+'px'; box.style.top=(b.bottom+window.scrollY+2)+'px';
@@ -8528,7 +8589,8 @@ function choisitFrais(i){
   if(!f||!r) return;
   memorise(d,'type de frais');
   r.designation=f.nom; r.unite=f.unite; r.pu=f.cout!=null?f.cout:'';
-  if(f.marge!=null) r.marge=f.marge; else delete r.marge;
+  r.marge=f.marge!=null?f.marge:0;
+  if(f.client==='masque') r.masque=true; else delete r.masque;
   rendu();
 }
 $('corpsTable').addEventListener('input',function(e){
