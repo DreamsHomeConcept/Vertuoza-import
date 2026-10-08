@@ -1201,9 +1201,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.71';
-var DATE_VERSION = '08/10/2026 18h55';   /* date et heure de livraison */
-var NOTES = 'Les frais (déplacement, restauration…) passent à 20 % ; la pastille « 5,5 % : préciser le type » n\'apparaît plus sur les frais.';
+var VERSION = '3.72';
+var DATE_VERSION = '08/10/2026 19h00';   /* date et heure de livraison */
+var NOTES = 'Compteur « devis » des devis d\'origine : un onglet vide n\'est plus compté (0 devis au démarrage).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1839,7 +1839,9 @@ function renduOnglets(){
   }).join('');
   h+='<div class="onglet" data-nouveau="1" title="Ajouter un devis"><span class="nom">+ devis</span></div>';
   $('onglets').innerHTML=h;
-  $('cptDossier').textContent=dossier.length+(dossier.length>1?' devis dans le dossier':' devis');
+  /* un onglet vide (aucune ligne, ni client, ni chantier) ne compte pas (v3.72) */
+  var nbDevis=dossier.filter(function(x){ return !estVide(x); }).length;
+  $('cptDossier').textContent=nbDevis+(nbDevis>1?' devis dans le dossier':' devis');
 }
 function renduEntete(){
   var d=D();
