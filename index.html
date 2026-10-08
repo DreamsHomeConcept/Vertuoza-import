@@ -1218,9 +1218,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.75';
-var DATE_VERSION = '08/10/2026 19h39';   /* date et heure de livraison */
-var NOTES = 'Correctif : la date choisie dans le calendrier 📅 s\'affiche aussi quand on choisit la date du jour.';
+var VERSION = '3.76';
+var DATE_VERSION = '08/10/2026 19h42';   /* date et heure de livraison */
+var NOTES = 'Société : adresse secondaire (dépôt ou agence), vide par défaut, point de départ possible des km ; non imprimée sur le devis.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6660,6 +6660,8 @@ var SOCIETE_DEF={
   tva:'FR60938913456', siret:'938 913 456 00019', rcs:'938 913 456', villeRcs:'Annecy', capital:'5 000', ape:'4321A',
   assureur:'APRIL / ERGO', garantie:'Garantie décennale', assRue:'12 bis rue de la Victoire', assCp:'75009', assVille:'Paris', assPays:'France',
   zone:'France',
+  /* adresse secondaire (dépôt, agence) : point de départ des km ; vide par défaut, jamais imprimée sur le PDF */
+  secRue:'', secCp:'', secVille:'', secPays:'',
   medNom:'CM2C — Centre de la Médiation de la Consommation de Conciliateurs de Justice',
   medAdresse:'49 rue de Ponthieu, 75008 Paris', medTel:'01 89 47 00 14', medWeb:'https://www.cm2c.net'
 };
@@ -8272,6 +8274,7 @@ $('cgvDefaut').onclick=function(){
 var SOC_CHAMPS=[
   ['Identité',[['nom','Société','p-moyen'],['nomAbrege','Nom abrégé','p-moyen']]],
   ['Adresse du siège social',[['rue','Rue','p-moyen'],['cp','Code postal','p-court'],['ville','Ville','p-court'],['pays','Pays','p-court']]],
+  ['Adresse secondaire (départ des km, non imprimée sur le devis)',[['secRue','Rue','p-moyen'],['secCp','Code postal','p-court'],['secVille','Ville','p-court'],['secPays','Pays','p-court']]],
   ['Coordonnées de contact',[['email','Adresse e-mail','p-moyen'],['emailCgv','E-mail en fin de CGV','p-moyen'],['tel','Téléphone','p-court'],['web','Site web','p-moyen']]],
   ['Identifiants légaux',[['tva','N° Tva','p-court'],['siret','Siret','p-court'],['rcs','RCS','p-court'],['villeRcs','Ville RCS','p-court'],['capital','Capital social (€)','p-court'],['ape','Code APE','p-court']]],
   ['Assurance',[['assureur','Nom de l\'assureur','p-moyen'],['garantie','Garantie','p-moyen'],['zone','Zone de couverture','p-court'],
