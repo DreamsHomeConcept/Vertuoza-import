@@ -1124,9 +1124,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.46';
-var DATE_VERSION = '08/10/2026 00h30';   /* date et heure de livraison */
-var NOTES = 'Type de projet « Rénovation industrielle » : TVA 20 %, 5,5 % non applicable.';
+var VERSION = '3.47';
+var DATE_VERSION = '08/10/2026 08h48';   /* date et heure de livraison */
+var NOTES = 'Nouveau : une ligne peut se placer au-dessus de « Surface réalisée » et des autres textes de début de chapitre (bouton +, ↑ ou poignée ⠿) et y reste.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2303,19 +2303,33 @@ function majInfosChantier(d){
   var voulu=libInfos(d);
   var avant=JSON.stringify(d.lignes.filter(function(r){ return r.auto; }).map(function(r){ return [r.auto,r.designation,d.lignes.indexOf(r)]; }));
   var chap=d.lignes.find(function(r){ return r.auto==='infos'; });
-  var anciens={}; d.lignes.forEach(function(r){ if(r.auto==='surface'||r.auto==='hsp') anciens[r.auto]=r; });
-  d.lignes=d.lignes.filter(function(r){ return !r.auto; });
-  if(voulu.length && d.lignes.length){
+  var veut={}; voulu.forEach(function(v){ veut[v.auto]=v.designation; });
+  /* le chapitre et tout son contenu (lignes ajoutées à la main comprises) restent ensemble, en tête du devis */
+  var bc=chap ? bloc(d,d.lignes.indexOf(chap)) : null;
+  var contenu=bc ? d.lignes.slice(bc.debut+1,bc.fin) : [];
+  var reste=d.lignes.filter(function(r,k){ return !(bc && k>=bc.debut && k<bc.fin) && r.auto!=='surface' && r.auto!=='hsp'; });
+  /* textes automatiques : mis à jour là où ils sont, retirés s'ils ne sont plus voulus, ajoutés sous le titre s'ils manquent */
+  var vus={};
+  contenu=contenu.filter(function(r){
+    if(r.auto!=='surface' && r.auto!=='hsp') return true;
+    if(!veut[r.auto] || vus[r.auto]) return false;
+    vus[r.auto]=1; r.type='texte'; r.designation=veut[r.auto]; r.intervenant=''; r.option=false; return true;
+  });
+  var manquants=voulu.filter(function(v){ return !vus[v.auto]; }).map(function(v){
+    var r=d.lignes.find(function(x){ return x.auto===v.auto; })||nouvelleLigne('texte',{});
+    r.auto=v.auto; r.type='texte'; r.designation=v.designation; r.intervenant=''; r.option=false; return r;
+  });
+  if(manquants.length){
+    var q=0; while(q<contenu.length && (contenu[q].auto==='surface'||contenu[q].auto==='hsp')) q++;
+    Array.prototype.splice.apply(contenu,[q,0].concat(manquants));
+  }
+  var aContenu=contenu.some(function(r){ return !r.auto; });
+  if((voulu.length && (reste.length || aContenu)) || aContenu){
     if(!chap) chap=nouvelleLigne('chapitre',{designation:'INFORMATIONS CHANTIER'});
     chap.auto='infos'; chap.designation='INFORMATIONS CHANTIER'; chap.intervenant=''; chap.option=false;
-    var tete=[chap].concat(voulu.map(function(v){
-      var r=anciens[v.auto]||nouvelleLigne('texte',{});
-      r.auto=v.auto; r.type='texte'; r.designation=v.designation; r.intervenant=''; r.option=false;
-      return r;
-    }));
-    d.lignes=tete.concat(d.lignes);
+    d.lignes=[chap].concat(contenu,reste);
     if(d.replis && d.replis[chap.id]===undefined) d.replis[chap.id]=false;
-  }
+  } else d.lignes=reste;
   var apres=JSON.stringify(d.lignes.filter(function(r){ return r.auto; }).map(function(r){ return [r.auto,r.designation,d.lignes.indexOf(r)]; }));
   return avant!==apres;
 }
@@ -3897,7 +3911,7 @@ function blocMobile(d,i){
   var r=d.lignes[i];
   if(r.type==='chapitre'||r.type==='sous') return bloc(d,i);
   var fin=i+1;
-  if(r.type==='ligne') while(fin<d.lignes.length && (d.lignes[fin].type==='texte'||d.lignes[fin].type==='note')) fin++;
+  if(r.type==='ligne') while(fin<d.lignes.length && (d.lignes[fin].type==='texte'||d.lignes[fin].type==='note') && !d.lignes[fin].auto) fin++;
   return {debut:i, fin:fin};
 }
 function chapitreDe(d,j){ for(var k=j;k>=0;k--) if(d.lignes[k].type==='chapitre') return k; return -1; }
@@ -3933,7 +3947,7 @@ function destination(d,src,j,apres,groupe){
     if(c.type==='chapitre'||c.type==='sous') pos=apresTitre(j);
     else {
       var lj=ligneDe(d,j);
-      if(lj<0){ var tt=j; while(tt>0 && d.lignes[tt].type==='texte') tt--; pos=apresTitre(tt); }
+      if(lj<0 || c.auto) pos = apres ? j+1 : j;              /* texte de début de chapitre : au-dessus ou au-dessous de lui */
       else { var bl=blocMobile(d,lj); pos = apres ? bl.fin : bl.debut; }
     }
   }
@@ -3958,7 +3972,7 @@ function deplaceVoisin(d,i,sens){
       var x=d.lignes[k].type;
       if(t==='chapitre'){ if(x==='chapitre'){ pos=k; break; } }
       else if(t==='sous'){ if(x==='sous'){ pos=k; break; } if(x==='chapitre') break; }
-      else { if(x==='ligne'){ pos=k; break; } if(x==='chapitre'||x==='sous') break; }
+      else { if(x==='ligne'){ pos=k; break; } if(x==='texte' && (d.lignes[k].auto || ligneDe(d,k)<0)){ pos=k; break; } if(x==='chapitre'||x==='sous') break; }
     }
   } else {
     var n=d.lignes[src.fin];
