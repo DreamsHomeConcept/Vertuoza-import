@@ -608,7 +608,6 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
     <button class="fant" id="btnChantiers">Mes chantiers</button>
     <button class="fant" id="btnBiblioPage">Bibliothèque</button>
     <button class="fant" id="btnParam">Paramètres</button>
-    <button class="fant" id="btnJson">Exporter le JSON</button>
     <button class="plein" id="btnXlsx">Exporter le classeur</button>
   </div>
 </header>
@@ -1224,9 +1223,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.82';
-var DATE_VERSION = '09/10/2026 00h08';   /* date et heure de livraison */
-var NOTES = 'Zone « Déposez vos devis ici » plus étroite et centrée, bouton « + Depuis la bibliothèque » centré dessous.';
+var VERSION = '3.83';
+var DATE_VERSION = '09/10/2026 00h14';   /* date et heure de livraison */
+var NOTES = 'Bouton « Exporter le JSON » retiré de la barre du haut (Exporter le classeur inchangé).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -5162,7 +5161,6 @@ function montre(page){
   $('btnBiblioPage').textContent = bi?'Revenir aux devis':'Bibliothèque';
   if(bi) renduBiblio();
   document.querySelector('.pied').style.display = autre?'none':'';
-  $('btnJson').style.display = autre?'none':'';
   $('btnXlsx').style.display = autre?'none':'';
   $('btnParam').textContent = param?'Revenir aux devis':'Paramètres';
   $('btnChantiers').textContent = ch?'Revenir aux devis':(modeConsultation()?'Chantiers':'Mes chantiers');
@@ -6646,13 +6644,6 @@ function getDossier(){
   return { devis:dossier.map(serialise), actif:actif,
            totalHt:dossier.reduce(function(s,d){return s+totalHt(d);},0) };
 }
-function exporteJson(){
-  var blob=new Blob([JSON.stringify(getDossier(),null,2)],{type:'application/json'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='VERTUOZA_dossier.json'; a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
-}
 
 /* ---------------------------- devis client PDF ---------------------------- */
 /* Devis au rendu du modèle Vertuoza : en-tête DHC, tableau par chapitres, totaux,
@@ -7675,7 +7666,6 @@ $('corpsTable').addEventListener('click',function(e){
 },true);
 $('allerChap').onchange=function(){ var v=this.value; if(v) voirChapitreSeul(D(),v); this.value=''; };
 $('btnValideDepl').onclick=function(){ D().lignes.forEach(function(r){ delete r.deplace; }); rendu(); info('Déplacements validés.',100,'ok'); };
-$('btnJson').onclick=exporteJson;
 
 /* ----------------------- archivage dans la base de prix ------------------ */
 /* Un dossier « sous-traitants » contient plusieurs devis : on archive un
