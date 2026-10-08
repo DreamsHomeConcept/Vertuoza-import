@@ -70,7 +70,7 @@ button.mini:hover{background:var(--taupe-pale);border-color:var(--taupe)}
 .panneau h2 .droite{float:right;font-weight:400;font-size:12.5px;color:var(--encre-faible)}
 .grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 label.champ{display:block;font-size:12px;color:var(--encre-faible);margin-bottom:4px}
-input[type=text],input[type=password],input[type=date],select,textarea{width:100%;font:inherit;padding:7px 8px;
+input[type=text],input[type=email],input[type=tel],input[type=password],input[type=date],select,textarea{width:100%;font:inherit;padding:7px 8px;
   border:1px solid var(--trait);border-radius:2px;background:#fff;color:var(--encre);font-variant-numeric:tabular-nums}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-offset:-1px;border-color:var(--taupe)}
 .garde-carte{display:flex;gap:18px;align-items:flex-start;border:1px solid var(--trait);border-radius:3px;padding:12px 14px;margin-bottom:12px}
@@ -629,6 +629,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
       <div><label class="champ" for="fChantier">Chantier</label><input type="text" id="fChantier"></div>
       <div><label class="champ" for="fAdrClient">Adresse du client</label><textarea id="fAdrClient" rows="2" placeholder="Numéro et rue&#10;Code postal VILLE" style="resize:vertical"></textarea></div>
       <div><label class="champ" for="fAdrChantier">Adresse du chantier</label><textarea id="fAdrChantier" rows="2" placeholder="Vide : même adresse que le client" style="resize:vertical"></textarea></div>
+      <div style="grid-column:1/-1"><span class="champ">Contacts</span><div id="fContacts"></div><button type="button" class="mini" id="fContactPlus" title="Ajouter un contact" style="margin-top:6px">+ Ajouter un contact</button></div>
       <div><label class="champ" for="fRef">Référence du devis</label><input type="text" id="fRef"></div>
       <div><label class="champ" for="fDate">Date</label><div style="position:relative"><input type="text" id="fDate" placeholder="jj/mm/aaaa" style="padding-right:38px"><button type="button" id="fDateCal" title="Choisir dans le calendrier" aria-label="Choisir la date dans le calendrier" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:17px;padding:4px 6px;line-height:1">📅</button><input type="date" id="fDatePick" tabindex="-1" aria-hidden="true" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none"></div></div>
       <div hidden><label class="champ" for="fFeuille">Nom de l'onglet Excel</label><input type="text" id="fFeuille"></div>
@@ -1177,9 +1178,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.57';
-var DATE_VERSION = '08/10/2026 16h33';   /* date et heure de livraison */
-var NOTES = 'Nouveau : types de frais (Paramètres › Devis › Frais : nom, unité, coût, marge facultative) ; tapez « frais » dans la désignation d\'une ligne pour en choisir un.';
+var VERSION = '3.58';
+var DATE_VERSION = '08/10/2026 17h46';   /* date et heure de livraison */
+var NOTES = 'En-tête du devis : bloc « Contacts » (nom, e-mail, téléphone) avec bouton + pour en ajouter, gardés pour l\'envoi du devis.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1774,6 +1775,7 @@ function renduEntete(){
   $('fClient').value=d.entete.client; $('fChantier').value=d.entete.chantier;
   $('fRef').value=d.entete.reference; $('fDate').value=d.entete.date;
   $('fAdrClient').value=d.entete.adresseClient||''; $('fAdrChantier').value=d.entete.adresseChantier||'';
+  renduContacts();
   $('fFeuille').value=d.feuille; $('fTva').value=String(d.tva); $('fMode').value=d.mode||'client';
   $('fOrigine').value=d.origine||'concurrent';
   $('fType').value=d.typeProjet||'';
@@ -4542,6 +4544,36 @@ $('addTexte').onclick=function(){ ajouteEnBas('texte'); };
     if(id==='fRef' && feuilleSurRef(D())) renduOnglets();
   });
 });
+/* Contacts du chantier (v3.58) : nom, e-mail, téléphone. Gardés dans d.entete.contacts
+   pour l'envoi du devis (étape signature en ligne) ; jamais affichés sur le PDF. */
+function contactsDe(d){ if(!Array.isArray(d.entete.contacts)) d.entete.contacts=[]; return d.entete.contacts; }
+function renduContacts(){
+  var d=D(), l=contactsDe(d), box=$('fContacts'); if(!box) return;
+  var vus=l.length?l:[{nom:'',mail:'',tel:''}];
+  box.innerHTML=vus.map(function(c,i){
+    return '<div class="contact-ligne" style="display:grid;grid-template-columns:minmax(120px,1fr) minmax(160px,1.4fr) minmax(120px,1fr) auto;gap:8px;margin-top:6px">'
+      +'<input type="text" data-ct="nom" data-i="'+i+'" placeholder="Nom (ex. Mme Martin)" aria-label="Nom du contact '+(i+1)+'" value="'+echappe(c.nom||'')+'">'
+      +'<input type="email" data-ct="mail" data-i="'+i+'" placeholder="E-mail" aria-label="E-mail du contact '+(i+1)+'" value="'+echappe(c.mail||'')+'">'
+      +'<input type="tel" data-ct="tel" data-i="'+i+'" placeholder="Téléphone" aria-label="Téléphone du contact '+(i+1)+'" value="'+echappe(c.tel||'')+'">'
+      +'<button type="button" class="mini" data-ct-suppr="'+i+'" title="Retirer ce contact" aria-label="Retirer le contact '+(i+1)+'"'+(l.length?'':' hidden')+'>✕</button></div>';
+  }).join('');
+}
+$('fContacts').addEventListener('input',function(e){
+  var t=e.target, k=t.getAttribute('data-ct'); if(!k) return;
+  var l=contactsDe(D()), i=+t.getAttribute('data-i');
+  if(!l[i]) l[i]={nom:'',mail:'',tel:''};
+  l[i][k]=t.value; diffuse();
+  var x=$('fContacts').querySelector('[data-ct-suppr="'+i+'"]'); if(x) x.hidden=false;
+});
+$('fContacts').addEventListener('click',function(e){
+  var b=e.target.closest('[data-ct-suppr]'); if(!b) return;
+  contactsDe(D()).splice(+b.getAttribute('data-ct-suppr'),1); diffuse(); renduContacts();
+});
+$('fContactPlus').onclick=function(){
+  var l=contactsDe(D()); if(!l.length) l.push({nom:'',mail:'',tel:''});
+  l.push({nom:'',mail:'',tel:''}); diffuse(); renduContacts();
+  var ch=$('fContacts').querySelectorAll('[data-ct="nom"]'); if(ch.length) ch[ch.length-1].focus();
+};
 /* Calendrier 📅 sur un champ date texte jj/mm/aaaa (v3.45, généralisé v3.53) :
    ouvre le sélecteur du navigateur, écrit jj/mm/aaaa et prévient le champ. */
 function calendrierTexte(champ,bouton,cache){
