@@ -168,10 +168,9 @@ button.mini.plein:hover{background:var(--nuit-clair)}
 .case input{margin-top:3px}
 .case small{display:block;color:var(--encre-faible);font-size:12px}
 
-.depot{border:2px dashed var(--taupe);border-radius:3px;padding:26px 20px;text-align:center;
-  background:repeating-linear-gradient(45deg,var(--taupe-voile),var(--taupe-voile) 12px,var(--taupe-pale) 12px,var(--taupe-pale) 24px);
-  cursor:pointer;transition:border-color .15s,background-color .15s}
-.depot.survol{border-color:var(--nuit);background:var(--taupe-pale)}
+.depot{border:0;border-radius:3px;padding:26px 20px;text-align:center;background:transparent;
+  cursor:pointer;transition:background-color .15s}
+.depot.survol{background:var(--taupe-pale)}
 .panneau{box-shadow:0 1px 0 rgba(15,22,38,.03)}
 .depot p{margin:6px 0 0;color:var(--encre-faible);font-size:13px}
 .depot strong{font-weight:600;color:var(--nuit)}
@@ -1222,9 +1221,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.84';
-var DATE_VERSION = '09/10/2026 00h19';   /* date et heure de livraison */
-var NOTES = 'Bouton « Exporter le classeur » retiré de la barre du haut (il reste dans la barre du bas, et « Export Excel » sous le tableau).';
+var VERSION = '3.85';
+var DATE_VERSION = '09/10/2026 00h36';   /* date et heure de livraison */
+var NOTES = 'Zone « Déposez vos devis ici » sans bordure ni fond rayé (un fond clair apparaît seulement quand on glisse un fichier dessus)';
 /* =================================================================== */
 (function(){
 'use strict';
