@@ -1124,9 +1124,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.47';
-var DATE_VERSION = '08/10/2026 08h48';   /* date et heure de livraison */
-var NOTES = 'Nouveau : une ligne peut se placer au-dessus de « Surface réalisée » et des autres textes de début de chapitre (bouton +, ↑ ou poignée ⠿) et y reste.';
+var VERSION = '3.48';
+var DATE_VERSION = '08/10/2026 08h50';   /* date et heure de livraison */
+var NOTES = 'Rénovation : pastille « 5,5 % possible » sur les lignes d’isolation, fenêtre ou porte ; un clic passe la ligne à 5,5 % et ouvre la fiche des performances.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1518,7 +1518,14 @@ function analyse55(d,i){
   return {v:v, famille:v.famille, manque:manque, ko:ko, trous:v.trous, ok:!!v.famille && !manque.length && !ko.length && !v.trous};
 }
 function badge55(d,i){
-  var a=analyse55(d,i); if(!a) return '';
+  var a=analyse55(d,i);
+  /* ligne d'isolation, de fenêtre ou de porte pas encore à 5,5 % sur un chantier en rénovation : proposer le taux réduit */
+  if(!a){
+    var r=d.lignes[i];
+    if(r && r.type==='ligne' && !r.option && estReno(d) && tauxDe(d,r)!==5.5 && famille55(texte55(d,i)))
+      return '<button type="button" class="badge-tva neutre" data-a="pos55" title="Rénovation : cette ligne peut passer à 5,5 % si ses performances le permettent. Cliquer pour la passer à 5,5 % et compléter la fiche">5,5 % possible</button>';
+    return '';
+  }
   var cls=a.ok?'badge-tva':a.famille?'badge-tva ko':'badge-tva neutre';
   var lib=a.ok?'✓ 5,5 % conforme':!a.famille?'5,5 % : préciser le type':a.ko.length?'5,5 % : '+a.ko[0].replace(/\s*\(.*$/,''):a.manque.length?'5,5 % : '+a.manque.join(', ')+' manquant'+(a.manque.length>1?'s':''):'5,5 % : [x] à remplir';
   return '<button type="button" class="'+cls+'" data-a="perf55" title="Performances exigées pour la TVA à 5,5 % : cliquer pour compléter">'+echappe(lib)+'</button>';
@@ -4144,6 +4151,16 @@ $('corpsTable').addEventListener('click',function(e){
   var i=d.lignes.findIndex(function(r){return r.id===id;}); if(i<0) return;
   var a=b.getAttribute('data-a');
   if(a==='perf55'){ fichePerf55(d,i); return; }
+  if(a==='pos55'){
+    memorise(d,'TVA 5,5 %'); d.lignes[i].tva=5.5; delete d.lignes[i].tvaAuto;
+    /* isolation : emplacement deviné d'après le chapitre ou le sous-chapitre (Doublage → murs, Combles → combles) */
+    if(famille55(texte55(d,i))==='isolation' && !empl55(texte55(d,i)) && !(d.lignes[i].perf||{}).emplacement){
+      var titres=[]; for(var j=i-1;j>=0 && titres.length<2;j--) if(d.lignes[j].type==='sous'||d.lignes[j].type==='chapitre'){ titres.push(d.lignes[j].designation||''); if(d.lignes[j].type==='chapitre') break; }
+      var em=empl55(titres.join(' ')); if(em) d.lignes[i].perf=Object.assign({},d.lignes[i].perf,{emplacement:em});
+    }
+    if(!params.multiTaux){ params.multiTaux=true; sauveParams(); if($('optMulti')) $('optMulti').checked=true; }
+    rendu(); fichePerf55(d,i); return;
+  }
   if(a==='etoile'){ d.lignes[i].etoile=!d.lignes[i].etoile; if(!d.lignes[i].etoile) delete d.lignes[i].etoile; rendu(); return; }
   if(a==='haut'){ if(!deplaceVoisin(d,i,-1)) return; }
   else if(a==='bas'){ if(!deplaceVoisin(d,i,1)) return; }
