@@ -608,7 +608,6 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
     <button class="fant" id="btnChantiers">Mes chantiers</button>
     <button class="fant" id="btnBiblioPage">Bibliothèque</button>
     <button class="fant" id="btnParam">Paramètres</button>
-    <button class="plein" id="btnXlsx">Exporter le classeur</button>
   </div>
 </header>
 
@@ -1223,9 +1222,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.83';
-var DATE_VERSION = '09/10/2026 00h14';   /* date et heure de livraison */
-var NOTES = 'Bouton « Exporter le JSON » retiré de la barre du haut (Exporter le classeur inchangé).';
+var VERSION = '3.84';
+var DATE_VERSION = '09/10/2026 00h19';   /* date et heure de livraison */
+var NOTES = 'Bouton « Exporter le classeur » retiré de la barre du haut (il reste dans la barre du bas, et « Export Excel » sous le tableau).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -5161,7 +5160,6 @@ function montre(page){
   $('btnBiblioPage').textContent = bi?'Revenir aux devis':'Bibliothèque';
   if(bi) renduBiblio();
   document.querySelector('.pied').style.display = autre?'none':'';
-  $('btnXlsx').style.display = autre?'none':'';
   $('btnParam').textContent = param?'Revenir aux devis':'Paramètres';
   $('btnChantiers').textContent = ch?'Revenir aux devis':(modeConsultation()?'Chantiers':'Mes chantiers');
   window.scrollTo(0,0);
@@ -7588,7 +7586,7 @@ var CGV_DHC=[
   '|Conformément à la loi n° 78-17 du 6 janvier 1978 relative à l’informatique, aux fichiers et aux libertés, telle que modifiée par la loi n° 2004-801 du 6 août 2004, et par le Règlement Européen n° 2016/679, le Client dispose d’un droit d’accès, de rectification, d’effacement, et de portabilité des données le concernant, ainsi que du droit de s’opposer au traitement pour motif légitime, droits qu’il peut exercer en s’adressant au responsable de traitement à l’adresse postale ou email mentionnée ci-dessus, en joignant un justificatif de son identité valide. En cas de réclamation, le client peut contacter la Commission Nationale de l’Informatique et des Libertés (CNIL).'
 ];
 
-$('btnXlsx').onclick=$('btnXlsx2').onclick=function(){ exporteXlsx(false); };
+$('btnXlsx2').onclick=function(){ exporteXlsx(false); };
 $('btnPied').onclick=function(){
   var p=$('pied'), ouvert=p.classList.toggle('replie')===false;
   this.textContent=ouvert?'Réduire ▾':'Détail ▴';
