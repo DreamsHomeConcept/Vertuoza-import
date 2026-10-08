@@ -528,7 +528,8 @@ td.pv{width:116px;text-align:right;color:var(--taupe-fonce);font-weight:500;whit
 .inter .m{font-weight:600;white-space:nowrap}
 .inter .l{color:var(--encre-faible);font-size:12px;white-space:nowrap}
 
-.pied{position:fixed;left:0;right:0;bottom:0;background:var(--nuit);border-top:3px solid var(--taupe);padding:10px 18px;z-index:10;transition:transform .18s}
+/* z-index 21 : au-dessus de la barre d'outils du tableau (20), qui sinon passe sur les totaux quand le tableau arrive par le bas (v3.86) */
+.pied{position:fixed;left:0;right:0;bottom:0;background:var(--nuit);border-top:3px solid var(--taupe);padding:10px 18px;z-index:21;transition:transform .18s}
 body.glisse .pied{transform:translateY(110%);pointer-events:none}
 body.glisse .fleches{display:none}
 .pied .in{max-width:1320px;margin:0 auto;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
@@ -1221,9 +1222,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.85';
-var DATE_VERSION = '09/10/2026 00h36';   /* date et heure de livraison */
-var NOTES = 'Zone « Déposez vos devis ici » sans bordure ni fond rayé (un fond clair apparaît seulement quand on glisse un fichier dessus)';
+var VERSION = '3.86';
+var DATE_VERSION = '09/10/2026 00h40';   /* date et heure de livraison */
+var NOTES = 'Barre des totaux toujours au-dessus de la barre d\'outils du tableau (Afficher le chapitre, Tout replier…) quand on descend.';
 /* =================================================================== */
 (function(){
 'use strict';
