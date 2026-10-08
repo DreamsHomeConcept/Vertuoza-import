@@ -1124,9 +1124,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.48';
-var DATE_VERSION = '08/10/2026 08h50';   /* date et heure de livraison */
-var NOTES = 'Rénovation : pastille « 5,5 % possible » sur les lignes d’isolation, fenêtre ou porte ; un clic passe la ligne à 5,5 % et ouvre la fiche des performances.';
+var VERSION = '3.49';
+var DATE_VERSION = '08/10/2026 09h07';   /* date et heure de livraison */
+var NOTES = 'Nouveau : une ligne peut se placer en tête du devis, avant le premier chapitre (↑ sur la première ligne, ou poignée ⠿ lâchée sur le haut du titre).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2334,7 +2334,8 @@ function majInfosChantier(d){
   if((voulu.length && (reste.length || aContenu)) || aContenu){
     if(!chap) chap=nouvelleLigne('chapitre',{designation:'INFORMATIONS CHANTIER'});
     chap.auto='infos'; chap.designation='INFORMATIONS CHANTIER'; chap.intervenant=''; chap.option=false;
-    d.lignes=[chap].concat(contenu,reste);
+    var nt=0; while(nt<reste.length && reste[nt].type!=='chapitre' && reste[nt].type!=='sous') nt++;   /* lignes en tête du devis, hors chapitre */
+    d.lignes=reste.slice(0,nt).concat([chap],contenu,reste.slice(nt));
     if(d.replis && d.replis[chap.id]===undefined) d.replis[chap.id]=false;
   } else d.lignes=reste;
   var apres=JSON.stringify(d.lignes.filter(function(r){ return r.auto; }).map(function(r){ return [r.auto,r.designation,d.lignes.indexOf(r)]; }));
@@ -3951,7 +3952,8 @@ function destination(d,src,j,apres,groupe){
   } else {
     /* première ligne sous le titre, après les textes de présentation du titre */
     var apresTitre=function(k){ var q=k+1; while(q<d.lignes.length && d.lignes[q].type==='texte') q++; return q; };
-    if(c.type==='chapitre'||c.type==='sous') pos=apresTitre(j);
+    if(c.type==='chapitre' && !apres && chapitreDe(d,j-1)<0) pos=j;      /* haut du titre du premier chapitre : en tête du devis */
+    else if(c.type==='chapitre'||c.type==='sous') pos=apresTitre(j);
     else {
       var lj=ligneDe(d,j);
       if(lj<0 || c.auto) pos = apres ? j+1 : j;              /* texte de début de chapitre : au-dessus ou au-dessous de lui */
@@ -3996,6 +3998,7 @@ function deplaceVoisin(d,i,sens){
         if(!d.replis) d.replis={};
         d.replis[tv.id]=false; d.replis[d.lignes[chapitreDe(d,titre-1)].id]=false;
       }
+      else if(titre>-1 && d.lignes[titre].type==='chapitre') pos=titre;   /* premier chapitre : la ligne passe en tête du devis, hors chapitre */
     } else {
       var n2=d.lignes[src.fin];
       if(n2 && (n2.type==='chapitre'||n2.type==='sous')){
