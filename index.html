@@ -720,7 +720,6 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
       <div id="comparatif"></div>
       <div class="intervenants" id="listeSt"></div>
       <datalist id="listeLots"></datalist>
-      <p class="note">Chaque devis déposé s'ajoute en chapitre — sous-traitant comme fournisseur de matériaux. Les chapitres propres à l'intervenant deviennent des sous-chapitres.</p>
     </div>
 
     <hr class="separateur">
@@ -1198,9 +1197,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.62';
-var DATE_VERSION = '08/10/2026 18h04';   /* date et heure de livraison */
-var NOTES = 'Nouveau : ordre des corps d\'état en liste, avec numéro et flèches ↑ ↓ ; « Rétablir l\'ordre par défaut » rétablit maintenant l\'ordre d\'origine.';
+var VERSION = '3.63';
+var DATE_VERSION = '08/10/2026 18h05';   /* date et heure de livraison */
+var NOTES = 'Intervenants du chantier : textes d\'aide retirés, bloc masqué tant qu\'aucun devis n\'est déposé.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1985,10 +1984,8 @@ function renduRecapSt(){
   if(!st) return;
   var l=intervenants(d);
   $('recapNb').textContent = l.length ? l.length+(l.length>1?' devis intégrés':' devis intégré') : '';
-  if(!l.length){
-    $('listeSt').innerHTML='<p class="note" style="margin:0">Aucun devis pour l\'instant. Déposez celui de l\'électricien, du plâtrier, du serrurier… ils s\'ajouteront les uns sous les autres.</p>';
-    return;
-  }
+  /* sans devis déposé, le bloc reste masqué (v3.62, demande de Moussa) */
+  if(!l.length){ $('listeSt').innerHTML=''; $('recapSt').hidden=true; return; }
   var sf=nombreFr(d.surface), mg=!!d.margeActive;
   var nbCol = 9 + (sf>0?1:0) + (mg?1:0);
   var estRetenu=function(x){ return !(d.retenus && d.retenus[x.nom]===false); };
