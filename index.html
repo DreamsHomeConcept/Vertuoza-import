@@ -1153,9 +1153,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.50';
-var DATE_VERSION = '08/10/2026 10h44';   /* date et heure de livraison */
-var NOTES = 'Nouveau : onglet « Fiches techniques » (import PDF ou Word, recherche, favoris ★, propriété, prix indicatif, pastille 5,5 %), produit choisi dans la fenêtre 5,5 % ; l\'Aperçu s\'ouvre sur la page 1.';
+var VERSION = '3.51';
+var DATE_VERSION = '08/10/2026 12h01';   /* date et heure de livraison */
+var NOTES = 'Nouveau : les lignes en option (menu ⋯ « Passer en option ») apparaissent dans le devis client PDF, sous les totaux, avec prix HT, TTC et une case « Retenue » à cocher par le client.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6648,6 +6648,45 @@ async function genereDevisPdf(d,o,apercu){
     }
   });
   y=Math.max(finG,doc.lastAutoTable.finalY)+9;
+
+  /* options : chiffrées hors total, le client coche celles qu'il retient (Moussa) */
+  var opts=[], titreVu={};
+  d.lignes.forEach(function(r,i){
+    if(r.type!=='ligne' || !r.option || r.variante!=null || refuse(d,r)) return;
+    /* titre en option (chapitre ou sous-chapitre entier) : rappelé une fois au-dessus de ses lignes */
+    var ti=sousDe(d,i); if(ti<0 || !d.lignes[ti].option) ti=chapitreDe(d,i);
+    if(ti>-1 && d.lignes[ti].option && !titreVu[ti]){ titreVu[ti]=1; opts.push({k:'titre',c:[{content:designationExport(d.lignes[ti]),colSpan:8}]}); }
+    var htO=Math.round(nombreFr(r.qte)*puVente(d,r)*100)/100, tx=tauxDe(d,r), ttcO=Math.round(htO*(1+tx/100)*100)/100;
+    opts.push({k:'opt',c:[String(r.designation||''),nbPdf(nombreFr(r.qte)),r.unite||'',eurPdf(puVente(d,r)),tvaPdf(tx),eurPdf(htO),eurPdf(ttcO),'']});
+  });
+  if(opts.length){
+    if(y>H-basPage-40){ doc.addPage(); y=20; }
+    gras(9); doc.setTextColor.apply(doc,NUIT); doc.text('Options non comprises dans le total',M,y); doc.setTextColor.apply(doc,ENCRE);
+    normal(7.6); doc.text('Cochez les options retenues ; elles s\u2019ajoutent au total ci-dessus.',M,y+4.2);
+    window.autoTable(doc,{
+      startY:y+6.5, margin:{left:M,right:M,top:16,bottom:basPage},
+      head:[['Option','Qte.','U','Prix U. HT','TVA','Total HT','Total TTC','Retenue'].map(function(t,i){ return {content:t,styles:{halign:['left','right','center','right','right','right','right','center'][i]}}; })],
+      body:opts.map(function(x){ return x.c; }),
+      theme:'plain', rowPageBreak:'avoid',
+      styles:{font:'Montserrat',fontSize:7.6,textColor:ENCRE,cellPadding:{top:2.2,bottom:2.2,left:1.6,right:1.6},valign:'middle',overflow:'linebreak'},
+      headStyles:{fontStyle:'bold',fillColor:TAUPE,textColor:NUIT},
+      columnStyles:{1:{cellWidth:14,halign:'right'},2:{cellWidth:12,halign:'center'},3:{cellWidth:21,halign:'right'},4:{cellWidth:11,halign:'right'},
+                    5:{cellWidth:22,halign:'right'},6:{cellWidth:22,halign:'right'},7:{cellWidth:15}},
+      didParseCell:function(h){
+        if(h.section!=='body') return;
+        var k=opts[h.row.index].k, st=h.cell.styles;
+        if(k==='titre'){ st.fontStyle='bold'; st.textColor=NUIT; }
+        st.lineColor=[225,225,225]; st.lineWidth={bottom:0.2};
+      },
+      didDrawCell:function(h){
+        if(h.section==='body' && h.column.index===7 && opts[h.row.index].k==='opt'){
+          var c=3.6, cx=h.cell.x+(h.cell.width-c)/2, cy=h.cell.y+(h.cell.height-c)/2;
+          doc.setDrawColor(90,90,90); doc.setLineWidth(0.3); doc.rect(cx,cy,c,c);   /* case à cocher */
+        }
+      }
+    });
+    y=doc.lastAutoTable.finalY+9;
+  }
 
   /* conditions de paiement */
   var ecrit=function(lib,val){
