@@ -120,6 +120,11 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .resp-ligne{display:flex;gap:8px;align-items:center;margin-bottom:6px;max-width:780px}
 .resp-ligne input{flex:1 1 0;min-width:0}
 .resp-ligne input.iban{flex:2 1 0}
+.ordre-liste{max-width:900px}
+.ordre-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(160px,2fr) 28px auto auto;gap:6px;align-items:center;margin-bottom:6px}
+.ordre-row input{width:100%;box-sizing:border-box;font-size:12.5px}
+.ordre-num{font-weight:600;color:var(--taupe-fonce);text-align:right}
+.ordre-row .mini{min-width:30px}
 .cgv-art{border:1px solid var(--trait);border-radius:3px;padding:10px;margin-bottom:10px;max-width:900px;background:#fff}
 .cgv-art .tete{display:flex;gap:8px;align-items:center;margin-bottom:6px}
 .cgv-art .tete input{flex:1;font-weight:600}
@@ -946,7 +951,8 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
     <div class="vue-param" data-vue="classement">
     <h3 class="st">Ordre des corps d'état</h3>
     <label class="champ" for="ordreLots">Ordre des corps d'état dans un chantier</label>
-    <textarea id="ordreLots" rows="7" spellcheck="false" style="width:100%;font:inherit;font-size:12.5px;line-height:1.5"></textarea>
+    <textarea id="ordreLots" hidden></textarea>
+    <div id="ordreListe" class="ordre-liste"></div>
     <small class="aide-champ">Une ligne par corps d'état, dans l'ordre voulu : <b>TITRE DU CHAPITRE : mots qui le reconnaissent</b> (lot du devis, titre, nom de l'entreprise). Les devis arrivent rangés à leur place et leur chapitre prend ce titre. <button type="button" class="mini" id="ordreDefaut">Rétablir l'ordre par défaut</button></small>
     <hr class="separateur">
 
@@ -1192,9 +1198,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.61';
-var DATE_VERSION = '08/10/2026 18h03';   /* date et heure de livraison */
-var NOTES = 'La barre du haut (logo, titre, boutons) reste fixe quand on descend dans la page, en version compacte.';
+var VERSION = '3.62';
+var DATE_VERSION = '08/10/2026 18h04';   /* date et heure de livraison */
+var NOTES = 'Nouveau : ordre des corps d\'état en liste, avec numéro et flèches ↑ ↓ ; « Rétablir l\'ordre par défaut » rétablit maintenant l\'ordre d\'origine.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1224,6 +1230,14 @@ var CLE_PARAMS   = 'dhc_vertuoza_params'+ESPACE;
 
 var SIGLES_DEF='EPDM, RAL, PVC, OSB, PSE, XPS, EPS, ITE, ITI, VMC, DTU, BE, PMR, LSF, HT, TTC, TVA, NF, CE, CTA, PAC, BBC, RT, RE, VRD, PER, PEHD, PU, MDF, CLT, LVL, BLC, KVH, HEA, HEB, IPN, IPE, UPN, DOE, SPS, PPSPS, ERP, WC, LED, GRDF, EDF, CCTP, DPGF, DQE, BPU, ACQPA, PV, ABF, PLU';
 var MARQUES_DEF='Knauf, Vgards, Placo, Placoplatre, Siniat, Isover, Rockwool, Ursa, Sika, Weber, Sweelco, Velux, Legrand, Schneider, Hager, Grohe, Geberit, Kingspan, Soprema, Fermacell, Lafarge, Wienerberger, Monier, Edilians, Terreal, Enedis, Atlantic, Daikin, Aldes, Somfy, Technal, Recticel, Efisol, Siplast, Onduline, Parexlanko, Fischer, Hilti, Simpson, Würth, Protektor, Technoprotection';
+/* ordre des corps d'état d'origine : sert aussi à « Rétablir l'ordre par défaut » */
+var ORDRE_LOTS_DEF='MAÇONNERIE : maçonnerie, gros oeuvre, gros-oeuvre, fondation, fondations, dallage, terrassement, vrd, soubassement\n'
+   +'STRUCTURE MAISON : structure maison, ossature, ossature metallique, structure metallique, charpente metallique, lsf, steel frame, sweelco\n'
+   +'TOITURE : toiture, couverture, charpente, zinguerie, tuile, ecran sous toiture, couvreur\n'
+   +'PLÂTRERIE-PEINTURE : platrerie, plaquiste, placo, cloison, cloisons, doublage, faux plafond, peinture, platrerie peinture\n'
+   +'PLOMBERIE : plomberie, sanitaire, sanitaires, plombier\n'
+   +'ÉLECTRICITÉ : electricite, electrique, electricien, courant fort, courant faible, vmc\n'
+   +'FAÇADE ITE : facade ite, ite, isolation thermique par l exterieur, isolation exterieure, facade, bardage, ravalement';
 var params = {
   mode:'ia',
   cle:CFG.apiKey||'',
@@ -1239,13 +1253,7 @@ var params = {
   margeMontage:30,
   sigles:SIGLES_DEF,
   marques:MARQUES_DEF,
-  ordreLots:'MAÇONNERIE : maçonnerie, gros oeuvre, gros-oeuvre, fondation, fondations, dallage, terrassement, vrd, soubassement\n'
-   +'STRUCTURE MAISON : structure maison, ossature, ossature metallique, structure metallique, charpente metallique, lsf, steel frame, sweelco\n'
-   +'TOITURE : toiture, couverture, charpente, zinguerie, tuile, ecran sous toiture, couvreur\n'
-   +'PLÂTRERIE-PEINTURE : platrerie, plaquiste, placo, cloison, cloisons, doublage, faux plafond, peinture, platrerie peinture\n'
-   +'PLOMBERIE : plomberie, sanitaire, sanitaires, plombier\n'
-   +'ÉLECTRICITÉ : electricite, electrique, electricien, courant fort, courant faible, vmc\n'
-   +'FAÇADE ITE : facade ite, ite, isolation thermique par l exterieur, isolation exterieure, facade, bardage, ravalement',
+  ordreLots:ORDRE_LOTS_DEF,
   margeMode:'majoration',
   sbUrl:'', sbCle:'', sbAuto:false,
   devisProchain:'', devisResp:'', devisEmail:'', devisTel:'', devisIban:'', devisBic:'', devisAcomptes:'',
@@ -1375,6 +1383,7 @@ function chargeParams(){
     if(o.rendMontage!=null && parseFloat(o.rendMontage)>0) params.rendMontage=parseFloat(o.rendMontage);
     if(o.margeMontage!=null && isFinite(parseFloat(o.margeMontage)) && parseFloat(o.margeMontage)>=0) params.margeMontage=parseFloat(o.margeMontage);
     if(typeof o.ordreLots==='string' && o.ordreLots.trim()) params.ordreLots=o.ordreLots;
+    if($('ordreListe')) rendOrdre();
     if(typeof o.sigles==='string') params.sigles=o.sigles;
     if(typeof o.marques==='string') params.marques=o.marques;
     if(typeof o.sbUrl==='string') params.sbUrl=o.sbUrl;
@@ -7732,13 +7741,41 @@ Array.prototype.forEach.call(document.querySelectorAll('[data-s55]'),function(x)
   var k=x.getAttribute('data-s55'); x.value=String(params.seuils55[k]).replace('.',',');
   x.addEventListener('blur',function(){ var v=nombreFr(this.value); if(v>0){ params.seuils55[k]=v; sauveParams(); rendu(); } this.value=String(params.seuils55[k]).replace('.',','); });
 });
-var ORDRE_DEFAUT=params.ordreLots, SIGLES_DEFAUT=SIGLES_DEF, MARQUES_DEFAUT=MARQUES_DEF;
+var ORDRE_DEFAUT=ORDRE_LOTS_DEF, SIGLES_DEFAUT=SIGLES_DEF, MARQUES_DEFAUT=MARQUES_DEF;
 $('sigles').value=params.sigles; $('marques').value=params.marques;
 ['sigles','marques'].forEach(function(k){ $(k).addEventListener('change',function(){ params[k]=this.value; CASSE_LISTES=null; sauveParams(); info((k==='sigles'?'Sigles':'Marques')+' enregistrés.',100,'ok'); }); });
 $('casseDefaut').onclick=function(){ params.sigles=SIGLES_DEFAUT; params.marques=MARQUES_DEFAUT; $('sigles').value=SIGLES_DEFAUT; $('marques').value=MARQUES_DEFAUT; CASSE_LISTES=null; sauveParams(); info('Listes par défaut rétablies.',100,'ok'); };
 $('ordreLots').value=params.ordreLots;
-$('ordreLots').addEventListener('change',function(){ if(this.value.trim()){ params.ordreLots=this.value; sauveParams(); info('Ordre des corps d\'état enregistré : '+categories().map(function(c){return c.titre;}).join(' › ')+'.',100,'ok'); } });
-$('ordreDefaut').onclick=function(){ $('ordreLots').value=ORDRE_DEFAUT; params.ordreLots=ORDRE_DEFAUT; sauveParams(); info('Ordre par défaut rétabli.',100,'ok'); };
+/* liste de l'ordre : une ligne par corps d'état, numéro, ↑ ↓ ; le texte enregistré reste « TITRE : mots » */
+function ordreLignes(){ return String(params.ordreLots||'').split(/\n+/).filter(function(l){ return l.trim(); }).map(function(l){ var p=l.indexOf(':'); return p<0?{t:l.trim(),m:''}:{t:l.slice(0,p).trim(),m:l.slice(p+1).trim()}; }); }
+function ordreEcrit(l,msg){
+  params.ordreLots=l.map(function(x){ return x.t+' : '+x.m; }).join('\n'); $('ordreLots').value=params.ordreLots; sauveParams(); rendOrdre();
+  info(msg||('Ordre des corps d\'état enregistré : '+categories().map(function(c){return c.titre;}).join(' › ')+'.'),100,'ok');
+}
+function rendOrdre(){
+  var z=$('ordreListe'); if(!z) return; var l=ordreLignes();
+  z.innerHTML=l.map(function(x,i){
+    return '<div class="ordre-row"><input type="text" value="'+echappe(x.t)+'" data-ol="'+i+'" data-ok="t" aria-label="Titre du corps d\'état '+(i+1)+'">'
+      +'<input type="text" value="'+echappe(x.m)+'" data-ol="'+i+'" data-ok="m" aria-label="Mots qui le reconnaissent" placeholder="mots-clés, séparés par des virgules">'
+      +'<span class="ordre-num">'+(i+1)+'</span>'
+      +'<button type="button" class="mini" data-omv="-1" data-ol="'+i+'"'+(i===0?' disabled':'')+' title="Monter">↑</button>'
+      +'<button type="button" class="mini" data-omv="1" data-ol="'+i+'"'+(i===l.length-1?' disabled':'')+' title="Descendre">↓</button></div>';
+  }).join('');
+}
+$('ordreListe').addEventListener('change',function(e){
+  var x=e.target, k=x.getAttribute('data-ok'), i=+x.getAttribute('data-ol'); if(!k||isNaN(i)) return;
+  var l=ordreLignes(); if(!l[i]) return; l[i][k]=x.value.trim();
+  if(!l[i].t){ info('Le titre du corps d\'état ne peut pas être vide.',100,'avertit'); rendOrdre(); return; }
+  ordreEcrit(l);
+});
+$('ordreListe').addEventListener('click',function(e){
+  var b=e.target.closest('[data-omv]'); if(!b||b.disabled) return;
+  var l=ordreLignes(), i=+b.getAttribute('data-ol'), j=i+(+b.getAttribute('data-omv'));
+  if(j<0||j>=l.length) return;
+  var t=l[i]; l[i]=l[j]; l[j]=t; ordreEcrit(l);
+});
+rendOrdre();
+$('ordreDefaut').onclick=function(){ $('ordreLots').value=ORDRE_DEFAUT; params.ordreLots=ORDRE_DEFAUT; sauveParams(); rendOrdre(); info('Ordre par défaut rétabli.',100,'ok'); };
 $('margeMontage').addEventListener('blur',function(){
   var n=nombreFr(this.value); if(!isFinite(n)||n<0||this.value.trim()==='') n=30;
   params.margeMontage=Math.round(n*100)/100; this.value=String(params.margeMontage).replace('.',','); sauveParams();
