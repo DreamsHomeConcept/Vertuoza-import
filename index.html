@@ -1164,9 +1164,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.54';
-var DATE_VERSION = '08/10/2026 14h30';   /* date et heure de livraison */
-var NOTES = 'Même calendrier 📅 sur toutes les dates (fenêtre Devis client PDF, bibliothèque).';
+var VERSION = '3.55';
+var DATE_VERSION = '08/10/2026 14h40';   /* date et heure de livraison */
+var NOTES = 'Nouveau : annexe du devis PDF avec les fiches techniques des produits à 5,5 % (page de garde, fiche, DOP, certifications), produits cochables dans la fenêtre Devis client PDF.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6252,15 +6252,17 @@ var ACOMPTES_DEF='30 % À la signature\n30 % Au démarrage des travaux\n40 % À 
 function chargeScript(lib){
   return new Promise(function(ok,ko){
     var s=document.createElement('script');
-    s.src=lib.url; s.integrity=lib.sri; s.crossOrigin='anonymous'; s.referrerPolicy='no-referrer';
+    s.src=lib.url; if(lib.sri) s.integrity=lib.sri; s.crossOrigin='anonymous'; s.referrerPolicy='no-referrer';
     s.onload=ok; s.onerror=function(){ ko(new Error('Chargement impossible : '+lib.url.split('/').pop())); };
     document.head.appendChild(s);
   });
 }
+/* pdf-lib : fusion du devis et de l'annexe des fiches techniques */
+var LIB_PDFLIB={url:'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', sri:''};
 var libsPdf=null;
 function chargeLibsPdf(){
-  if(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable) return Promise.resolve();
-  if(!libsPdf) libsPdf=chargeScript(LIBS_PDF[0]).then(function(){ return chargeScript(LIBS_PDF[1]); })
+  if(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable && window.PDFLib) return Promise.resolve();
+  if(!libsPdf) libsPdf=chargeScript(LIBS_PDF[0]).then(function(){ return chargeScript(LIBS_PDF[1]); }).then(function(){ return chargeScript(LIB_PDFLIB); })
                        .catch(function(e){ libsPdf=null; throw e; });
   return libsPdf;
 }
@@ -6335,6 +6337,7 @@ function dialogueDevisPdf(force){
     +'</select></div>'
     +'</div>'
     +'<div class="cp-cases" id="pdConds"></div>'
+    +annexeHtml(d)
     +(manque.length?'<p class="note" style="color:#8a5a00">À compléter une fois dans Paramètres › Devis : '+manque.join(' et ')+'.</p>':'')
     +'<p class="note">Le numéro suivant est proposé automatiquement. Coordonnées, comptes bancaires et acomptes viennent des Paramètres. Les conditions générales de vente sont ajoutées en dernière page.</p>';
   var v=function(id){ return String($(id).value||'').trim(); };
@@ -6347,6 +6350,7 @@ function dialogueDevisPdf(force){
     }).join('') : '';
   };
   var lisConds=function(){ var l=condParts(); return Array.prototype.filter.call(document.querySelectorAll('[data-pd-cond]'),function(x){ return x.checked; }).map(function(x){ return l[+x.getAttribute('data-pd-cond')]; }); };
+  var lisAnnexe=function(){ return Array.prototype.filter.call(document.querySelectorAll('[data-pd-annexe]'),function(x){ return x.checked; }).map(function(x){ return x.getAttribute('data-pd-annexe'); }); };
   var lisForm=function(){
     var r=resps.find(function(x){ return x.nom===v('pdResp'); })||{nom:'',email:'',tel:''};
     var c=comptes[+v('pdCompte')]||comptes[0]||{banque:'',iban:'',bic:''};
@@ -6355,7 +6359,7 @@ function dialogueDevisPdf(force){
             adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'), demarrage:frDate(v('pdDemarrage')),
             acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
             resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:pm,
-            typeClient:v('pdType')||'part', conds:lisConds(), garde:v('pdGarde')};
+            typeClient:v('pdType')||'part', conds:lisConds(), garde:v('pdGarde'), annexe:lisAnnexe()};
   };
   setTimeout(function(){ ajouteCalendrier($('pdDate')); cases(condsDevis(e,d)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value},d)); }; },0);
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
@@ -6809,9 +6813,95 @@ async function genereDevisPdf(d,o,apercu){
     normal(8.6); doc.text((p>=debutCgv?'DHC '+new Date().getFullYear()+'   ·   ':'')+'Page '+(p-pDevis+1)+'/'+(nbPages-pDevis+1),W-M,H-8,{align:'right'});
   }
   var nom=nomDevisPdf(o);
+  var paquet=paquetAnnexe(d,o);
+  if(paquet.length){
+    var pdf=await fusionneAnnexe(new Uint8Array(doc.output('arraybuffer')),paquet,o), blob=new Blob([pdf],{type:'application/pdf'});
+    if(apercu) return {url:URL.createObjectURL(blob), nom:nom};
+    telechargeBlob(blob,nom);
+    return nom;
+  }
   if(apercu) return {url:doc.output('bloburl'), nom:nom};
   doc.save(nom);
   return nom;
+}
+
+/* ---- annexe « fiches techniques » : produits des lignes à 5,5 % ayant une fiche, cases à décocher dans la fenêtre ---- */
+var DOCS_ANNEXE=['carac','dop','certif'];
+function annexeDevis(d){
+  var l=[];
+  (d.lignes||[]).forEach(function(r){
+    if(r.type!=='ligne' || !r.perf || !r.perf.fiche || tauxDe(d,r)!==5.5) return;
+    var pf=ficheParId(r.perf.fiche); if(pf && !l.some(function(x){ return x.id===pf.id; })) l.push(pf);
+  });
+  return l;
+}
+function annexeHtml(d){
+  var l=annexeDevis(d);
+  if(!l.length) return '<div class="cp-cases" id="pdAnnexe"><span class="champ">Annexe : fiches techniques</span><p class="note">Aucune ligne à 5,5 % n\'a de fiche technique : pas d\'annexe.</p></div>';
+  var mots=[];
+  var h='<div class="cp-cases" id="pdAnnexe"><span class="champ">Annexe : fiches techniques</span>'+l.map(function(f){
+    var docs=DOCS_ANNEXE.filter(function(k){ return f.docs[k]; });
+    docs.forEach(function(k){ var dd=f.docs[k]; if(!/pdf/i.test(dd.mime||'') && !/\.pdf$/i.test(dd.nom||'')) mots.push(dd.nom); });
+    return '<label><input type="checkbox" data-pd-annexe="'+f.id+'" checked> '+echappe(nomFiche(f))+' <span class="note">('+(docs.map(function(k){ return DOCS_FICHE[k]; }).join(', ')||'aucun document')+')</span></label>';
+  }).join('');
+  if(mots.length) h+='<p class="note" style="color:#8a5a00">Documents Word non joints (ils ne se fusionnent pas) : '+echappe(mots.join(', '))+'. Enregistrez-les en PDF pour les inclure.</p>';
+  return h+'</div>';
+}
+/* produits cochés, avec les épaisseurs des lignes à 5,5 % qui les utilisent */
+function paquetAnnexe(d,o){
+  return (o.annexe||[]).map(function(id){
+    var f=ficheParId(id); if(!f) return null;
+    var ep=[];
+    (d.lignes||[]).forEach(function(r){ if(r.perf && r.perf.fiche===id && r.perf.epaisseur && ep.indexOf(r.perf.epaisseur)<0) ep.push(r.perf.epaisseur); });
+    return {f:f, ep:ep.map(function(e){ return fmt55(e,0)+' mm'; })};
+  }).filter(Boolean);
+}
+/* page de garde simple de l'annexe : logo, titre, liste des produits */
+function gardeAnnexe(paquet,o){
+  var J=window.jspdf.jsPDF, doc=new J({unit:'mm',format:'a4',compress:true}); ouvreEnPage1(doc);
+  doc.addFileToVFS('Montserrat-Regular.ttf',RES_PDF.policeNormale); doc.addFont('Montserrat-Regular.ttf','Montserrat','normal');
+  doc.addFileToVFS('Montserrat-Bold.ttf',RES_PDF.policeGrasse); doc.addFont('Montserrat-Bold.ttf','Montserrat','bold');
+  doc.setProperties({title:'Annexe – Fiches techniques '+(o.numero||''), author:societe().nom, creator:'DHC — outil devis'});
+  var W=210, H=297, M=14, NUIT=[15,22,38], ENCRE=[40,40,40];
+  doc.addImage(RES_PDF.logo,'JPEG',M,4,60,62);
+  doc.setTextColor.apply(doc,NUIT); doc.setFont('Montserrat','bold'); doc.setFontSize(20);
+  doc.text('ANNEXE – FICHES TECHNIQUES',W-M,24,{align:'right'});
+  doc.setTextColor.apply(doc,ENCRE); doc.setFont('Montserrat','normal'); doc.setFontSize(10);
+  doc.text('Devis n° '+(o.numero||''),W-M,32,{align:'right'});
+  if(o.client) doc.text(o.client,W-M,37,{align:'right'});
+  var y=80;
+  paquet.forEach(function(x){
+    if(y>H-40){ doc.addPage(); y=30; }
+    doc.setFont('Montserrat','bold'); doc.setFontSize(12); doc.setTextColor.apply(doc,NUIT);
+    var t=doc.splitTextToSize(nomFiche(x.f),W-2*M); doc.text(t,M,y); y+=t.length*5.5;
+    doc.setFont('Montserrat','normal'); doc.setFontSize(9.5); doc.setTextColor.apply(doc,ENCRE);
+    var det=[];
+    if(x.ep.length) det.push('Épaisseur : '+x.ep.join(', '));
+    if(x.f.famille==='isolation' && x.f.lambda) det.push('λ = '+fmt55(x.f.lambda,3)+' W/m.K');
+    if(propsFiche(x.f)) det.push('Propriété : '+propsFiche(x.f));
+    var docs=DOCS_ANNEXE.filter(function(k){ return x.f.docs[k] && (/pdf/i.test(x.f.docs[k].mime||'')||/\.pdf$/i.test(x.f.docs[k].nom||'')); }).map(function(k){ return DOCS_FICHE[k]; });
+    if(docs.length) det.push('Documents joints : '+docs.join(', '));
+    det.forEach(function(l){ var dl=doc.splitTextToSize(l,W-2*M); doc.text(dl,M,y); y+=dl.length*4.6; });
+    y+=5;
+  });
+  return doc;
+}
+/* devis + garde de l'annexe + documents PDF de chaque produit, dans cet ordre */
+async function fusionneAnnexe(devis,paquet,o){
+  var P=window.PDFLib, out=await P.PDFDocument.create();
+  var parts=[devis, new Uint8Array(gardeAnnexe(paquet,o).output('arraybuffer'))];
+  paquet.forEach(function(x){ DOCS_ANNEXE.forEach(function(k){ var dd=x.f.docs[k]; if(dd && (/pdf/i.test(dd.mime||'')||/\.pdf$/i.test(dd.nom||''))) parts.push(dataUrlVersOctets(dd.data)); }); });
+  for(var i=0;i<parts.length;i++){
+    var src=await P.PDFDocument.load(parts[i],{ignoreEncryption:true});
+    var pages=await out.copyPages(src,src.getPageIndices());
+    pages.forEach(function(pg){ out.addPage(pg); });
+  }
+  return out.save();
+}
+function telechargeBlob(blob,nom){
+  var u=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=u; a.download=nom; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(u); },60000);
 }
 
 /* Les CGV seules, telles qu'imprimées sur le devis, dans un nouvel onglet ; rien n'est enregistré */
