@@ -622,6 +622,8 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
       </div>
       <div><label class="champ" for="fClient">Client</label><input type="text" id="fClient"></div>
       <div><label class="champ" for="fChantier">Chantier</label><input type="text" id="fChantier"></div>
+      <div><label class="champ" for="fAdrClient">Adresse du client</label><textarea id="fAdrClient" rows="2" placeholder="Numéro et rue&#10;Code postal VILLE" style="resize:vertical"></textarea></div>
+      <div><label class="champ" for="fAdrChantier">Adresse du chantier</label><textarea id="fAdrChantier" rows="2" placeholder="Vide : même adresse que le client" style="resize:vertical"></textarea></div>
       <div><label class="champ" for="fRef">Référence du devis</label><input type="text" id="fRef"></div>
       <div><label class="champ" for="fDate">Date</label><div style="position:relative"><input type="text" id="fDate" placeholder="jj/mm/aaaa" style="padding-right:38px"><button type="button" id="fDateCal" title="Choisir dans le calendrier" aria-label="Choisir la date dans le calendrier" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:17px;padding:4px 6px;line-height:1">📅</button><input type="date" id="fDatePick" tabindex="-1" aria-hidden="true" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none"></div></div>
       <div hidden><label class="champ" for="fFeuille">Nom de l'onglet Excel</label><input type="text" id="fFeuille"></div>
@@ -1164,9 +1166,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.55';
-var DATE_VERSION = '08/10/2026 14h40';   /* date et heure de livraison */
-var NOTES = 'Nouveau : annexe du devis PDF avec les fiches techniques des produits à 5,5 % (page de garde, fiche, DOP, certifications), produits cochables dans la fenêtre Devis client PDF.';
+var VERSION = '3.56';
+var DATE_VERSION = '08/10/2026 16h03';   /* date et heure de livraison */
+var NOTES = 'En-tête du devis : champs « Adresse du client » et « Adresse du chantier », partagés avec la fenêtre Devis client PDF.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1756,6 +1758,7 @@ function renduEntete(){
   var d=D();
   $('fClient').value=d.entete.client; $('fChantier').value=d.entete.chantier;
   $('fRef').value=d.entete.reference; $('fDate').value=d.entete.date;
+  $('fAdrClient').value=d.entete.adresseClient||''; $('fAdrChantier').value=d.entete.adresseChantier||'';
   $('fFeuille').value=d.feuille; $('fTva').value=String(d.tva); $('fMode').value=d.mode||'client';
   $('fOrigine').value=d.origine||'concurrent';
   $('fType').value=d.typeProjet||'';
@@ -4518,9 +4521,9 @@ function ajouteEnBas(type){
 }
 $('addLigne').onclick=function(){ ajouteEnBas('ligne'); };
 $('addTexte').onclick=function(){ ajouteEnBas('texte'); };
-['fClient','fChantier','fRef','fDate'].forEach(function(id){
+['fClient','fChantier','fRef','fDate','fAdrClient','fAdrChantier'].forEach(function(id){
   $(id).addEventListener('input',function(){
-    D().entete[{fClient:'client',fChantier:'chantier',fRef:'reference',fDate:'date'}[id]]=this.value; diffuse();
+    D().entete[{fClient:'client',fChantier:'chantier',fRef:'reference',fDate:'date',fAdrClient:'adresseClient',fAdrChantier:'adresseChantier'}[id]]=this.value; diffuse();
     if(id==='fRef' && feuilleSurRef(D())) renduOnglets();
   });
 });
@@ -6391,7 +6394,7 @@ function creeDevisPdf(d,o,adrCh){
         d.entete.numero=o.numero; d.entete.date=o.date; d.entete.client=o.client; d.entete.chantier=o.reference;
         d.entete.adresseClient=o.adresseClient; d.entete.adresseChantier=adrCh; d.entete.responsable=o.resp; d.entete.compteIban=o.iban; d.entete.paiement=o.paiement; d.entete.demarrage=o.demarrage;
         d.entete.typeClient=o.typeClient; d.entete.condsType=o.typeClient; d.entete.conds=o.conds.map(function(c){ return c.nom; });
-        if(d===D()){ $('fClient').value=o.client; $('fChantier').value=o.reference; $('fDate').value=o.date; }
+        if(d===D()){ $('fClient').value=o.client; $('fChantier').value=o.reference; $('fDate').value=o.date; $('fAdrClient').value=o.adresseClient||''; $('fAdrChantier').value=adrCh||''; }
         diffuse();
       }
       consommeNumero(o.numero);
