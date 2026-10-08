@@ -1201,9 +1201,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.69';
-var DATE_VERSION = '08/10/2026 18h46';   /* date et heure de livraison */
-var NOTES = 'Correctif frais : « Non visible · autre chapitre ou sous-chapitre… » ouvre bien la fenêtre, y compris dans un devis à un seul chapitre (DPGF), et propose aussi les sous-chapitres.';
+var VERSION = '3.70';
+var DATE_VERSION = '08/10/2026 18h49';   /* date et heure de livraison */
+var NOTES = 'Client professionnel : une ligne restée à 5,5 % bloque l\'export et le contrôle la signale (à passer à 20 %).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2204,6 +2204,10 @@ function controleCoherence(d){
       ecarts.push({id:r.id, msg:'« '+nom(r)+' » appartient à une option non retenue mais est comptée ('+eur(totalLigne(d,r))+')'});
     else if(t && t.option && t.type==='sous')
       ecarts.push({id:r.id, msg:'« '+nom(r)+' » est sous un titre en option mais est comptée ('+eur(totalLigne(d,r))+')'});
+  });
+  /* 6 bis. client professionnel : aucune ligne à 5,5 % (Moussa, 08/10/2026) ; bloque l'export tant que ce n'est pas corrigé */
+  if(clientPro(d)) d.lignes.forEach(function(r){
+    if(compte(r) && Math.abs(tauxDe(d,r)-5.5)<0.01) ecarts.push({id:r.id, msg:'« '+nom(r)+' » reste à 5,5 % sur un client professionnel : passez-la à 20 %'});
   });
   /* 7. points à vérifier */
   d.lignes.forEach(function(r){
