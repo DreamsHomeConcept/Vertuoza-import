@@ -1201,9 +1201,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.68';
-var DATE_VERSION = '08/10/2026 18h38';   /* date et heure de livraison */
-var NOTES = 'Client professionnel : plus de TVA 5,5 % (lignes à 20 %), pastille 5,5 % masquée ; le choix du type de client se fait dans Devis client PDF.';
+var VERSION = '3.69';
+var DATE_VERSION = '08/10/2026 18h46';   /* date et heure de livraison */
+var NOTES = 'Correctif frais : « Non visible · autre chapitre ou sous-chapitre… » ouvre bien la fenêtre, y compris dans un devis à un seul chapitre (DPGF), et propose aussi les sous-chapitres.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1552,24 +1552,29 @@ function partMasquee(d,r){
   if(!CACHE_MASQ || CACHE_MASQ.d!==d || CACHE_MASQ.lignes!==d.lignes){
     var part=null;
     if(d.lignes.some(function(x){ return x.masque; })){
-      var g={}, ch=-1, own=[], ix={}, orph=0;
-      d.lignes.forEach(function(x,k){ if(x.type==='chapitre') ix[x.id]=k; });
+      /* g[k] : réserve d'un chapitre ou d'un sous-chapitre (m = montant à répartir, b = base des lignes porteuses) */
+      var g={}, ch=-1, so=-1, own=[], ix={}, orph=0, tb=0, pool=function(k){ return g[k]||(g[k]={m:0,b:0}); };
+      d.lignes.forEach(function(x,k){ if(x.type==='chapitre'||x.type==='sous') ix[x.id]=k; });
       d.lignes.forEach(function(x,k){
-        if(x.type==='chapitre') ch=k;
-        var e=g[ch]||(g[ch]={m:0,b:0});
+        if(x.type==='chapitre'){ ch=k; so=-1; }
+        if(x.type==='sous') so=k;
         if(estMasquee(d,x)){
-          /* r.repartir : vide = son chapitre, 'devis' = tout le devis, sinon l'id du chapitre choisi */
+          /* r.repartir : vide = son chapitre, 'devis' = tout le devis, sinon l'id du chapitre ou sous-chapitre choisi */
           var a=nombreFr(x.qte)*venteBrute(d,x), c=x.repartir==='devis'?'devis':(x.repartir&&ix[x.repartir]!=null?ix[x.repartir]:ch);
-          if(c==='devis') orph+=a; else (g[c]||(g[c]={m:0,b:0})).m+=a;
+          if(c==='devis') orph+=a; else pool(c).m+=a;
         }
-        else if(estPorteuse(d,x)){ own[k]=Math.max(0,nombreFr(x.qte)*venteBrute(d,x)); e.b+=own[k]; }
+        else if(estPorteuse(d,x)){ own[k]=Math.max(0,nombreFr(x.qte)*venteBrute(d,x)); pool(ch).b+=own[k]; if(so>-1) pool(so).b+=own[k]; tb+=own[k]; }
       });
-      var tb=0; Object.keys(g).forEach(function(k){ tb+=g[k].b; if(g[k].b<=0) orph+=g[k].m; });
-      part={}; ch=-1;
+      Object.keys(g).forEach(function(k){ if(g[k].b<=0) orph+=g[k].m; });
+      part={}; ch=-1; so=-1;
       d.lignes.forEach(function(x,k){
-        if(x.type==='chapitre') ch=k;
+        if(x.type==='chapitre'){ ch=k; so=-1; }
+        if(x.type==='sous') so=k;
         if(own[k]==null) return;
-        var e=g[ch]; part[k]=(e.b>0?e.m*own[k]/e.b:0)+(tb>0?orph*own[k]/tb:0);
+        var v=0, e=g[ch], es=so>-1?g[so]:null;
+        if(e && e.b>0) v+=e.m*own[k]/e.b;
+        if(es && es.b>0) v+=es.m*own[k]/es.b;
+        part[k]=v+(tb>0?orph*own[k]/tb:0);
       });
     }
     CACHE_MASQ={d:d, lignes:d.lignes, part:part};
@@ -2396,22 +2401,28 @@ function estFrais(r){
 function selectClient(d,r){
   var v=!r.masque?'afficher':(r.repartir==='devis'?'devis':(r.repartir?'ch:'+r.repartir:'chapitre')), autre='';
   if(v.indexOf('ch:')===0){
-    var c=d.lignes.find(function(x){ return x.type==='chapitre' && 'ch:'+x.id===v; });
+    var c=d.lignes.find(function(x){ return (x.type==='chapitre'||x.type==='sous') && 'ch:'+x.id===v; });
     if(c) autre='<option value="'+echappe(v)+'" selected>Non visible · « '+echappe(String(c.designation||'').slice(0,18))+' »</option>';
     else v='chapitre';
   }
   var o=function(val,lib){ return '<option value="'+val+'"'+(v===val?' selected':'')+'>'+lib+'</option>'; };
   return '<select class="sel-client'+(r.masque?' masq':'')+'" data-a="client" title="Visibilité pour le client. Non visible : la ligne n\'apparaît ni dans le devis client PDF ni dans l\'export, son montant est réparti au prorata sur les lignes choisies" aria-label="Visibilité pour le client">'
     +o('afficher','Afficher')+o('chapitre','Non visible · ce chapitre')+o('devis','Non visible · tout le devis')+autre
-    +'<option value="autre">Non visible · autre chapitre…</option></select>';
+    +'<option value="autre">Non visible · autre chapitre ou sous-chapitre…</option></select>';
 }
 function choisitRepartition(d,r){
-  var ch=d.lignes.filter(function(x){ return x.type==='chapitre'; }), moi=chapitreDe(d,positionLigne(d,r)), idMoi=moi>-1?d.lignes[moi].id:null;
-  ch=ch.filter(function(x){ return x.id!==idMoi; });
-  if(!ch.length){ info('Aucun autre chapitre dans ce devis.',100,'avertit'); rendu(); return; }
+  /* chapitres (sauf le sien, déjà proposé) et sous-chapitres qui ont des lignes visibles */
+  var moi=chapitreDe(d,positionLigne(d,r)), idMoi=moi>-1?d.lignes[moi].id:null;
+  var ch=d.lignes.filter(function(x,k){
+    if(x.type!=='chapitre' && x.type!=='sous') return false;
+    if(x.id===idMoi) return false;
+    var b=bloc(d,k); for(var z=b.debut+1;z<b.fin;z++) if(estPorteuse(d,d.lignes[z])) return true;
+    return false;
+  });
+  if(!ch.length){ alert('Aucun autre chapitre ni sous-chapitre avec des lignes visibles dans ce devis.'); rendu(); return; }
   ouvreModale('Répartir « '+String(r.designation||'cette ligne').slice(0,40)+' » sur…',
-    '<p class="note" style="margin-top:0">La ligne reste non visible pour le client ; son montant est réparti au prorata sur les lignes du chapitre choisi.</p>'
-    +'<select id="selRepart" size="10" style="width:100%;font:inherit;font-size:13px">'+ch.map(function(x,k){ return '<option value="'+k+'"'+(x.id===r.repartir||(!k&&!r.repartir)?' selected':'')+'>'+echappe((x.article||'')+' '+String(x.designation||'').slice(0,60))+'</option>'; }).join('')+'</select>',
+    '<p class="note" style="margin-top:0">La ligne reste non visible pour le client ; son montant est réparti au prorata sur les lignes du chapitre ou du sous-chapitre choisi.</p>'
+    +'<select id="selRepart" size="10" style="width:100%;font:inherit;font-size:13px">'+ch.map(function(x,k){ return '<option value="'+k+'"'+(x.id===r.repartir||(!k&&!r.repartir)?' selected':'')+'>'+(x.type==='sous'?'\u00a0\u00a0\u00a0\u00a0↳ ':'')+echappe((x.article||'')+' '+String(x.designation||'').slice(0,60))+'</option>'; }).join('')+'</select>',
     [{lib:'Annuler', action:function(){ rendu(); }},
      {lib:'Répartir', plein:true, action:function(){
         var k=parseInt($('selRepart').value,10); if(!(k>=0)) return false;
