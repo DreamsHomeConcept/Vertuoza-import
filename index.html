@@ -175,6 +175,9 @@ button.mini.plein:hover{background:var(--nuit-clair)}
 .panneau{box-shadow:0 1px 0 rgba(15,22,38,.03)}
 .depot p{margin:6px 0 0;color:var(--encre-faible);font-size:13px}
 .depot strong{font-weight:600;color:var(--nuit)}
+/* zone de dépôt des devis d'origine plus étroite et centrée, bouton bibliothèque centré dessous (v3.82) */
+#depot{max-width:520px;margin-left:auto;margin-right:auto}
+#depot+.rangee-boutons{justify-content:center}
 
 .etat{margin-top:12px;font-size:13px;display:none}
 .etat.on{display:block}
@@ -1221,9 +1224,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.81';
-var DATE_VERSION = '08/10/2026 23h51';   /* date et heure de livraison */
-var NOTES = 'Boutons sous le tableau du devis (+ Chapitre … Enregistrer dans la bibliothèque) centrés.';
+var VERSION = '3.82';
+var DATE_VERSION = '08/10/2026 23h59';   /* date et heure de livraison */
+var NOTES = 'Zone « Déposez vos devis ici » plus étroite et centrée, bouton « + Depuis la bibliothèque » centré dessous.';
 /* =================================================================== */
 (function(){
 'use strict';
