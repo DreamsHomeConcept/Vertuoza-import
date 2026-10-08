@@ -348,6 +348,7 @@ tr.r-chapitre td.des textarea{text-transform:uppercase}
 .badge-masq{background:#ece8f6;color:#4b3b80}
 select.sel-client{flex:none;width:auto;max-width:190px;align-self:center;margin:0 6px 0 4px;padding:1px 4px;font-size:11px;height:22px;border-radius:10px;border:1px solid var(--trait);background:#fff;color:inherit}
 select.sel-client.masq{background:#ece8f6;color:#4b3b80;border-color:#cfc6ea;font-weight:600}
+button.btn-km{flex:none;align-self:center;padding:0 5px;margin:0 2px;font-size:13px;line-height:20px}
 td.total .reparti{color:#8a8a8a;font-weight:400;font-style:italic;font-size:11.5px;white-space:nowrap}
 tr.r-ligne.r-masque textarea{color:#6d6d6d}
 .badge-mo{background:#e3eef8;color:#1f4f7a}
@@ -658,6 +659,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
       <div><label class="champ" for="fChantier">Chantier</label><input type="text" id="fChantier"></div>
       <div><label class="champ" for="fAdrClient">Adresse du client</label><textarea id="fAdrClient" rows="2" placeholder="Numéro et rue&#10;Code postal VILLE" style="resize:vertical"></textarea></div>
       <div><label class="champ" for="fAdrChantier">Adresse du chantier</label><textarea id="fAdrChantier" rows="2" placeholder="Vide : même adresse que le client" style="resize:vertical"></textarea></div>
+      <div><label class="champ" for="fDepart">Départ des frais kilométriques</label><select id="fDepart" title="Adresse de départ pour le calcul des km (bouton 📍 sur une ligne de frais en km). Les adresses se règlent dans Paramètres › Société"></select></div>
       <div style="grid-column:1/-1"><span class="champ">Contacts</span><div id="fContacts"></div><button type="button" class="mini" id="fContactPlus" title="Ajouter un contact" style="margin-top:6px">+ Ajouter un contact</button></div>
       <div><label class="champ" for="fRef">Référence du devis</label><input type="text" id="fRef"></div>
       <div><label class="champ" for="fDate">Date</label><div style="position:relative"><input type="text" id="fDate" placeholder="jj/mm/aaaa" style="padding-right:38px"><button type="button" id="fDateCal" title="Choisir dans le calendrier" aria-label="Choisir la date dans le calendrier" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:none;cursor:pointer;font-size:17px;padding:4px 6px;line-height:1">📅</button><input type="date" id="fDatePick" tabindex="-1" aria-hidden="true" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none"></div></div>
@@ -1218,9 +1220,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.76';
-var DATE_VERSION = '08/10/2026 19h42';   /* date et heure de livraison */
-var NOTES = 'Société : adresse secondaire (dépôt ou agence), vide par défaut, point de départ possible des km ; non imprimée sur le devis.';
+var VERSION = '3.77';
+var DATE_VERSION = '08/10/2026 19h44';   /* date et heure de livraison */
+var NOTES = 'Frais kilométriques : bouton 📍 qui calcule les km depuis les bureaux ou le siège (choix dans l\'en-tête) jusqu\'au chantier, avec ligne Péages saisie à la main.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1871,6 +1873,7 @@ function renduEntete(){
   $('fFeuille').value=d.feuille; $('fTva').value=String(d.tva); $('fMode').value=d.mode||'client';
   $('fOrigine').value=d.origine||'concurrent';
   $('fType').value=d.typeProjet||'';
+  renduDepart(d);
   if(document.activeElement!==$('fSurface')) $('fSurface').value=d.surface?String(d.surface).replace('.',','):'';
   if(document.activeElement!==$('fHsp')) $('fHsp').value=d.hsp?String(d.hsp).replace('.',','):'';
   $('blocOrigine').style.display = (d.mode==='st')?'none':'';
@@ -2353,6 +2356,7 @@ function rendu(){
         +(r.sansIA?'<span class="badge-tva ko" title="Lu sans l\'IA : découpage approximatif. Menu ⋯ → Marquer comme vérifié">lu sans IA — à vérifier</span>':'')
         +(r.type==='chapitre'&&d.mode==='st'&&r.intervenant?'<span class="badge-inter" title="Intervenant — non exporté">'+echappe(r.intervenant)+'</span>':'')
         +(estLigne&&typeMarche(r)==='QP'?'<span class="badge-qp" title="Quantité présumée — exportée en TM = QP">QP</span>':'')
+        +(estLigne&&!d._lecture&&estKm(r)?'<button type="button" class="mini btn-km" data-a="km" title="Calculer les km depuis le départ du chantier'+(r.km?' (dernier calcul : '+chiffreFr(r.km.aller)+' km aller)':'')+'">📍</button>':'')
         +(estLigne&&estFrais(r)&&!d._lecture?selectClient(d,r)
           :(estLigne&&r.masque?'<span class="badge-masq" title="Ligne non visible pour le client : son montant est réparti sur les autres lignes du chapitre. Menu ⋯ pour l\'afficher">non visible</span>':''))
         +(estLigne&&r.marge!=null&&r.marge!==''?'<span class="badge-mg" title="Marge propre à cette ligne">marge '+String(r.marge).replace('.',',')+' %</span>':'')
@@ -2451,7 +2455,7 @@ function choisitRepartition(d,r){
     [{lib:'Annuler', action:function(){ rendu(); }},
      {lib:'Répartir', plein:true, action:function(){
         var k=parseInt($('selRepart').value,10); if(!(k>=0)) return false;
-        memorise(d,'répartition des frais'); r.masque=true; r.repartir=ch[k].id; rendu();
+        memorise(d,'répartition des frais'); r.masque=true; r.repartir=ch[k].id; suisPeage(d,r); rendu();
      }}]);
 }
 function totalAffiche(d,r){
@@ -3950,6 +3954,7 @@ $('corpsTable').addEventListener('change',function(e){
     memorise(d0,'visibilité pour le client');
     if(v==='afficher'){ delete rc.masque; delete rc.repartir; }
     else { rc.masque=true; if(v==='devis') rc.repartir='devis'; else if(v.indexOf('ch:')===0) rc.repartir=v.slice(3); else delete rc.repartir; }
+    suisPeage(d0,rc);
     rendu(); return;
   }
   if(e.target.getAttribute('data-c')==='designation'){
@@ -4457,6 +4462,7 @@ $('corpsTable').addEventListener('click',function(e){
   var i=d.lignes.findIndex(function(r){return r.id===id;}); if(i<0) return;
   var a=b.getAttribute('data-a');
   if(a==='perf55'){ fichePerf55(d,i); return; }
+  if(a==='km'){ calculKm(d,d.lignes[i]); return; }
   if(a==='pos55'){
     memorise(d,'TVA 5,5 %'); d.lignes[i].tva=5.5; delete d.lignes[i].tvaAuto;
     /* isolation : emplacement deviné d'après le chapitre ou le sous-chapitre (Doublage → murs, Combles → combles) */
@@ -8934,6 +8940,104 @@ function choisitFrais(i){
   if(f.client==='masque'||f.client==='devis') r.masque=true; else delete r.masque;
   if(f.client==='devis') r.repartir='devis';
   r.frais=true;
+  rendu();
+}
+/* ------------------- frais kilométriques : calcul des km (v3.77) -------------------
+   Départ : adresse secondaire de la société (bureaux) par défaut, sinon le siège ; réglé par chantier dans l'en-tête.
+   Arrivée : adresse du chantier, sinon du client. Distance par la route : Géoplateforme IGN (gratuit, sans clé).
+   Péage : saisi à la main (aucun service gratuit ne le donne) → ligne « Péages » sous la ligne de km. */
+function adresseUneLigne(t){ return String(t||'').split('\n').map(function(x){ return x.trim(); }).filter(Boolean).join(', '); }
+function adressesDepart(){
+  var x=societe(), j=function(l){ return l.filter(Boolean).join(' '); };
+  var sec=[x.secRue, j([x.secCp,x.secVille])].filter(Boolean).join(', ');
+  return {secondaire:sec, siege:[x.rue, j([x.cp,x.ville])].filter(Boolean).join(', ')};
+}
+function departChantier(d){
+  var a=adressesDepart(), k=d.entete.depart;
+  if(k!=='siege' && k!=='secondaire') k=a.secondaire?'secondaire':'siege';
+  if(k==='secondaire' && !a.secondaire) k='siege';
+  return {cle:k, adresse:a[k]};
+}
+function renduDepart(d){
+  var a=adressesDepart(), k=departChantier(d).cle;
+  $('fDepart').innerHTML='<option value="secondaire"'+(a.secondaire?'':' disabled')+(k==='secondaire'?' selected':'')+'>Bureaux (adresse secondaire)'+(a.secondaire?'':' — non remplie')+'</option>'
+    +'<option value="siege"'+(k==='siege'?' selected':'')+'>Siège social</option>';
+  $('fDepart').title=(a[k]||'Adresse vide')+' — les adresses se règlent dans Paramètres › Société';
+}
+$('fDepart').addEventListener('change',function(){ var d=D(); memorise(d,'départ des km'); d.entete.depart=this.value; rendu(); });
+function estKm(r){ return estFrais(r) && (sansAccent(r.unite)==='km' || /\bkm\b|kilom/i.test(sansAccent(r.designation))); }
+var IGN='https://data.geopf.fr';
+function geocode(adr){
+  return fetch(IGN+'/geocodage/search?limit=1&q='+encodeURIComponent(adr)).then(function(rep){
+    if(!rep.ok) throw new Error('service');
+    return rep.json();
+  }).then(function(j){
+    var f=j&&j.features&&j.features[0];
+    if(!f || !f.geometry) throw new Error('introuvable:'+adr);
+    return {c:f.geometry.coordinates, label:(f.properties&&f.properties.label)||adr};
+  });
+}
+function distanceRoute(de,a){
+  return Promise.all([geocode(de),geocode(a)]).then(function(p){
+    return fetch(IGN+'/navigation/itineraire?resource=bdtopo-osrm&profile=car&optimization=fastest&distanceUnit=kilometer&getSteps=false&getBbox=false'
+      +'&start='+p[0].c.join(',')+'&end='+p[1].c.join(',')).then(function(rep){
+      if(!rep.ok) throw new Error('service');
+      return rep.json();
+    }).then(function(j){
+      var km=Number(j&&j.distance); if(!isFinite(km)||km<=0) throw new Error('service');
+      return {km:Math.round(km*10)/10, de:p[0].label, a:p[1].label};
+    });
+  });
+}
+function lignePeage(d,r){ return d.lignes.find(function(x){ return x.peageDe===r.id; }); }
+/* la ligne Péages suit la visibilité de sa ligne de km (Afficher / Non visible et répartition) */
+function suisPeage(d,r){
+  var pg=lignePeage(d,r); if(!pg) return;
+  if(r.masque){ pg.masque=true; if(r.repartir) pg.repartir=r.repartir; else delete pg.repartir; } else { delete pg.masque; delete pg.repartir; }
+}
+function calculKm(d,r){
+  var dep=departChantier(d), arr=adresseUneLigne(d.entete.adresseChantier)||adresseUneLigne(d.entete.adresseClient);
+  var k=r.km||{}, pg=lignePeage(d,r);
+  var ar=k.ar!==false, traj=k.trajets||1, peage=pg?puAchat(pg):(k.peage||'');
+  ouvreModale('📍 Calcul des kilomètres',
+    '<p style="margin:0 0 6px"><b>Départ</b> ('+(dep.cle==='secondaire'?'bureaux':'siège')+', à changer dans l\'en-tête du chantier) :<br>'+(dep.adresse?echappe(dep.adresse):'<i>adresse vide — Paramètres › Société</i>')+'</p>'
+    +'<p style="margin:0 0 10px"><b>Arrivée</b> ('+(adresseUneLigne(d.entete.adresseChantier)?'adresse du chantier':'adresse du client')+') :<br>'+(arr?echappe(arr):'<i>aucune adresse de chantier ni de client dans l\'en-tête</i>')+'</p>'
+    +'<label style="display:flex;gap:6px;align-items:center;margin:0 0 8px"><input type="checkbox" id="kmAr"'+(ar?' checked':'')+'> Aller-retour</label>'
+    +'<div style="display:flex;gap:12px;flex-wrap:wrap"><div><label class="champ" for="kmTraj">Nombre de trajets</label><input type="text" id="kmTraj" inputmode="numeric" value="'+traj+'" style="width:90px"></div>'
+    +'<div><label class="champ" for="kmPeage">Péage aller (€ HT)</label><input type="text" id="kmPeage" inputmode="decimal" value="'+chiffreFr(peage)+'" placeholder="0" style="width:110px"></div></div>'
+    +'<p style="margin:6px 0 0;font-size:12px;color:var(--encre-faible)">Le prix du péage se lit sur ViaMichelin : aucun service gratuit ne le donne.</p>'
+    +'<p id="kmRes" role="status" style="margin:10px 0 0;font-weight:600">'+(k.aller?'Dernier calcul : '+chiffreFr(k.aller)+' km aller.':'')+'</p>',
+    [{lib:'Annuler', action:function(){}},
+     {lib:'Calculer et appliquer', plein:true, action:function(){
+        if(!dep.adresse || !arr){ $('kmRes').textContent=!dep.adresse?'Adresse de départ vide : remplissez-la dans Paramètres › Société.':'Ajoutez l\'adresse du chantier ou du client dans l\'en-tête.'; return false; }
+        var o={ar:$('kmAr').checked, trajets:Math.max(1,Math.round(nombreFr($('kmTraj').value))||1), peage:Math.max(0,nombreFr($('kmPeage').value)||0)};
+        $('kmRes').textContent='Calcul en cours…';
+        distanceRoute(dep.adresse,arr).then(function(res){
+          if(!trouveDans(d,r.id)){ fermeModale(); return; }
+          appliqueKm(d,r,res,o); fermeModale();
+          info('Distance aller '+chiffreFr(res.km)+' km → '+chiffreFr(r.qte)+' km'+(o.peage?' + péages':'')+'.',100,'ok');
+        }).catch(function(e){
+          var m=String(e&&e.message||'');
+          $('kmRes').textContent=m.indexOf('introuvable:')===0?'Adresse introuvable : '+m.slice(12)+'. Vérifiez-la dans l\'en-tête ou dans Société.'
+            :'Le service de calcul (IGN) ne répond pas. Réessayez, ou saisissez la quantité à la main.';
+        });
+        return false;
+     }}]);
+}
+function trouveDans(d,id){ return d.lignes.find(function(x){ return x.id===id; }); }
+function appliqueKm(d,r,res,o){
+  var n=(o.ar?2:1)*o.trajets;
+  memorise(d,'calcul des km');
+  r.qte=Math.round(res.km*n*10)/10;
+  r.km={aller:res.km, ar:o.ar, trajets:o.trajets, de:res.de, a:res.a};
+  var pg=lignePeage(d,r);
+  if(o.peage>0){
+    if(!pg){
+      pg=nouvelleLigne('ligne',{designation:'Péages', unite:'u', frais:true, peageDe:r.id, marge:r.marge!=null?r.marge:0, intervenant:r.intervenant||'', tva:r.tva});
+      d.lignes.splice(positionLigne(d,r)+1,0,pg);
+    }
+    pg.qte=n; pg.pu=o.peage; suisPeage(d,r);
+  } else if(pg) d.lignes.splice(positionLigne(d,pg),1);
   rendu();
 }
 $('corpsTable').addEventListener('input',function(e){
