@@ -1201,9 +1201,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.67';
-var DATE_VERSION = '08/10/2026 18h27';   /* date et heure de livraison */
-var NOTES = 'Informations du devis toujours pliées à l\'ouverture ; la marge fait partie du bloc plié et apparaît dans le résumé.';
+var VERSION = '3.68';
+var DATE_VERSION = '08/10/2026 18h38';   /* date et heure de livraison */
+var NOTES = 'Client professionnel : plus de TVA 5,5 % (lignes à 20 %), pastille 5,5 % masquée ; le choix du type de client se fait dans Devis client PDF.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1664,6 +1664,7 @@ function analyse55(d,i){
   return {v:v, famille:v.famille, manque:manque, ko:ko, trous:v.trous, ok:!!v.famille && !manque.length && !ko.length && !v.trous};
 }
 function badge55(d,i){
+  if(clientPro(d)) return '';
   var a=analyse55(d,i);
   /* ligne d'isolation, de fenêtre ou de porte pas encore à 5,5 % sur un chantier en rénovation : proposer le taux réduit */
   if(!a){
@@ -6092,6 +6093,8 @@ function estNeuf(d){ return /^(maison|extension|surelevation|toiture_neuve)$/.te
 /* Toiture neuve = règles du neuf (20 %) ; toiture en rénovation = règles de la rénovation (10 %, 5,5 % possible). */
 /* Rénovation industrielle : local professionnel, TVA 20 %, ni 10 % ni 5,5 % (Moussa, v3.46). */
 function estIndus(d){ return d.typeProjet==='renovation_industrielle'; }
+/* client professionnel (choisi dans « Devis client PDF ») : jamais de TVA 5,5 % (Moussa, 08/10/2026) */
+function clientPro(d){ return !!(d && d.entete && d.entete.typeClient==='pro'); }
 function estReno(d){ return /^(renovation|renovation_globale|toiture_reno)$/.test(d.typeProjet||''); }
 function tvaLues(d,nom){ return ((d.tvaLues||{})[nom]||[]).map(Number).filter(function(x){ return x>0; }); }
 function a55(d,nom){ return tvaLues(d,nom).some(function(x){ return Math.abs(x-5.5)<0.01; }); }
@@ -6105,6 +6108,12 @@ function regleTva(d){
     if(!d.lignes.some(function(r){ return r.intervenant===nom; })) return;
     if(!a55(d,nom)) return;
     var lignes=d.lignes.filter(function(r){ return r.intervenant===nom && r.type==='ligne'; });
+    if(clientPro(d)){
+      /* 20 % par défaut ; marqué tvaAuto pour revenir à 5,5 % si le client redevient particulier */
+      lignes.forEach(function(r){ if(r.tva==null || r.tvaAuto || Math.abs(r.tva-5.5)<0.01){ r.tva=20; r.tvaAuto=true; } });
+      notes.push('TVA 5,5 % sur le devis '+nom+' : non applicable à un client professionnel, ses lignes passent à 20 %');
+      return;
+    }
     if(estReno(d)){
       var n=0;
       lignes.forEach(function(r){ if(r.tva==null || r.tvaAuto){ r.tva=5.5; r.tvaAuto=true; n++; } });
@@ -6564,7 +6573,7 @@ function dialogueDevisPdf(force){
             resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:pm,
             typeClient:v('pdType')||'part', conds:lisConds(), garde:v('pdGarde'), annexe:lisAnnexe()};
   };
-  setTimeout(function(){ ajouteCalendrier($('pdDate')); cases(condsDevis(e,d)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value},d)); }; },0);
+  setTimeout(function(){ ajouteCalendrier($('pdDate')); cases(condsDevis(e,d)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value},d)); if(!d._lecture){ d.entete.typeClient=this.value; var nt=regleTva(d); if(nt.length) info('⚠ '+nt.join(' ; ⚠ ')+'.',100,'avertit'); rendu(); } }; },0);
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
     {lib:'Annuler', action:function(){}},
     /* Aperçu : le PDF tel qu'il partira, dans un nouvel onglet ; rien n'est enregistré, aucun numéro consommé */
