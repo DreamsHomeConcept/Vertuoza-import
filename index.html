@@ -1218,9 +1218,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.74';
-var DATE_VERSION = '08/10/2026 19h28';   /* date et heure de livraison */
-var NOTES = 'Base clients : plusieurs fichiers Excel, chaque import s\'ajoute avec contrôle des doublons et compte rendu des différences ; bouton « Vider la base ».';
+var VERSION = '3.75';
+var DATE_VERSION = '08/10/2026 19h39';   /* date et heure de livraison */
+var NOTES = 'Correctif : la date choisie dans le calendrier 📅 s\'affiche aussi quand on choisit la date du jour.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4934,15 +4934,19 @@ $('fContactPlus').onclick=function(){
    ouvre le sélecteur du navigateur, écrit jj/mm/aaaa et prévient le champ. */
 function calendrierTexte(champ,bouton,cache){
   bouton.addEventListener('click',function(){
-    cache.value=dateIso(champ.value)||new Date().toISOString().slice(0,10);
+    /* champ vide : le calendrier part vide (il s'ouvre sur le mois en cours) ; sinon, choisir
+       la date du jour ne changeait rien et la date ne s'affichait pas (corrigé v3.75) */
+    cache.value=dateIso(champ.value)||'';
     try{ if(cache.showPicker){ cache.showPicker(); return; } }catch(e){}
     cache.style.pointerEvents='auto'; cache.focus(); cache.click(); cache.style.pointerEvents='none';
   });
-  cache.addEventListener('change',function(){
-    var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(this.value); if(!m) return;
-    champ.value=m[3]+'/'+m[2]+'/'+m[1];
+  var reporte=function(){
+    var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(cache.value); if(!m) return;
+    var t=m[3]+'/'+m[2]+'/'+m[1]; if(champ.value===t) return;
+    champ.value=t;
     champ.dispatchEvent(new Event('input',{bubbles:true}));
-  });
+  };
+  cache.addEventListener('change',reporte); cache.addEventListener('input',reporte);
 }
 /* même chose pour un champ créé à la volée (fenêtre Devis client PDF) */
 function ajouteCalendrier(champ){
