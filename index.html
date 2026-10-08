@@ -34,6 +34,15 @@ body{background:var(--fond);color:var(--encre);
 header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;
   border-bottom:3px solid var(--taupe);padding-bottom:14px;margin-bottom:18px}
 .logo{display:block;height:46px;width:auto;margin:0 0 10px}
+/* barre du haut fixe au défilement, compacte une fois descendu (v3.60) ; écrans larges seulement */
+@media (min-width:800px){
+  header.top{position:sticky;top:var(--h-ban,0px);z-index:26;background:var(--fond);padding-top:8px}
+  header.top.compact{padding-top:6px;padding-bottom:6px;align-items:center}
+  header.top.compact>div:first-child{display:flex;align-items:center;gap:12px}
+  header.top.compact .logo{height:26px;margin:0}
+  header.top.compact h1{font-size:16px}
+  header.top.compact .sous-titre{display:none}
+}
 h1{margin:0;font-size:21px;font-weight:600;letter-spacing:-.01em;color:var(--nuit)}
 h1 span{color:var(--encre-faible);font-weight:400}
 h1 small.version{font-size:12px;font-weight:500;color:var(--taupe-fonce);letter-spacing:.02em;margin-left:6px;vertical-align:middle}
@@ -1183,9 +1192,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.60';
-var DATE_VERSION = '08/10/2026 18h01';   /* date et heure de livraison */
-var NOTES = 'Frais : unité en liste (km, Nbre…), marge 0 % par défaut, ligne « non visible » pour le client (menu ⋯) dont le montant est réparti sur les autres lignes de son chapitre.';
+var VERSION = '3.61';
+var DATE_VERSION = '08/10/2026 18h03';   /* date et heure de livraison */
+var NOTES = 'La barre du haut (logo, titre, boutons) reste fixe quand on descend dans la page, en version compacte.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4219,10 +4228,20 @@ function memorise(d,quoi){
 function majCollants(){
   var m=$('majBandeau'), b=$('barreTab');
   var hm=(m && !m.hidden) ? m.offsetHeight : 0, hb=b ? b.offsetHeight : 0;
+  var t=document.querySelector('header.top'), ht=(t && getComputedStyle(t).position==='sticky') ? t.offsetHeight : 0;
+  document.documentElement.style.setProperty('--h-ban',hm+'px');
+  hm+=ht;
   document.documentElement.style.setProperty('--h-maj',hm+'px');
   document.documentElement.style.setProperty('--h-barre',hb+'px');
 }
 window.addEventListener('resize',majCollants);
+/* barre du haut compacte quand on descend ; écart entre les seuils pour éviter le clignotement */
+window.addEventListener('scroll',function(){
+  var t=document.querySelector('header.top'); if(!t) return;
+  var y=window.scrollY, c=t.classList.contains('compact');
+  if(!c && y>120){ t.classList.add('compact'); majCollants(); }
+  else if(c && y<8){ t.classList.remove('compact'); majCollants(); }
+},{passive:true});
 function hautCollant(){ var b=$('barreTab'); return b ? b.getBoundingClientRect().bottom + (($('enteteTable')||{}).offsetHeight||0) : 0; }
 function majBoutonAnnuler(){
   var b=$('btnAnnuler'); if(!b) return;
@@ -7642,7 +7661,7 @@ async function verifieVersion(manuel){
     $('majDate').textContent=dv?' du '+dv:'';
     $('majNotes').textContent=mn?mn[1].replace(/\\'/g,"'"):'';
     $('majBandeau').dataset.version=mv[1];
-    $('majBandeau').hidden=false;
+    $('majBandeau').hidden=false; majCollants();
   }catch(e){ if(manuel) majEtatVersion('Contrôle impossible : '+((e&&e.message)||'la version publiée n\'a pas pu être lue')+'.','err'); }
   finally{ verifEnCours=false; }
 }
@@ -7667,7 +7686,7 @@ $('majRecharger').onclick=function(){
 };
 $('majPlusTard').onclick=function(){
   versionIgnoree=$('majBandeau').dataset.version||null;
-  $('majBandeau').hidden=true;
+  $('majBandeau').hidden=true; majCollants();
 };
 setTimeout(verifieVersion,8000);
 setInterval(function(){ if(document.visibilityState==='visible') verifieVersion(); },15*60*1000);
