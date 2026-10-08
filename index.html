@@ -69,6 +69,7 @@ button.mini:hover{background:var(--taupe-pale);border-color:var(--taupe)}
   border-bottom:1px solid var(--trait);background:var(--taupe-voile);border-left:4px solid var(--taupe)}
 .panneau h2 .droite{float:right;font-weight:400;font-size:12.5px;color:var(--encre-faible)}
 .grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.grille[hidden]{display:none}
 label.champ{display:block;font-size:12px;color:var(--encre-faible);margin-bottom:4px}
 input[type=text],input[type=email],input[type=tel],input[type=password],input[type=date],select,textarea{width:100%;font:inherit;padding:7px 8px;
   border:1px solid var(--trait);border-radius:2px;background:#fff;color:var(--encre);font-variant-numeric:tabular-nums}
@@ -607,7 +608,8 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
 <section class="panneau">
   <div class="onglets" id="onglets"></div>
   <div class="corps">
-    <div class="grille">
+    <button type="button" id="fPlier" aria-expanded="true" aria-controls="fGrille" title="Plier ou déplier les informations du devis" style="display:flex;gap:8px;align-items:baseline;width:100%;text-align:left;border:0;background:none;padding:0 0 10px;cursor:pointer;font:inherit;color:var(--encre)"><span id="fPlierIco" aria-hidden="true">▾</span><strong>Informations du devis</strong><span id="fResume" style="color:var(--encre-faible);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" hidden></span></button>
+    <div class="grille" id="fGrille">
       <div>
         <label class="champ" for="fMode">Type de dossier</label>
         <select id="fMode">
@@ -1178,9 +1180,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.58';
-var DATE_VERSION = '08/10/2026 17h46';   /* date et heure de livraison */
-var NOTES = 'En-tête du devis : bloc « Contacts » (nom, e-mail, téléphone) avec bouton + pour en ajouter, gardés pour l\'envoi du devis.';
+var VERSION = '3.59';
+var DATE_VERSION = '08/10/2026 17h54';   /* date et heure de livraison */
+var NOTES = 'En-tête du devis : titre « Informations du devis » cliquable pour plier ou déplier le bloc, état retenu par chantier.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1775,6 +1777,7 @@ function renduEntete(){
   $('fClient').value=d.entete.client; $('fChantier').value=d.entete.chantier;
   $('fRef').value=d.entete.reference; $('fDate').value=d.entete.date;
   $('fAdrClient').value=d.entete.adresseClient||''; $('fAdrChantier').value=d.entete.adresseChantier||'';
+  renduPliage();
   renduContacts();
   $('fFeuille').value=d.feuille; $('fTva').value=String(d.tva); $('fMode').value=d.mode||'client';
   $('fOrigine').value=d.origine||'concurrent';
@@ -4544,6 +4547,17 @@ $('addTexte').onclick=function(){ ajouteEnBas('texte'); };
     if(id==='fRef' && feuilleSurRef(D())) renduOnglets();
   });
 });
+/* Plier / déplier les informations du devis (v3.59) : d.entetePlie, retenu par chantier ;
+   un devis neuf est déplié. Plié : une ligne de résumé client · chantier · référence · TVA. */
+function renduPliage(){
+  var d=D(), plie=!!d.entetePlie;
+  $('fGrille').hidden=plie; $('fPlier').setAttribute('aria-expanded',plie?'false':'true');
+  $('fPlierIco').textContent=plie?'▸':'▾';
+  var e=d.entete, r=[e.client,e.chantier,e.reference?'Réf. '+e.reference:''].filter(function(x){ return x&&String(x).trim(); });
+  r.push(String(d.tva).replace('.',',')+' %');
+  $('fResume').textContent='· '+r.join(' · '); $('fResume').hidden=!plie;
+}
+$('fPlier').onclick=function(){ var d=D(); d.entetePlie=!d.entetePlie; diffuse(); renduPliage(); };
 /* Contacts du chantier (v3.58) : nom, e-mail, téléphone. Gardés dans d.entete.contacts
    pour l'envoi du devis (étape signature en ligne) ; jamais affichés sur le PDF. */
 function contactsDe(d){ if(!Array.isArray(d.entete.contacts)) d.entete.contacts=[]; return d.entete.contacts; }
