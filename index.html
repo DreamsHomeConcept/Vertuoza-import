@@ -1221,9 +1221,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.79';
-var DATE_VERSION = '08/10/2026 19h59';   /* date et heure de livraison */
-var NOTES = 'Société : la croix ✕ d\'effacement de l\'adresse secondaire est au bout de sa ligne, à droite du champ Pays.';
+var VERSION = '3.80';
+var DATE_VERSION = '08/10/2026 20h02';   /* date et heure de livraison */
+var NOTES = 'Calcul des km : arrivée = adresse du chantier, sinon du client, et saisie dans la fenêtre 📍 si les deux manquent ; un type de frais choisi garde son intitulé.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -3940,7 +3940,7 @@ $('listeSt').addEventListener('click',function(e){
 });
 
 $('corpsTable').addEventListener('input',function(e){
-  var c=e.target.getAttribute('data-c'); if(!c) return;
+  var c=e.target.getAttribute('data-c'); if(!c || !e.target.isConnected) return;   /* champ déjà remplacé (type de frais choisi) : ne pas réécrire */
   var tr=e.target.closest('tr'), r=trouve(tr.getAttribute('data-id')); if(!r) return;
   r[c]=e.target.value;
   if(c==='designation' && e.target.tagName==='TEXTAREA') ajusteHauteur(e.target);
@@ -3959,7 +3959,9 @@ $('corpsTable').addEventListener('change',function(e){
     rendu(); return;
   }
   if(e.target.getAttribute('data-c')==='designation'){
+    if(!e.target.isConnected) return;
     var rr=trouve(e.target.closest('tr').getAttribute('data-id'));
+    if(rr && rr.frais && e.target.value!==rr.designation) return;   /* intitulé du type de frais choisi : on le garde */
     if(rr && rr.type!=='chapitre' && rr.type!=='note' && !D().dpgf){
       var mt=majTete(e.target.value);
       if(mt!==e.target.value){ e.target.value=mt; rr.designation=mt; planifieSauvegarde(); }
@@ -8943,6 +8945,7 @@ function choisitFrais(i){
   var f=params.frais[i], d=D(), r=FRAIS_CIBLE&&trouve(FRAIS_CIBLE.id); fermeFrais();
   if(!f||!r) return;
   memorise(d,'type de frais');
+  var ta=document.querySelector('#corpsTable tr[data-id="'+r.id+'"] textarea[data-c="designation"]'); if(ta) ta.value=f.nom;   /* le champ affiche tout de suite l'intitulé du type */
   r.designation=f.nom; r.unite=f.unite; r.pu=f.cout!=null?f.cout:'';
   r.marge=f.marge!=null?f.marge:0;
   delete r.repartir;
@@ -9005,12 +9008,13 @@ function suisPeage(d,r){
   if(r.masque){ pg.masque=true; if(r.repartir) pg.repartir=r.repartir; else delete pg.repartir; } else { delete pg.masque; delete pg.repartir; }
 }
 function calculKm(d,r){
-  var dep=departChantier(d), arr=adresseUneLigne(d.entete.adresseChantier)||adresseUneLigne(d.entete.adresseClient);
+  var dep=departChantier(d), arrCh=adresseUneLigne(d.entete.adresseChantier), arr=arrCh||adresseUneLigne(d.entete.adresseClient);   /* arrivée : chantier, sinon client ; les deux vides → saisie */
   var k=r.km||{}, pg=lignePeage(d,r);
   var ar=k.ar!==false, traj=k.trajets||1, peage=pg?puAchat(pg):(k.peage||'');
   ouvreModale('📍 Calcul des kilomètres',
     '<p style="margin:0 0 6px"><b>Départ</b> ('+(dep.cle==='secondaire'?'bureaux':'siège')+', à changer dans l\'en-tête du chantier) :<br>'+(dep.adresse?echappe(dep.adresse):'<i>adresse vide — Paramètres › Société</i>')+'</p>'
-    +'<p style="margin:0 0 10px"><b>Arrivée</b> ('+(adresseUneLigne(d.entete.adresseChantier)?'adresse du chantier':'adresse du client')+') :<br>'+(arr?echappe(arr):'<i>aucune adresse de chantier ni de client dans l\'en-tête</i>')+'</p>'
+    +(arr?'<p style="margin:0 0 10px"><b>Arrivée</b> ('+(arrCh?'adresse du chantier':'adresse du client, pas d\'adresse de chantier')+') :<br>'+echappe(arr)+'</p>'
+        :'<div style="margin:0 0 10px"><label class="champ" for="kmArr"><b>Adresse du chantier</b> (aucune adresse de chantier ni de client ; elle sera reportée dans l\'en-tête)</label><textarea id="kmArr" rows="2" placeholder="Numéro et rue&#10;Code postal VILLE" style="width:100%;resize:vertical"></textarea></div>')
     +'<label style="display:flex;gap:6px;align-items:center;margin:0 0 8px"><input type="checkbox" id="kmAr"'+(ar?' checked':'')+'> Aller-retour</label>'
     +'<div style="display:flex;gap:12px;flex-wrap:wrap"><div><label class="champ" for="kmTraj">Nombre de trajets</label><input type="text" id="kmTraj" inputmode="numeric" value="'+traj+'" style="width:90px"></div>'
     +'<div><label class="champ" for="kmPeage">Péage aller (€ HT)</label><input type="text" id="kmPeage" inputmode="decimal" value="'+chiffreFr(peage)+'" placeholder="0" style="width:110px"></div></div>'
@@ -9018,8 +9022,9 @@ function calculKm(d,r){
     +'<p id="kmRes" role="status" style="margin:10px 0 0;font-weight:600">'+(k.aller?'Dernier calcul : '+chiffreFr(k.aller)+' km aller.':'')+'</p>',
     [{lib:'Annuler', action:function(){}},
      {lib:'Calculer et appliquer', plein:true, action:function(){
-        if(!dep.adresse || !arr){ $('kmRes').textContent=!dep.adresse?'Adresse de départ vide : remplissez-la dans Paramètres › Société.':'Ajoutez l\'adresse du chantier ou du client dans l\'en-tête.'; return false; }
-        var o={ar:$('kmAr').checked, trajets:Math.max(1,Math.round(nombreFr($('kmTraj').value))||1), peage:Math.max(0,nombreFr($('kmPeage').value)||0)};
+        var saisie=$('kmArr')?$('kmArr').value.trim():''; if(saisie) arr=adresseUneLigne(saisie);
+        if(!dep.adresse || !arr){ $('kmRes').textContent=!dep.adresse?'Adresse de départ vide : remplissez-la dans Paramètres › Société.':'Saisissez l\'adresse du chantier.'; return false; }
+        var o={ar:$('kmAr').checked, trajets:Math.max(1,Math.round(nombreFr($('kmTraj').value))||1), peage:Math.max(0,nombreFr($('kmPeage').value)||0), adresseChantier:saisie};
         $('kmRes').textContent='Calcul en cours…';
         distanceRoute(dep.adresse,arr).then(function(res){
           if(!trouveDans(d,r.id)){ fermeModale(); return; }
@@ -9037,6 +9042,7 @@ function trouveDans(d,id){ return d.lignes.find(function(x){ return x.id===id; }
 function appliqueKm(d,r,res,o){
   var n=(o.ar?2:1)*o.trajets;
   memorise(d,'calcul des km');
+  if(o.adresseChantier) d.entete.adresseChantier=o.adresseChantier;   /* adresse saisie dans la fenêtre 📍 → en-tête */
   r.qte=Math.round(res.km*n*10)/10;
   r.km={aller:res.km, ar:o.ar, trajets:o.trajets, de:res.de, a:res.a};
   var pg=lignePeage(d,r);
