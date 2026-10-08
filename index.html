@@ -346,6 +346,7 @@ button.badge-tva.neutre{background:#efe9df;color:#6b5a3e}
 .fc-t{border-collapse:collapse;margin-bottom:4px;width:auto}
 .fc-t th{font-size:11px;text-align:left;font-weight:600;padding:2px 6px 2px 0}
 .fc-t td{padding:2px 6px 2px 0}
+.fc-t tr.ep-grp td{padding:6px 0 2px}.ep-plie{background:none;border:0;padding:0;font:inherit;font-size:12px;font-weight:600;cursor:pointer;color:inherit}.ep-plie:hover{text-decoration:underline}
 .fc-t input{width:110px}.fc-t input.fc-up{width:46px}.fc-t select{width:160px}
 .etoile-f{border:0;background:none;cursor:pointer;font-size:17px;line-height:1;padding:0 4px;color:#b0b7c0}
 .etoile-f.on{color:#e0a100}
@@ -1157,9 +1158,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.52';
-var DATE_VERSION = '08/10/2026 12h34';   /* date et heure de livraison */
-var NOTES = 'Nouveau : fenêtre 5,5 % — emplacements combles perdus, rampants, toitures-terrasses, murs par l\'intérieur, ITE, planchers bas ; murs intérieurs et cloisons signalés non éligibles (seuils modifiables dans Paramètres).';
+var VERSION = '3.53';
+var DATE_VERSION = '08/10/2026 14h25';   /* date et heure de livraison */
+var NOTES = 'Fiches techniques : épaisseurs regroupées par version, repliées à l\'ouverture, avec plier / déplier et Tout replier / Tout déplier.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -7952,6 +7953,20 @@ function nouvelleFiche(){
 function sauveFiche(f){ f.maj=Date.now(); return ecrisModele(f); }
 function ficheParId(id){ return FICHES.find(function(f){ return f.id===id; }); }
 function nomFiche(f){ return (f.nom||'Produit sans nom')+(f.marque && String(f.nom||'').toLowerCase().indexOf(String(f.marque).toLowerCase())<0?' ('+f.marque+')':''); }
+/* épaisseurs d'une fiche groupées par version, chaque groupe se plie (replié par défaut, état gardé pendant la session) */
+var EP_OUVERT={};
+function cleEp(f,ver){ return f.id+'|'+(f.versions.length>1?ver:'*'); }
+function groupesEp(f){
+  if(!f.epaisseurs.length) return [];
+  if(f.versions.length<2) return [{cle:cleEp(f,''), lib:'', idx:f.epaisseurs.map(function(x,i){ return i; })}];
+  var noms=f.versions.map(function(v){ return v.nom; }), g=[];
+  noms.forEach(function(n,k){ if(noms.indexOf(n)<k) return;
+    var idx=[]; f.epaisseurs.forEach(function(x,i){ if(x.version===n) idx.push(i); });
+    if(idx.length) g.push({cle:cleEp(f,n), lib:n||'Sans nom', idx:idx}); });
+  var reste=[]; f.epaisseurs.forEach(function(x,i){ if(noms.indexOf(x.version)<0) reste.push(i); });
+  if(reste.length) g.push({cle:cleEp(f,'\u0000'), lib:'Sans version', idx:reste});
+  return g;
+}
 function renduFiches(){
   var zone=$('ficheListe'); if(!zone) return;
   if(!FICHES.length){ zone.innerHTML='<p class="note">Aucun produit pour l\'instant : « + Ajouter un produit », puis importez sa fiche.</p>'; return; }
@@ -7983,14 +7998,17 @@ function renduFiches(){
       h+='<div class="fc-tables"><div><p class="fc-titre">Versions et ACERMI</p><table class="fc-t"><tr><th>Version</th><th>N° ACERMI</th><th></th></tr>'
         +f.versions.map(function(x,i){ return '<tr><td><input type="text" data-fid="'+f.id+'" data-ft="versions" data-fi="'+i+'" data-fk="nom" value="'+v(x.nom)+'" placeholder="kraft"></td><td><input type="text" data-fid="'+f.id+'" data-ft="versions" data-fi="'+i+'" data-fk="acermi" value="'+v(x.acermi)+'"></td><td><button type="button" class="mini" data-fsup="versions" data-fid="'+f.id+'" data-fi="'+i+'" title="Retirer">✕</button></td></tr>'; }).join('')
         +'</table><button type="button" class="mini" data-fplus="versions" data-fid="'+f.id+'">+ version</button></div>'
-        +'<div><p class="fc-titre">Épaisseurs</p><table class="fc-t"><tr>'+(f.versions.length>1?'<th>Version</th>':'')+'<th>Épaisseur (mm)</th><th>R (m².K/W)</th><th>Référence</th><th>Prix indicatif (€ HT)</th><th>Unité</th><th>Code fournisseur</th><th>TVA</th><th title="Favori">★</th><th></th></tr>'
-        +f.epaisseurs.map(function(x,i){
-          return '<tr>'+(f.versions.length>1?'<td><select data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="version">'+f.versions.map(function(y){ return '<option'+(y.nom===x.version?' selected':'')+'>'+echappe(y.nom)+'</option>'; }).join('')+'</select></td>':'')
+        +'<div><p class="fc-titre">Épaisseurs'+(f.epaisseurs.length?' <button type="button" class="mini" data-feptout="0" data-fid="'+f.id+'">Tout replier</button> <button type="button" class="mini" data-feptout="1" data-fid="'+f.id+'">Tout déplier</button>':'')+'</p><table class="fc-t"><tr>'+(f.versions.length>1?'<th>Version</th>':'')+'<th>Épaisseur (mm)</th><th>R (m².K/W)</th><th>Référence</th><th>Prix indicatif (€ HT)</th><th>Unité</th><th>Code fournisseur</th><th>TVA</th><th title="Favori">★</th><th></th></tr>'
+        +groupesEp(f).map(function(g){
+          var ouv=q.length>0 || !!EP_OUVERT[g.cle], ncol=f.versions.length>1?10:9;
+          return '<tr class="ep-grp"><td colspan="'+ncol+'"><button type="button" class="ep-plie" data-fepg="'+echappe(g.cle)+'" data-fid="'+f.id+'">'+(ouv?'▾':'▸')+' '+echappe(g.lib)+(g.lib?' · ':'')+g.idx.length+' épaisseur'+(g.idx.length>1?'s':'')+'</button></td></tr>'
+          +g.idx.map(function(i){ var x=f.epaisseurs[i];
+          return '<tr data-epg="'+echappe(g.cle)+'"'+(ouv?'':' hidden')+'>'+(f.versions.length>1?'<td><select data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="version">'+f.versions.map(function(y){ return '<option'+(y.nom===x.version?' selected':'')+'>'+echappe(y.nom)+'</option>'; }).join('')+'</select></td>':'')
             +'<td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="e" value="'+v(x.e)+'"></td><td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="r" value="'+v(x.r)+'"></td>'
             +'<td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="ref" value="'+v(x.ref)+'"></td>'
             +'<td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="prix" value="'+v(x.prix)+'"></td>'
             +'<td><input type="text" class="fc-up" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="up" value="'+v(x.up)+'" placeholder="m²"></td>'
-            +'<td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="code" value="'+v(x.code)+'"></td><td>'+(elig55Ep(x.r)?'<span class="badge-55f">'+elig55Ep(x.r)+'</span>':'')+'</td><td><button type="button" class="etoile-f'+(x.fav?' on':'')+'" data-fepfav="'+i+'" data-fid="'+f.id+'" title="'+(x.fav?'Retirer des favoris':'Épaisseur favorite')+'">'+(x.fav?'★':'☆')+'</button></td><td><button type="button" class="mini" data-fsup="epaisseurs" data-fid="'+f.id+'" data-fi="'+i+'" title="Retirer">✕</button></td></tr>'; }).join('')
+            +'<td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="code" value="'+v(x.code)+'"></td><td>'+(elig55Ep(x.r)?'<span class="badge-55f">'+elig55Ep(x.r)+'</span>':'')+'</td><td><button type="button" class="etoile-f'+(x.fav?' on':'')+'" data-fepfav="'+i+'" data-fid="'+f.id+'" title="'+(x.fav?'Retirer des favoris':'Épaisseur favorite')+'">'+(x.fav?'★':'☆')+'</button></td><td><button type="button" class="mini" data-fsup="epaisseurs" data-fid="'+f.id+'" data-fi="'+i+'" title="Retirer">✕</button></td></tr>'; }).join(''); }).join('')
         +'</table><button type="button" class="mini" data-fplus="epaisseurs" data-fid="'+f.id+'">+ épaisseur</button></div></div>';
     }
     h+='<p class="fc-titre">Documents</p><div class="fc-docs">'+Object.keys(DOCS_FICHE).map(function(k){
@@ -8133,18 +8151,23 @@ $('ficheListe').addEventListener('change',function(e){
   var k=x.getAttribute('data-fk'), t=x.getAttribute('data-ft'), val=x.value;
   var num=/^(lambda|uw|sw|ud|e|r|prix)$/.test(k);
   if(t){ var row=f[t][+x.getAttribute('data-fi')]; if(!row) return; var ancien=row[k]; row[k]=num?nb55(val):val.trim();
-         if(t==='versions' && k==='nom') f.epaisseurs.forEach(function(y){ if(y.version===ancien) y.version=row.nom; }); }
+         if(t==='versions' && k==='nom'){ f.epaisseurs.forEach(function(y){ if(y.version===ancien) y.version=row.nom; }); if(EP_OUVERT[cleEp(f,ancien)]) EP_OUVERT[cleEp(f,row.nom)]=1; } }
   else { f[k]=num?nb55(val):val.trim(); if(k==='nom') delete f.nomAuto; }
   sauveFiche(f);
+  if(t==='epaisseurs' && k==='version'){ EP_OUVERT[cleEp(f,row.version)]=1; renduFiches(); return; }
   if(k==='famille' || k==='nom' || k==='prix' || k==='up' || k==='r' || k==='uw' || k==='sw' || k==='ud' || (t==='versions' && k==='nom')) renduFiches();
 });
 $('ficheListe').addEventListener('click',function(e){
   var b=e.target.closest('button'); if(!b) return;
   var f=ficheParId(b.getAttribute('data-fid')); if(!f) return;
   if(b.hasAttribute('data-ffav')){ e.preventDefault(); f.fav=!f.fav; sauveFiche(f); renduFiches(); return; }   /* l'étoile ne plie pas la carte */
+  if(b.hasAttribute('data-fepg')){ var cg=b.getAttribute('data-fepg'), ov=!EP_OUVERT[cg]; if(ov) EP_OUVERT[cg]=1; else delete EP_OUVERT[cg];
+    Array.prototype.forEach.call(b.closest('table').querySelectorAll('tr[data-epg]'),function(r){ if(r.getAttribute('data-epg')===cg) r.hidden=!ov; });
+    b.textContent=(ov?'▾':'▸')+b.textContent.slice(1); return; }
+  if(b.hasAttribute('data-feptout')){ var tout=b.getAttribute('data-feptout')==='1'; groupesEp(f).forEach(function(g){ if(tout) EP_OUVERT[g.cle]=1; else delete EP_OUVERT[g.cle]; }); renduFiches(); return; }
   if(b.hasAttribute('data-fepfav')){ var ep=f.epaisseurs[+b.getAttribute('data-fepfav')]; if(ep){ ep.fav=!ep.fav; sauveFiche(f); renduFiches(); } return; }
   if(b.hasAttribute('data-fplus')){ var t=b.getAttribute('data-fplus');
-    f[t].push(t==='versions'?{nom:'',acermi:''}:{version:(f.versions[0]||{}).nom||'', e:null, r:null, ref:''}); sauveFiche(f); renduFiches(); }
+    f[t].push(t==='versions'?{nom:'',acermi:''}:{version:(f.versions[0]||{}).nom||'', e:null, r:null, ref:''}); if(t==='epaisseurs') EP_OUVERT[cleEp(f,f.epaisseurs[f.epaisseurs.length-1].version)]=1; sauveFiche(f); renduFiches(); }
   else if(b.hasAttribute('data-fsup')){ f[b.getAttribute('data-fsup')].splice(+b.getAttribute('data-fi'),1); sauveFiche(f); renduFiches(); }
   else if(b.hasAttribute('data-fimp')){ ficheCible={f:f, k:b.getAttribute('data-fimp')}; $('ficheFichier').value=''; $('ficheFichier').click(); }
   else if(b.hasAttribute('data-fvoir')){ var d=f.docs[b.getAttribute('data-fvoir')]; if(!d) return;
