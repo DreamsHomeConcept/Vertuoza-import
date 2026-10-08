@@ -876,10 +876,14 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <hr class="separateur">
 
     <h3 class="st">TVA à 5,5 % : performances minimales</h3>
-    <p class="note" style="margin-top:0">Une ligne à 5,5 % (isolation, fenêtre, porte d'entrée) est contrôlée avec ces seuils : pastille sur la ligne et alerte à la création du PDF.</p>
+    <p class="note" style="margin-top:0">Une ligne à 5,5 % (isolation, fenêtre, porte d'entrée) est contrôlée avec ces seuils : pastille sur la ligne et alerte à la création du PDF. Les murs intérieurs et cloisons ne sont jamais éligibles (article 18 bis de l'annexe IV du CGI).</p>
     <div class="grille-param">
-      <div class="p-court"><label class="champ" for="s55_combles">Isolation rampants et combles</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_combles" data-s55="combles" inputmode="decimal"><span>m².K/W</span></div></div>
-      <div class="p-court"><label class="champ" for="s55_murs">Isolation murs extérieurs</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_murs" data-s55="murs" inputmode="decimal"><span>m².K/W</span></div></div>
+      <div class="p-court"><label class="champ" for="s55_perdus">Isolation combles perdus</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_perdus" data-s55="perdus" inputmode="decimal"><span>m².K/W</span></div></div>
+      <div class="p-court"><label class="champ" for="s55_combles">Isolation rampants et plafonds de combles</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_combles" data-s55="combles" inputmode="decimal"><span>m².K/W</span></div></div>
+      <div class="p-court"><label class="champ" for="s55_terrasses">Isolation toitures-terrasses</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_terrasses" data-s55="terrasses" inputmode="decimal"><span>m².K/W</span></div></div>
+      <div class="p-court"><label class="champ" for="s55_murs">Isolation murs extérieurs, par l'intérieur</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_murs" data-s55="murs" inputmode="decimal"><span>m².K/W</span></div></div>
+      <div class="p-court"><label class="champ" for="s55_ite">Isolation murs extérieurs, par l'extérieur (ITE)</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_ite" data-s55="ite" inputmode="decimal"><span>m².K/W</span></div></div>
+      <div class="p-court"><label class="champ" for="s55_planchers">Isolation planchers bas</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_planchers" data-s55="planchers" inputmode="decimal"><span>m².K/W</span></div></div>
       <div class="p-court"><label class="champ" for="s55_ud">Porte d'entrée</label><div class="unite-champ"><span>Ud ≤</span><input type="text" id="s55_ud" data-s55="ud" inputmode="decimal"><span>W/m².K</span></div></div>
       <div class="p-court"><label class="champ" for="s55_uw1">Fenêtres, 1re possibilité</label><div class="unite-champ"><span>Uw ≤</span><input type="text" id="s55_uw1" data-s55="uw1" inputmode="decimal"><span>et Sw ≥</span><input type="text" id="s55_sw1" data-s55="sw1" inputmode="decimal" aria-label="Sw minimal, 1re possibilité"></div></div>
       <div class="p-court"><label class="champ" for="s55_uw2">Fenêtres, 2e possibilité</label><div class="unite-champ"><span>Uw ≤</span><input type="text" id="s55_uw2" data-s55="uw2" inputmode="decimal"><span>et Sw ≥</span><input type="text" id="s55_sw2" data-s55="sw2" inputmode="decimal" aria-label="Sw minimal, 2e possibilité"></div></div>
@@ -1153,9 +1157,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.51';
-var DATE_VERSION = '08/10/2026 12h01';   /* date et heure de livraison */
-var NOTES = 'Nouveau : les lignes en option (menu ⋯ « Passer en option ») apparaissent dans le devis client PDF, sous les totaux, avec prix HT, TTC et une case « Retenue » à cocher par le client.';
+var VERSION = '3.52';
+var DATE_VERSION = '08/10/2026 12h34';   /* date et heure de livraison */
+var NOTES = 'Nouveau : fenêtre 5,5 % — emplacements combles perdus, rampants, toitures-terrasses, murs par l\'intérieur, ITE, planchers bas ; murs intérieurs et cloisons signalés non éligibles (seuils modifiables dans Paramètres).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1211,7 +1215,7 @@ var params = {
   sbUrl:'', sbCle:'', sbAuto:false,
   devisProchain:'', devisResp:'', devisEmail:'', devisTel:'', devisIban:'', devisBic:'', devisAcomptes:'',
   devisResps:[],         /* responsables proposés dans le devis client : {nom, email, tel} */
-  seuils55:{combles:6, murs:3.7, uw1:1.3, sw1:0.3, uw2:1.7, sw2:0.36, ud:1.7},   /* TVA 5,5 % : performances minimales */
+  seuils55:{perdus:7, combles:6, terrasses:4.5, murs:3.7, ite:3.7, planchers:3, uw1:1.3, sw1:0.3, uw2:1.7, sw2:0.36, ud:1.7},   /* TVA 5,5 % : performances minimales */
   gardes:null,   /* pages de garde : réglages (les images sont dans IndexedDB, id « garde:… ») */
   condParts:null,   /* conditions particulières du devis client ; null = bibliothèque d'origine (COND_PARTS_DEF) */
   devisPaiements:['Virement bancaire'],   /* méthodes de paiement du devis client ; la première est la méthode par défaut */
@@ -1489,12 +1493,16 @@ function debourseLigne(r){ return (r.type==='ligne'&&!r.option)?nombreFr(r.qte)*
 /* Un intervenant décoché n'est plus compté : ses lignes restent visibles, grisées. */
 /* ---------------- TVA 5,5 % : performances des isolants, fenêtres et portes ---------------- */
 var FAM55={isolation:'Isolation', fenetre:'Fenêtre ou baie', porte:'Porte d\'entrée'};
-var EMPL55={combles:'Rampants et combles', murs:'Murs extérieurs'};
+var EMPL55={perdus:'Combles perdus', combles:'Rampants et plafonds de combles', terrasses:'Toitures-terrasses', murs:'Murs extérieurs, par l\'intérieur', ite:'Murs extérieurs, par l\'extérieur (ITE)', planchers:'Planchers bas', cloisons:'Murs intérieurs, cloisons'};
+var NONELIG55={cloisons:1};   /* isolation entre pièces chauffées : pas d'isolation de l'enveloppe, pas de 5,5 % */
+var COURT55={perdus:'combles perdus', combles:'rampants', terrasses:'terrasses', murs:'murs', planchers:'planchers'};
+function seuilTxt55(k){ return NONELIG55[k] ? 'non éligible au 5,5 %' : 'R ≥ '+fmt55(params.seuils55[k]); }
 var PROP_FICHE={thermique:'Thermique', acoustique:'Acoustique', feu:'Feu'};
 /* favoris des fiches : un produit est favori s'il est étoilé ou s'il a une épaisseur étoilée */
 function ficheFav(f){ return !!(f.fav || (f.epaisseurs||[]).some(function(x){ return x.fav; })); }
 /* emplacements où une épaisseur passe le seuil 5,5 % : « murs », « murs + combles » */
-function elig55Ep(r){ var S=params.seuils55, l=Object.keys(EMPL55).filter(function(k){ return r && r>=S[k]-1e-9; }); return l.length?'5,5 % '+(l.length>1?'murs + combles':l[0]):''; }
+function elig55Ep(r){ var S=params.seuils55, ks=Object.keys(COURT55), l=ks.filter(function(k){ return r && S[k] && r>=S[k]-1e-9; });
+  return !l.length ? '' : l.length===ks.length ? '5,5 % tous emplacements' : '5,5 % '+l.map(function(k){ return COURT55[k]; }).join(', '); }
 function elig55Fiche(f){ var S=params.seuils55;
   if(f.famille==='fenetre') return f.uw&&f.sw&&((f.uw<=S.uw1+1e-9&&f.sw>=S.sw1-1e-9)||(f.uw<=S.uw2+1e-9&&f.sw>=S.sw2-1e-9))?'5,5 %':'';
   if(f.famille==='porte') return f.ud&&f.ud<=S.ud+1e-9?'5,5 %':'';
@@ -1517,8 +1525,14 @@ function famille55(t){
   return '';
 }
 function empl55(t){
+  t=String(t||''); var sc=t.replace(/contre[- ]cloisons?/gi,'');   /* une contre-cloison isole un mur extérieur */
+  if(/cloisons?|murs?\s+(?:int[ée]rieurs?|s[ée]paratifs?|de refend)|refends?/i.test(sc)) return 'cloisons';
+  if(/combles?\s+perdus?|soufflage|plancher\s+(?:de|des|du)\s+combles?/i.test(t)) return 'perdus';
+  if(/toitures?[- ]terrasses?|terrasses?/i.test(t)) return 'terrasses';
+  if(/planchers?\s+bas|vide[- ]sanitaire|sous[- ]sol|terre[- ]plein|plafond\s+(?:de\s+|du\s+)?(?:garage|cave|sous)/i.test(t)) return 'planchers';
   if(/rampant|comble|toiture|sous[- ]toiture|plafond|sarking|toit/i.test(t)) return 'combles';
-  if(/\bmurs?\b|fa[çc]ade|\bITE\b|\bITI\b|doublage|pignon/i.test(t)) return 'murs';
+  if(/\bITE\b|isolation\s+(?:thermique\s+)?(?:par\s+l'|de\s+l'|à\s+l')?ext[ée]rieur|fa[çc]ade|bardage|enduit\s+sur\s+isolant/i.test(t)) return 'ite';
+  if(/\bmurs?\b|\bITI\b|doublage|pignon/i.test(t)) return 'murs';
   return '';
 }
 /* valeurs lues dans le texte, complétées par la fiche (r.perf) */
@@ -1547,8 +1561,9 @@ function analyse55(d,i){
   var v=valeurs55(d,i), S=params.seuils55, manque=[], ko=[];
   if(v.famille==='isolation'){
     if(!v.r) manque.push('R'); if(!v.acermi) manque.push('ACERMI'); if(!v.emplacement) manque.push('emplacement');
-    var mini=v.emplacement?S[v.emplacement]:null;
-    if(v.r && mini && v.r<mini-1e-9) ko.push('R '+fmt55(v.r)+' < '+fmt55(mini)+' ('+EMPL55[v.emplacement].toLowerCase()+')');
+    var mini=v.emplacement && !NONELIG55[v.emplacement]?S[v.emplacement]:null;
+    if(NONELIG55[v.emplacement]) ko.push('non éligible ('+EMPL55[v.emplacement].toLowerCase()+') : passer à 10 %');
+    else if(v.r && mini && v.r<mini-1e-9) ko.push('R '+fmt55(v.r)+' < '+fmt55(mini)+' ('+EMPL55[v.emplacement].toLowerCase()+')');
   } else if(v.famille==='fenetre'){
     if(!v.uw) manque.push('Uw'); if(!v.sw) manque.push('Sw');
     if(v.uw && v.sw && !((v.uw<=S.uw1+1e-9 && v.sw>=S.sw1-1e-9) || (v.uw<=S.uw2+1e-9 && v.sw>=S.sw2-1e-9)))
@@ -1564,7 +1579,7 @@ function badge55(d,i){
   /* ligne d'isolation, de fenêtre ou de porte pas encore à 5,5 % sur un chantier en rénovation : proposer le taux réduit */
   if(!a){
     var r=d.lignes[i];
-    if(r && r.type==='ligne' && !r.option && estReno(d) && tauxDe(d,r)!==5.5 && famille55(texte55(d,i)))
+    if(r && r.type==='ligne' && !r.option && estReno(d) && tauxDe(d,r)!==5.5 && famille55(texte55(d,i)) && !NONELIG55[valeurs55(d,i).emplacement])
       return '<button type="button" class="badge-tva neutre" data-a="pos55" title="Rénovation : cette ligne peut passer à 5,5 % si ses performances le permettent. Cliquer pour la passer à 5,5 % et compléter la fiche">5,5 % possible</button>';
     return '';
   }
@@ -1597,7 +1612,7 @@ function fichePerf55(d,i){
     if(favs.length) h+='<label class="f55-tout" style="flex-direction:row;align-items:center;gap:6px;align-self:end"><input type="checkbox" id="f55_tout" style="width:auto"'+(f.tout?' checked':'')+'>Afficher tout ('+tous.length+' produit'+(tous.length>1?'s':'')+')</label>';
     if(pf && f.famille==='isolation'){
       if(pf.versions.length>1) h+='<label>Version<select id="f55_fver">'+pf.versions.map(function(x){ return '<option'+(x.nom===f.fver?' selected':'')+'>'+echappe(x.nom)+'</option>'; }).join('')+'</select></label>';
-      var seuil=f.emplacement?params.seuils55[f.emplacement]:null;
+      var seuil=f.emplacement && !NONELIG55[f.emplacement]?params.seuils55[f.emplacement]:null;
       var eps=pf.epaisseurs.filter(function(x){ return pf.versions.length<2 || x.version===f.fver; });
       if(!f.tout && eps.some(function(x){ return x.fav; })) eps=eps.filter(function(x){ return x.fav || x.e===f.epaisseur; });   /* épaisseurs étoilées seulement ; aucune étoilée = toutes */
       h+='<label>Épaisseur'+(seuil?' (✓ = R ≥ '+fmt55(seuil)+')':'')+'<select id="f55_fep"><option value="">— choisir —</option>'+eps.map(function(x){
@@ -1627,7 +1642,7 @@ function fichePerf55(d,i){
     var h='<label>Type de travaux<select id="f55_famille">'+Object.keys(FAM55).map(function(k){ return '<option value="'+k+'"'+(k===f.famille?' selected':'')+'>'+FAM55[k]+'</option>'; }).join('')+'</select></label>';
     var bf=blocFiche(); if(bf) h+=bf+'<span class="f55-large f55-sep"></span>';
     if(f.famille==='isolation'){
-      h+='<label>Emplacement<select id="f55_emplacement"><option value="">— à choisir —</option>'+Object.keys(EMPL55).map(function(k){ return '<option value="'+k+'"'+(k===f.emplacement?' selected':'')+'>'+EMPL55[k]+' (R ≥ '+fmt55(params.seuils55[k])+')</option>'; }).join('')+'</select></label>'
+      h+='<label>Emplacement<select id="f55_emplacement"><option value="">— à choisir —</option>'+Object.keys(EMPL55).map(function(k){ return '<option value="'+k+'"'+(k===f.emplacement?' selected':'')+'>'+EMPL55[k]+' ('+seuilTxt55(k)+')</option>'; }).join('')+'</select></label>'
         +champ('isolant','Isolant',f.isolant,'laine de bois, laine de verre…')+champ('marque','Marque, référence',f.marque,'Steico Flex 036')
         +champ('epaisseur','Épaisseur (mm)',f.epaisseur)+champ('lambda','λ (W/m.K)',f.lambda,'0,036')
         +champ('r','R (m².K/W), vide = calculé',f.r)+champ('acermi','N° ACERMI',f.acermi)+champ('surface','Surface (m²)',f.surface);
@@ -1649,6 +1664,7 @@ function fichePerf55(d,i){
       var rr=rCalc();
       if(!rr) t='Indiquez l\'épaisseur et le λ (ou R) : R sera calculé.';
       else if(!f.emplacement) t='R = '+fmt55(rr)+' m².K/W'+(f.r?'':' (calculé : '+fmt55(f.epaisseur,0)+' ÷ 1000 ÷ '+fmt55(f.lambda,3)+')')+'. Choisissez l\'emplacement pour vérifier le seuil.';
+      else if(NONELIG55[f.emplacement]){ ok=false; t=EMPL55[f.emplacement]+' : isolation entre pièces chauffées, non éligible au 5,5 %. Passez la ligne à 10 %.'; }
       else { ok=rr>=S[f.emplacement]-1e-9; t='R = '+fmt55(rr)+' m².K/W'+(f.r?'':' (calculé : '+fmt55(f.epaisseur,0)+' ÷ 1000 ÷ '+fmt55(f.lambda,3)+')')+(ok?'  ✓ seuil respecté':'  ✗ inférieur au seuil')+' ('+EMPL55[f.emplacement].toLowerCase()+' : R ≥ '+fmt55(S[f.emplacement])+')'; }
     } else if(f.famille==='fenetre'){
       if(!f.uw || !f.sw) t='Indiquez Uw et Sw. Seuils : Uw ≤ '+fmt55(S.uw1)+' et Sw ≥ '+fmt55(S.sw1)+', ou Uw ≤ '+fmt55(S.uw2)+' et Sw ≥ '+fmt55(S.sw2)+'.';
