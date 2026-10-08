@@ -1201,9 +1201,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.70';
-var DATE_VERSION = '08/10/2026 18h49';   /* date et heure de livraison */
-var NOTES = 'Client professionnel : une ligne restée à 5,5 % bloque l\'export et le contrôle la signale (à passer à 20 %).';
+var VERSION = '3.71';
+var DATE_VERSION = '08/10/2026 18h55';   /* date et heure de livraison */
+var NOTES = 'Les frais (déplacement, restauration…) passent à 20 % ; la pastille « 5,5 % : préciser le type » n\'apparaît plus sur les frais.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1669,7 +1669,8 @@ function analyse55(d,i){
   return {v:v, famille:v.famille, manque:manque, ko:ko, trous:v.trous, ok:!!v.famille && !manque.length && !ko.length && !v.trous};
 }
 function badge55(d,i){
-  if(clientPro(d)) return '';
+  /* client pro : plus de 5,5 % ; ligne de frais : pas un ouvrage d'isolation, rien à qualifier */
+  if(clientPro(d) || estFrais(d.lignes[i])) return '';
   var a=analyse55(d,i);
   /* ligne d'isolation, de fenêtre ou de porte pas encore à 5,5 % sur un chantier en rénovation : proposer le taux réduit */
   if(!a){
@@ -6123,6 +6124,9 @@ function regleTva(d){
     if(!d.lignes.some(function(r){ return r.intervenant===nom; })) return;
     if(!a55(d,nom)) return;
     var lignes=d.lignes.filter(function(r){ return r.intervenant===nom && r.type==='ligne'; });
+    /* frais (déplacement, restauration…) : 20 % sauf s'ils sont inclus dans le prix des travaux (Moussa, 08/10/2026) */
+    lignes.filter(estFrais).forEach(function(r){ if(r.tva==null || r.tvaAuto || Math.abs(r.tva-5.5)<0.01){ r.tva=20; r.tvaAuto=true; } });
+    lignes=lignes.filter(function(r){ return !estFrais(r); });
     if(clientPro(d)){
       /* 20 % par défaut ; marqué tvaAuto pour revenir à 5,5 % si le client redevient particulier */
       lignes.forEach(function(r){ if(r.tva==null || r.tvaAuto || Math.abs(r.tva-5.5)<0.01){ r.tva=20; r.tvaAuto=true; } });
