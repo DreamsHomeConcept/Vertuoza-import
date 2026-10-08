@@ -1220,9 +1220,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.77';
-var DATE_VERSION = '08/10/2026 19h44';   /* date et heure de livraison */
-var NOTES = 'Frais kilométriques : bouton 📍 qui calcule les km depuis les bureaux ou le siège (choix dans l\'en-tête) jusqu\'au chantier, avec ligne Péages saisie à la main.';
+var VERSION = '3.78';
+var DATE_VERSION = '08/10/2026 19h55';   /* date et heure de livraison */
+var NOTES = 'Société : bouton ✕ pour effacer l\'adresse secondaire ; le départ des km revient alors au siège.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -8290,10 +8290,11 @@ var SOC_CHAMPS=[
 function renduSociete(){
   var x=societe();
   $('socForm').innerHTML=SOC_CHAMPS.map(function(g){
+    var sec=g[1][0][0]==='secRue';
     return '<h3 class="st" style="margin-top:6px">'+g[0]+'</h3><div class="grille-param">'
       +g[1].map(function(c){ return '<div class="'+c[2]+'"><label class="champ" for="soc_'+c[0]+'">'+c[1]+'</label>'
         +'<input type="text" id="soc_'+c[0]+'" data-soc="'+c[0]+'" spellcheck="false" value="'+echappe(x[c[0]])+'"></div>'; }).join('')
-      +'</div>';
+      +'</div>'+(sec?'<p style="margin:4px 0 0"><button type="button" class="mini" id="socEffacerSec" title="Vider l\'adresse secondaire : le départ des km revient au siège">✕ Effacer l\'adresse secondaire</button></p>':'');
   }).join('');
 }
 renduSociete();
@@ -8301,6 +8302,12 @@ $('socForm').addEventListener('change',function(e){
   var k=e.target.getAttribute('data-soc'); if(!k) return;
   params.societe=params.societe||{}; params.societe[k]=e.target.value.trim(); sauveParams();
 });
+$('socEffacerSec').onclick=function(){
+  if(!confirm('Effacer l\'adresse secondaire ? Le départ des km revient au siège.')) return;
+  params.societe=params.societe||{};
+  ['secRue','secCp','secVille','secPays'].forEach(function(k){ params.societe[k]=''; });
+  sauveParams(); renduSociete();
+};
 $('socDefaut').onclick=function(){
   if(!confirm('Remettre les informations de la société d\'origine ?')) return;
   params.societe=null; sauveParams(); renduSociete();
