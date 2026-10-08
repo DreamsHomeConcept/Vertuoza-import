@@ -335,6 +335,25 @@ button.badge-tva.neutre{background:#efe9df;color:#6b5a3e}
 .explic55 ul{margin:2px 0 4px;padding-left:20px}
 .f55{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px}
 .f55 label{font-size:12px}
+.f55 .f55-large{grid-column:1/-1;margin:0}
+.f55 .f55-sep{border-top:1px solid var(--trait)}
+.fiche-carte{border:1px solid var(--trait);border-radius:3px;padding:8px 14px;margin-bottom:10px}
+.fiche-carte summary{cursor:pointer;padding:4px 0}
+.fiche-carte .fc-corps{padding-top:10px}
+.fiche-carte textarea{width:100%;box-sizing:border-box}
+.fc-titre{font-weight:700;font-size:12px;margin:12px 0 4px}
+.fc-tables{display:flex;flex-wrap:wrap;gap:10px 30px}
+.fc-t{border-collapse:collapse;margin-bottom:4px;width:auto}
+.fc-t th{font-size:11px;text-align:left;font-weight:600;padding:2px 6px 2px 0}
+.fc-t td{padding:2px 6px 2px 0}
+.fc-t input{width:110px}.fc-t input.fc-up{width:46px}.fc-t select{width:160px}
+.etoile-f{border:0;background:none;cursor:pointer;font-size:17px;line-height:1;padding:0 4px;color:#b0b7c0}
+.etoile-f.on{color:#e0a100}
+.badge-55f{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;background:#e6f4ea;color:#1e7b34;white-space:nowrap}
+.fc-props{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:8px 0 2px}.fc-props label{display:flex;gap:5px;align-items:center;font-size:13px}
+.fc-docs{display:grid;grid-template-columns:auto 1fr auto;gap:6px 12px;align-items:center}
+.fc-doc{display:contents}
+.fc-doc .fc-lib{font-size:13px}.fc-doc .fc-nom{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .f55 input,.f55 select{width:100%}
 .f55 .verdict{grid-column:1/4;border-radius:4px;padding:7px 10px;font-weight:600;font-size:12.5px}
 .f55 .verdict.ok{background:#e6f4ea;color:#1e7b34}
@@ -768,6 +787,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <button type="button" role="tab" data-ong="prix">Prix et marges</button>
     <button type="button" role="tab" data-ong="pdf">Devis</button>
     <button type="button" role="tab" data-ong="garde">Page de garde</button>
+    <button type="button" role="tab" data-ong="fiches">Fiches techniques</button>
     <button type="button" role="tab" data-ong="export">Export Vertuoza</button>
     <button type="button" role="tab" data-ong="classement">Classement</button>
     <button type="button" role="tab" data-ong="partage">Partage et base de prix</button>
@@ -968,6 +988,15 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <p class="note" id="gardeEtat"></p>
     </div>
 
+    <div class="vue-param" data-vue="fiches">
+    <h3 class="st">Fiches techniques</h3>
+    <p class="note" style="margin-top:0">Un produit par fiche : isolant, fenêtre ou porte. Importez sa fiche Caractéristiques ou sa DOP (PDF ou Word) : λ, versions, ACERMI, épaisseurs et R (ou Uw, Sw, Ud) sont lus automatiquement, avec l'IA quand la clé est renseignée. Vérifiez les valeurs lues. Le produit se choisit ensuite dans la fenêtre « Performances pour la TVA à 5,5 % » d'une ligne. L'étoile ☆ met un produit ou une épaisseur en favori : seuls les favoris y sont proposés (« Afficher tout » montre le reste) ; un produit en favori sans épaisseur étoilée garde toutes ses épaisseurs. La pastille verte indique les épaisseurs éligibles au taux réduit. Le prix indicatif s'affiche dans cette fenêtre, sans remplir le prix de la ligne. Les fiches restent sur ce poste ; « Exporter mes réglages » les copie avec leurs documents.</p>
+    <p style="margin:0 0 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="search" id="ficheCherche" placeholder="Rechercher : nom, marque, isolant, propriété, ACERMI, référence, usage…" style="flex:1 1 320px;max-width:520px"> <button type="button" class="mini" id="ficheAjout">+ Ajouter un produit</button></p>
+    <p class="note" id="ficheEtat"></p>
+    <div id="ficheListe"></div>
+    <input type="file" id="ficheFichier" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+    </div>
+
     <div class="vue-param" data-vue="cgv">
     <h3 class="st">Conditions générales de vente</h3>
     <p class="note" style="margin-top:0">Ajoutées en fin de devis client PDF. Une ligne vide dans un texte crée un nouveau paragraphe. <code>{ACOMPTE}</code> est remplacé par le pourcentage du premier acompte, <code>{MEDIATEUR}</code> par le médiateur de l'onglet Société, <code>{SOCIETE}</code> par le nom de la société. Les articles sont numérotés automatiquement ; un titre commençant par « a. », « b. »… est un sous-article, non numéroté. Une modification n'est prise en compte sur les devis qu'après « Valider » : en attendant, l'ajout est en vert et la suppression barrée en rouge.</p>
@@ -1030,7 +1059,7 @@ h3.st .droite{float:right;font-weight:400;font-size:12px;color:var(--encre-faibl
     <hr class="separateur">
 
     <h3 class="st">Copier mes réglages sur un autre poste</h3>
-    <p class="note" style="margin-top:0">Les réglages sont enregistrés sur ce poste seulement. « Exporter mes réglages » télécharge un fichier avec la société, les CGV, les conditions particulières, les comptes bancaires (IBAN compris), les méthodes de paiement, les acomptes, les responsables, les marges et le classement. Ouvrez ce fichier sur l'autre poste avec « Importer des réglages ». Les clés (IA, édition de la base de prix) et le numéro du prochain devis ne sont jamais copiés : chaque poste garde les siens. Le fichier contient l'IBAN : envoyez-le seulement à vos collaborateurs.</p>
+    <p class="note" style="margin-top:0">Les réglages sont enregistrés sur ce poste seulement. « Exporter mes réglages » télécharge un fichier avec la société, les CGV, les conditions particulières, les comptes bancaires (IBAN compris), les méthodes de paiement, les acomptes, les responsables, les marges, le classement, les pages de garde et les fiches techniques avec leurs documents. Ouvrez ce fichier sur l'autre poste avec « Importer des réglages ». Les clés (IA, édition de la base de prix) et le numéro du prochain devis ne sont jamais copiés : chaque poste garde les siens. Le fichier contient l'IBAN : envoyez-le seulement à vos collaborateurs.</p>
     <div class="rangee-boutons" style="margin-top:6px">
       <button class="fant" id="btnExpReglages">Exporter mes réglages</button>
       <button class="fant" id="btnImpReglages">Importer des réglages</button>
@@ -1124,9 +1153,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.49';
-var DATE_VERSION = '08/10/2026 09h07';   /* date et heure de livraison */
-var NOTES = 'Nouveau : une ligne peut se placer en tête du devis, avant le premier chapitre (↑ sur la première ligne, ou poignée ⠿ lâchée sur le haut du titre).';
+var VERSION = '3.50';
+var DATE_VERSION = '08/10/2026 10h44';   /* date et heure de livraison */
+var NOTES = 'Nouveau : onglet « Fiches techniques » (import PDF ou Word, recherche, favoris ★, propriété, prix indicatif, pastille 5,5 %), produit choisi dans la fenêtre 5,5 % ; l\'Aperçu s\'ouvre sur la page 1.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1265,7 +1294,7 @@ function exporteReglages(){
   sauveParams();
   var o={}; try{ o=JSON.parse(lisStockage(CLE_PARAMS)||'{}'); }catch(e){}
   REGLAGES_LOCAUX.forEach(function(k){ delete o[k]; });
-  var f={type:'dhc-reglages', version:VERSION, date:new Date().toISOString(), params:o, gardes:Object.assign({},GARDE_IMG)};   /* images des pages de garde */
+  var f={type:'dhc-reglages', version:VERSION, date:new Date().toISOString(), params:o, gardes:Object.assign({},GARDE_IMG), fiches:FICHES};   /* + fiches techniques avec leurs documents */   /* images des pages de garde */
   var blob=new Blob([JSON.stringify(f,null,1)],{type:'application/json'}), a=document.createElement('a');
   var j=new Date(), nom='Reglages DHC '+j.getFullYear()+'-'+pad2(j.getMonth()+1)+'-'+pad2(j.getDate())+'.json';
   a.href=URL.createObjectURL(blob); a.download=nom; document.body.appendChild(a); a.click();
@@ -1284,7 +1313,8 @@ function importeReglages(fichier){
     ecrisStockage(CLE_PARAMS, JSON.stringify(n));
     var imgs=f.gardes && typeof f.gardes==='object' ? Object.keys(f.gardes).filter(function(k){ return /^data:image\/(jpeg|png);base64,/.test(String(f.gardes[k])); }) : [];
     e.className='etat-sync ok'; e.textContent='Réglages importés. La page se recharge…';
-    Promise.all(imgs.map(function(k){ return ecrisModele({id:'garde:'+k, type:'garde', image:f.gardes[k]}); }))
+    var fiches=Array.isArray(f.fiches)?f.fiches.filter(function(x){ return x && x.type==='fiche' && /^fiche:/.test(String(x.id)); }):[];
+    Promise.all(imgs.map(function(k){ return ecrisModele({id:'garde:'+k, type:'garde', image:f.gardes[k]}); }).concat(fiches.map(ecrisModele)))
       .then(function(){ setTimeout(function(){ location.reload(); },600); });
   };
   lu.readAsText(fichier);
@@ -1460,6 +1490,18 @@ function debourseLigne(r){ return (r.type==='ligne'&&!r.option)?nombreFr(r.qte)*
 /* ---------------- TVA 5,5 % : performances des isolants, fenêtres et portes ---------------- */
 var FAM55={isolation:'Isolation', fenetre:'Fenêtre ou baie', porte:'Porte d\'entrée'};
 var EMPL55={combles:'Rampants et combles', murs:'Murs extérieurs'};
+var PROP_FICHE={thermique:'Thermique', acoustique:'Acoustique', feu:'Feu'};
+/* favoris des fiches : un produit est favori s'il est étoilé ou s'il a une épaisseur étoilée */
+function ficheFav(f){ return !!(f.fav || (f.epaisseurs||[]).some(function(x){ return x.fav; })); }
+/* emplacements où une épaisseur passe le seuil 5,5 % : « murs », « murs + combles » */
+function elig55Ep(r){ var S=params.seuils55, l=Object.keys(EMPL55).filter(function(k){ return r && r>=S[k]-1e-9; }); return l.length?'5,5 % '+(l.length>1?'murs + combles':l[0]):''; }
+function elig55Fiche(f){ var S=params.seuils55;
+  if(f.famille==='fenetre') return f.uw&&f.sw&&((f.uw<=S.uw1+1e-9&&f.sw>=S.sw1-1e-9)||(f.uw<=S.uw2+1e-9&&f.sw>=S.sw2-1e-9))?'5,5 %':'';
+  if(f.famille==='porte') return f.ud&&f.ud<=S.ud+1e-9?'5,5 %':'';
+  return (f.epaisseurs||[]).some(function(x){ return elig55Ep(x.r); })?'5,5 % selon épaisseur':''; }
+/* prix indicatif d'une épaisseur ou d'un produit : « 19,24 €/m² » */
+function prixFiche(x){ return x && x.prix ? x.prix.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €/'+(x.up||(x.e!=null?'m²':'u')) : ''; }
+function propsFiche(f){ return (f.proprietes||[]).filter(function(k){ return PROP_FICHE[k]; }).map(function(k){ return PROP_FICHE[k]; }).join(', '); }
 function nb55(x){ var v=nombreFr(x); return v>0?v:null; }
 function fmt55(v,dec){ return v==null?'':(Math.round(v*Math.pow(10,dec||2))/Math.pow(10,dec||2)).toLocaleString('fr-FR',{maximumFractionDigits:dec||2}); }
 /* texte de la ligne et des commentaires juste dessous */
@@ -1544,10 +1586,46 @@ function fichePerf55(d,i){
   var iso=/(laine de (?:bois|verre|roche|chanvre|coton|mouton)|ouate de cellulose|fibre de bois|polystyr[èe]ne (?:expans[ée]|extrud[ée])|polystyr[èe]ne|polyur[ée]thane|li[èe]ge|chanvre)/i.exec(texte55(d,i));
   var f={famille:v.famille||'isolation', emplacement:v.emplacement, isolant:p.isolant||(iso?iso[1].toLowerCase():''), marque:v.marque||'', modele:p.modele||'', dimensions:p.dimensions||'',
          epaisseur:v.epaisseur, lambda:v.lambda, r:v.rCalcule?null:v.r, acermi:v.acermi, uw:v.uw, sw:v.sw, ud:v.ud,
-         surface:nb55(p.surface)||(/m²|m2/i.test(r.unite||'')?nb55(r.qte):null)};
+         surface:nb55(p.surface)||(/m²|m2/i.test(r.unite||'')?nb55(r.qte):null), fiche:p.fiche||'', fver:p.fver||'', ref:p.ref||''};
+  /* fiche technique de la bibliothèque : produit, version, épaisseur → valeurs remplies */
+  var blocFiche=function(){
+    var tous=FICHES.filter(function(x){ return x.famille===f.famille; }), pf=f.fiche && ficheParId(f.fiche);
+    if(!tous.length) return '';
+    var favs=tous.filter(ficheFav), filtre=favs.length && !f.tout;   /* seuls les favoris, sauf « Afficher tout » */
+    var l=filtre ? tous.filter(function(x){ return ficheFav(x) || x===pf; }) : tous;
+    var h='<label>Fiche technique<select id="f55_fiche"><option value="">— aucune —</option>'+l.map(function(o){ return '<option value="'+o.id+'"'+(pf&&pf.id===o.id?' selected':'')+'>'+(ficheFav(o)?'★ ':'')+echappe(nomFiche(o))+(elig55Fiche(o)?'  · '+elig55Fiche(o):'')+'</option>'; }).join('')+'</select></label>';
+    if(favs.length) h+='<label class="f55-tout" style="flex-direction:row;align-items:center;gap:6px;align-self:end"><input type="checkbox" id="f55_tout" style="width:auto"'+(f.tout?' checked':'')+'>Afficher tout ('+tous.length+' produit'+(tous.length>1?'s':'')+')</label>';
+    if(pf && f.famille==='isolation'){
+      if(pf.versions.length>1) h+='<label>Version<select id="f55_fver">'+pf.versions.map(function(x){ return '<option'+(x.nom===f.fver?' selected':'')+'>'+echappe(x.nom)+'</option>'; }).join('')+'</select></label>';
+      var seuil=f.emplacement?params.seuils55[f.emplacement]:null;
+      var eps=pf.epaisseurs.filter(function(x){ return pf.versions.length<2 || x.version===f.fver; });
+      if(!f.tout && eps.some(function(x){ return x.fav; })) eps=eps.filter(function(x){ return x.fav || x.e===f.epaisseur; });   /* épaisseurs étoilées seulement ; aucune étoilée = toutes */
+      h+='<label>Épaisseur'+(seuil?' (✓ = R ≥ '+fmt55(seuil)+')':'')+'<select id="f55_fep"><option value="">— choisir —</option>'+eps.map(function(x){
+        return '<option value="'+x.e+'"'+(x.e===f.epaisseur?' selected':'')+'>'+(x.fav?'★ ':'')+fmt55(x.e,0)+' mm — R '+fmt55(x.r)+(seuil?(x.r>=seuil-1e-9?'  ✓':'  ✗'):(elig55Ep(x.r)?'  · '+elig55Ep(x.r):''))+(x.prix?'  — '+prixFiche(x):'')+'</option>'; }).join('')+'</select></label>';
+    }
+    if(pf && f.famille!=='isolation' && pf.prix) h+='<p class="note f55-large" style="margin:0">Prix indicatif : '+prixFiche(pf)+(pf.code?' (code '+echappe(pf.code)+')':'')+'</p>';
+    if(pf && (pf.usages || propsFiche(pf))) h+='<p class="note f55-large" id="f55_usages">'+(propsFiche(pf)?'Propriété : '+propsFiche(pf)+(pf.usages?'. ':''):'')+(pf.usages?'Usages : '+echappe(pf.usages):'')+'</p>';
+    return h;
+  };
+  var appliqueFiche=function(){
+    var pf=f.fiche && ficheParId(f.fiche); if(!pf) return;
+    var nom=String(pf.nom||''), m=[pf.marque && nom.toLowerCase().indexOf(String(pf.marque).toLowerCase())<0?pf.marque:'', nom].filter(Boolean).join(' ');
+    if(f.famille==='isolation'){
+      var v=pf.versions.find(function(x){ return x.nom===f.fver; })||pf.versions[0]||{};
+      if(v.nom && m.toLowerCase().indexOf(String(v.nom).toLowerCase())<0) m+=' '+v.nom;
+      if(pf.isolant) f.isolant=pf.isolant; if(pf.lambda) f.lambda=pf.lambda; if(v.acermi) f.acermi=v.acermi;
+      m=m.split(/\s+/).filter(function(w,i,a){ return a.slice(0,i).map(function(x){ return x.toLowerCase(); }).indexOf(w.toLowerCase())<0; }).join(' ');   /* « Rockwool Rockmur Rockmur kraft » → « Rockwool Rockmur kraft » */
+      if(f.ref) m+=', référence '+f.ref;
+    } else {
+      if(pf.modele) f.modele=pf.modele;
+      ['uw','sw','ud'].forEach(function(k){ if(pf[k]) f[k]=pf[k]; });
+    }
+    if(m) f.marque=m;
+  };
   var champ=function(id,lib,val,ph){ return '<label>'+lib+'<input type="text" id="f55_'+id+'" value="'+echappe(val==null?'':String(val).replace('.',','))+'" placeholder="'+(ph||'')+'"></label>'; };
   var corps=function(){
     var h='<label>Type de travaux<select id="f55_famille">'+Object.keys(FAM55).map(function(k){ return '<option value="'+k+'"'+(k===f.famille?' selected':'')+'>'+FAM55[k]+'</option>'; }).join('')+'</select></label>';
+    var bf=blocFiche(); if(bf) h+=bf+'<span class="f55-large f55-sep"></span>';
     if(f.famille==='isolation'){
       h+='<label>Emplacement<select id="f55_emplacement"><option value="">— à choisir —</option>'+Object.keys(EMPL55).map(function(k){ return '<option value="'+k+'"'+(k===f.emplacement?' selected':'')+'>'+EMPL55[k]+' (R ≥ '+fmt55(params.seuils55[k])+')</option>'; }).join('')+'</select></label>'
         +champ('isolant','Isolant',f.isolant,'laine de bois, laine de verre…')+champ('marque','Marque, référence',f.marque,'Steico Flex 036')
@@ -1582,7 +1660,26 @@ function fichePerf55(d,i){
     el.className='verdict'+(ok===true?' ok':ok===false?' ko':''); el.textContent=t;
   };
   var branche=function(){
-    $('f55_famille').onchange=function(){ lis(); f.famille=this.value; $('modCorps').innerHTML=corps(); branche(); verdict(); };
+    var refait=function(){ $('modCorps').innerHTML=corps(); branche(); verdict(); };
+    $('f55_famille').onchange=function(){ lis(); f.famille=this.value; f.fiche=''; refait(); };
+    if($('f55_fiche')) $('f55_fiche').onchange=function(){
+      lis(); f.fiche=this.value; var pf=ficheParId(f.fiche);
+      if(pf && f.famille==='isolation'){
+        f.fver=(pf.versions.find(function(x){ return x.nom===f.fver; })||pf.versions[0]||{}).nom||'';
+        var ep=pf.epaisseurs.find(function(x){ return x.e===f.epaisseur && (pf.versions.length<2||x.version===f.fver); });
+        if(ep){ f.r=ep.r; f.ref=ep.ref||''; } else f.ref='';
+      }
+      appliqueFiche(); refait();
+    };
+    if($('f55_tout')) $('f55_tout').onchange=function(){ lis(); f.tout=this.checked; refait(); };
+    if($('f55_fver')) $('f55_fver').onchange=function(){ lis(); f.fver=this.value; f.ref=''; appliqueFiche(); refait(); };
+    if($('f55_fep')) $('f55_fep').onchange=function(){
+      lis(); var pf=ficheParId(f.fiche), e=+this.value;
+      var ep=pf && pf.epaisseurs.find(function(x){ return x.e===e && (pf.versions.length<2||x.version===f.fver); });
+      if(ep){ f.epaisseur=ep.e; f.r=ep.r; f.ref=ep.ref||''; appliqueFiche(); }
+      refait();
+    };
+    if($('f55_emplacement') && f.fiche) $('f55_emplacement').addEventListener('change',function(){ lis(); refait(); });
     Array.prototype.forEach.call($('modCorps').querySelectorAll('.f55 input,.f55 select'),function(x){ if(x.id!=='f55_famille') x.addEventListener('input',verdict); });
   };
   ouvreModale('Performances pour la TVA à 5,5 %', corps(), [
@@ -1590,7 +1687,7 @@ function fichePerf55(d,i){
     {lib:'Écrire le libellé', plein:true, action:function(){
       lis(); var ff=Object.assign({},f); if(ff.famille==='isolation' && !ff.r) ff.r=rCalc();
       memorise(d,'performances 5,5 %');
-      var perf={}; Object.keys(f).forEach(function(k){ if(f[k]!=null && f[k]!=='') perf[k]=f[k]; }); r.perf=perf;
+      var perf={}; Object.keys(f).forEach(function(k){ if(k!=='tout' && f[k]!=null && f[k]!=='') perf[k]=f[k]; }); r.perf=perf;
       var txt=libelle55(ff,r), j=-1;
       for(var k=i+1;k<d.lignes.length && d.lignes[k].type==='texte';k++) if(d.lignes[k].perfDe===r.id){ j=k; break; }
       if(j>-1) d.lignes[j].designation=txt;
@@ -2705,7 +2802,7 @@ var CATEGORIES={neuf:'Devis type — neuf', renovation:'Devis type — rénovati
 function lisModeles(){
   return new Promise(function(ok){
     if(!BASE) return ok([]);
-    try{ var q=magasin('readonly','modeles').getAll(); q.onsuccess=function(){ ok((q.result||[]).filter(function(m){ return m.type!=='garde'; })); }; q.onerror=function(){ ok([]); }; }
+    try{ var q=magasin('readonly','modeles').getAll(); q.onsuccess=function(){ ok((q.result||[]).filter(function(m){ return m.type!=='garde' && m.type!=='fiche'; })); }; q.onerror=function(){ ok([]); }; }
     catch(e){ ok([]); }
   });
 }
@@ -6336,7 +6433,7 @@ function apercuDevisPdf(d,o){
         +'<style>html,body{margin:0;height:100%;font-family:Montserrat,Arial,sans-serif}.barre{display:flex;align-items:center;gap:14px;padding:8px 14px;background:#0f1626;color:#fff;font-size:13px}'
         +'.barre a{background:#ab987a;color:#0f1626;text-decoration:none;font-weight:600;padding:6px 14px;border-radius:3px}.barre span{opacity:.8}iframe{border:0;width:100%;height:calc(100% - 46px)}</style></head>'
         +'<body><div class="barre"><a href="'+h(url)+'" download="'+h(r.nom)+'">Télécharger</a><span>'+h(r.nom)+' · aperçu, aucun numéro consommé</span></div>'
-        +'<iframe src="'+h(url)+'" title="Aperçu du devis"></iframe></body></html>');
+        +'<iframe src="'+h(url)+'#page=1" title="Aperçu du devis"></iframe></body></html>');
       onglet.document.close();
     }
     info('Aperçu ouvert dans un nouvel onglet — rien n\'a été enregistré.',100,'ok');
@@ -6407,10 +6504,16 @@ function nomDevisPdf(o){
   var c=String(o.client||'').replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().slice(0,80);
   return (c?c+'-':'')+String(o.numero||'').replace(/[\\\/:*?"<>|\s]/g,'')+'.pdf';
 }
+/* le PDF s'ouvre toujours sur sa première page (page de garde), même si le lecteur avait gardé une autre position */
+function ouvreEnPage1(doc){
+  doc.internal.events.subscribe('putCatalog',function(){
+    var p=doc.internal.getPageInfo(1); if(p && p.objId) doc.internal.write('/OpenAction ['+p.objId+' 0 R /XYZ null null null]');
+  });
+}
 async function genereDevisPdf(d,o,apercu){
   o=Object.assign({},o,{client:casseTexte(o.client,false), adresseClient:casseTexte(o.adresseClient,true), adresseChantier:casseTexte(o.adresseChantier,true)});
   await chargeLibsPdf();
-  var J=window.jspdf.jsPDF, doc=new J({unit:'mm',format:'a4',compress:true});
+  var J=window.jspdf.jsPDF, doc=new J({unit:'mm',format:'a4',compress:true}); ouvreEnPage1(doc);
   doc.addFileToVFS('Montserrat-Regular.ttf',RES_PDF.policeNormale); doc.addFont('Montserrat-Regular.ttf','Montserrat','normal');
   doc.addFileToVFS('Montserrat-Bold.ttf',RES_PDF.policeGrasse); doc.addFont('Montserrat-Bold.ttf','Montserrat','bold');
   doc.setProperties({title:'Devis '+o.numero, author:societe().nom, subject:o.reference||'', creator:'DHC — outil devis'});
@@ -6639,7 +6742,7 @@ async function genereDevisPdf(d,o,apercu){
 /* Les CGV seules, telles qu'imprimées sur le devis, dans un nouvel onglet ; rien n'est enregistré */
 async function pdfCgvSeules(fichier){
   await chargeLibsPdf();
-  var J=window.jspdf.jsPDF, doc=new J({unit:'mm',format:'a4',compress:true});
+  var J=window.jspdf.jsPDF, doc=new J({unit:'mm',format:'a4',compress:true}); ouvreEnPage1(doc);
   doc.addFileToVFS('Montserrat-Regular.ttf',RES_PDF.policeNormale); doc.addFont('Montserrat-Regular.ttf','Montserrat','normal');
   doc.addFileToVFS('Montserrat-Bold.ttf',RES_PDF.policeGrasse); doc.addFont('Montserrat-Bold.ttf','Montserrat','bold');
   doc.setProperties({title:'Conditions générales de vente', author:societe().nom, creator:'DHC — outil devis'});
@@ -7773,6 +7876,244 @@ $('gardeFichier').onchange=async function(){
     etat.className='note'; etat.textContent='Page importée ('+Math.round(url.length*0.75/1024)+' Ko)'+(lu.champs.length?', '+lu.champs.length+' mot'+(lu.champs.length>1?'s':'')+'-clé'+(lu.champs.length>1?'s':'')+' reconnu'+(lu.champs.length>1?'s':'')+' : '+lu.champs.map(function(c){ return '{'+c.cle+'}'; }).join(' '):'')+'. Pour la copier sur un autre poste : À propos › Exporter mes réglages.';
   }catch(err){ etat.style.color='#a33'; etat.textContent='Import impossible : '+(err&&err.message||err); }
 };
+/* ========================== FICHES TECHNIQUES ============================
+   Bibliothèque des produits (isolants, fenêtres, portes) : documents du fabricant
+   (caractéristiques, DOP, certifications, mise en œuvre) et valeurs lues dedans.
+   Stockée par poste dans IndexedDB (magasin modeles, type 'fiche'), copiée par
+   « Exporter mes réglages ». Sert à remplir la fenêtre « Performances 5,5 % ». */
+var FICHES=[];
+var DOCS_FICHE={carac:'Caractéristiques', dop:'DOP', certif:'Certifications', pose:'Mise en œuvre (facultatif)'};
+function chargeFiches(){
+  if(!BASE) return;
+  try{
+    var q=magasin('readonly','modeles').getAll();
+    q.onsuccess=function(){ FICHES=(q.result||[]).filter(function(m){ return m.type==='fiche'; }).sort(function(a,b){ return (b.cree||0)-(a.cree||0); }); renduFiches(); };
+  }catch(e){}
+}
+function nouvelleFiche(){
+  return {id:'fiche:'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), type:'fiche', cree:Date.now(), maj:Date.now(),
+          nom:'', famille:'isolation', marque:'', isolant:'', lambda:null, usages:'', proprietes:[], fav:false, versions:[], epaisseurs:[], modele:'', uw:null, sw:null, ud:null, docs:{}};
+}
+function sauveFiche(f){ f.maj=Date.now(); return ecrisModele(f); }
+function ficheParId(id){ return FICHES.find(function(f){ return f.id===id; }); }
+function nomFiche(f){ return (f.nom||'Produit sans nom')+(f.marque && String(f.nom||'').toLowerCase().indexOf(String(f.marque).toLowerCase())<0?' ('+f.marque+')':''); }
+function renduFiches(){
+  var zone=$('ficheListe'); if(!zone) return;
+  if(!FICHES.length){ zone.innerHTML='<p class="note">Aucun produit pour l\'instant : « + Ajouter un produit », puis importez sa fiche.</p>'; return; }
+  /* recherche : tous les mots tapés doivent se trouver dans la fiche (sans tenir compte des accents) */
+  var q=sansAccent(($('ficheCherche')||{}).value||'').split(/\s+/).filter(Boolean);
+  var liste=FICHES.filter(function(f){
+    if(!q.length || f._neuf) return true;
+    var t=sansAccent([f.nom,f.marque,f.isolant,f.usages,f.modele,FAM55[f.famille],propsFiche(f),ficheFav(f)?'favori':'',elig55Fiche(f)].concat(f.versions.map(function(v){ return v.nom+' '+v.acermi; }),f.epaisseurs.map(function(x){ return x.ref+' '+x.e+' mm '+(x.code||''); }),[f.code||''],Object.keys(f.docs).map(function(k){ return f.docs[k].nom; })).join(' '));
+    return q.every(function(m){ return t.indexOf(m)>-1; });
+  });
+  if(!liste.length){ zone.innerHTML='<p class="note">Aucun produit ne correspond à « '+echappe($('ficheCherche').value)+' ».</p>'; return; }
+  var ouverts={}; Array.prototype.forEach.call(zone.querySelectorAll('details[open]'),function(x){ ouverts[x.getAttribute('data-fid')]=1; });
+  zone.innerHTML=liste.map(function(f){
+    var v=function(x){ return echappe(x==null?'':String(x).replace(/^(\d+)\.(\d+)$/,'$1,$2')); };
+    var c=function(k,lib,cls,ph){ return '<div class="'+cls+'"><label class="champ">'+lib+'</label><input type="text" data-fid="'+f.id+'" data-fk="'+k+'" value="'+v(f[k])+'" placeholder="'+(ph||'')+'"></div>'; };
+    var el=elig55Fiche(f), pr=propsFiche(f);
+    var h='<details class="fiche-carte" data-fid="'+f.id+'"'+(ouverts[f.id]||f._neuf?' open':'')+'><summary><button type="button" class="etoile-f'+(f.fav?' on':'')+'" data-ffav="'+f.id+'" data-fid="'+f.id+'" title="'+(f.fav?'Retirer des favoris':'Mettre en favori')+'">'+(f.fav?'★':'☆')+'</button><b>'+echappe(nomFiche(f))+'</b> · '+FAM55[f.famille]+(pr?' · '+pr:'')
+      +(f.famille==='isolation' && f.epaisseurs.length?' · '+f.epaisseurs.length+' épaisseur'+(f.epaisseurs.length>1?'s':''):'')
+      +' · '+Object.keys(DOCS_FICHE).filter(function(k){ return f.docs[k]; }).length+' document(s)'+(el?' <span class="badge-55f">'+el+'</span>':'')+'</summary><div class="fc-corps">';
+    h+='<div class="grille-param">'+c('nom','Nom du produit','p-moyen','Rockmur kraft')
+      +'<div class="p-court"><label class="champ">Type</label><select data-fid="'+f.id+'" data-fk="famille">'+Object.keys(FAM55).map(function(k){ return '<option value="'+k+'"'+(k===f.famille?' selected':'')+'>'+FAM55[k]+'</option>'; }).join('')+'</select></div>'
+      +c('marque','Marque','p-court','Rockwool');
+    if(f.famille==='isolation') h+=c('isolant','Isolant','p-court','laine de roche')+c('lambda','λ (W/m.K)','p-court','0,035');
+    else h+=c('modele',f.famille==='porte'?'Type de porte':'Type de menuiserie','p-moyen')+(f.famille==='fenetre'?c('uw','Uw (W/m².K)','p-court')+c('sw','Sw','p-court'):c('ud','Ud (W/m².K)','p-court'))
+      +c('prix','Prix indicatif (€ HT)','p-court')+c('up','Unité du prix','p-court','u')+c('code','Code fournisseur','p-court');
+    h+='</div><div><label class="champ">Usages, domaine d\'emploi</label><textarea rows="2" data-fid="'+f.id+'" data-fk="usages" placeholder="Murs intérieurs, contre-cloisons…">'+echappe(f.usages||'')+'</textarea></div>'
+      +'<div class="fc-props"><span class="fc-titre" style="margin:0">Propriété</span>'+Object.keys(PROP_FICHE).map(function(k){ return '<label><input type="checkbox" data-fid="'+f.id+'" data-fprop="'+k+'"'+((f.proprietes||[]).indexOf(k)>-1?' checked':'')+'>'+PROP_FICHE[k]+'</label>'; }).join('')+'</div>';
+    if(f.famille==='isolation'){
+      h+='<div class="fc-tables"><div><p class="fc-titre">Versions et ACERMI</p><table class="fc-t"><tr><th>Version</th><th>N° ACERMI</th><th></th></tr>'
+        +f.versions.map(function(x,i){ return '<tr><td><input type="text" data-fid="'+f.id+'" data-ft="versions" data-fi="'+i+'" data-fk="nom" value="'+v(x.nom)+'" placeholder="kraft"></td><td><input type="text" data-fid="'+f.id+'" data-ft="versions" data-fi="'+i+'" data-fk="acermi" value="'+v(x.acermi)+'"></td><td><button type="button" class="mini" data-fsup="versions" data-fid="'+f.id+'" data-fi="'+i+'" title="Retirer">✕</button></td></tr>'; }).join('')
+        +'</table><button type="button" class="mini" data-fplus="versions" data-fid="'+f.id+'">+ version</button></div>'
+        +'<div><p class="fc-titre">Épaisseurs</p><table class="fc-t"><tr>'+(f.versions.length>1?'<th>Version</th>':'')+'<th>Épaisseur (mm)</th><th>R (m².K/W)</th><th>Référence</th><th>Prix indicatif (€ HT)</th><th>Unité</th><th>Code fournisseur</th><th>TVA</th><th title="Favori">★</th><th></th></tr>'
+        +f.epaisseurs.map(function(x,i){
+          return '<tr>'+(f.versions.length>1?'<td><select data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="version">'+f.versions.map(function(y){ return '<option'+(y.nom===x.version?' selected':'')+'>'+echappe(y.nom)+'</option>'; }).join('')+'</select></td>':'')
+            +'<td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="e" value="'+v(x.e)+'"></td><td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="r" value="'+v(x.r)+'"></td>'
+            +'<td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="ref" value="'+v(x.ref)+'"></td>'
+            +'<td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="prix" value="'+v(x.prix)+'"></td>'
+            +'<td><input type="text" class="fc-up" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="up" value="'+v(x.up)+'" placeholder="m²"></td>'
+            +'<td><input type="text" data-fid="'+f.id+'" data-ft="epaisseurs" data-fi="'+i+'" data-fk="code" value="'+v(x.code)+'"></td><td>'+(elig55Ep(x.r)?'<span class="badge-55f">'+elig55Ep(x.r)+'</span>':'')+'</td><td><button type="button" class="etoile-f'+(x.fav?' on':'')+'" data-fepfav="'+i+'" data-fid="'+f.id+'" title="'+(x.fav?'Retirer des favoris':'Épaisseur favorite')+'">'+(x.fav?'★':'☆')+'</button></td><td><button type="button" class="mini" data-fsup="epaisseurs" data-fid="'+f.id+'" data-fi="'+i+'" title="Retirer">✕</button></td></tr>'; }).join('')
+        +'</table><button type="button" class="mini" data-fplus="epaisseurs" data-fid="'+f.id+'">+ épaisseur</button></div></div>';
+    }
+    h+='<p class="fc-titre">Documents</p><div class="fc-docs">'+Object.keys(DOCS_FICHE).map(function(k){
+      var dd=f.docs[k];
+      return '<div class="fc-doc"><span class="fc-lib">'+DOCS_FICHE[k]+'</span><span class="note fc-nom">'+(dd?echappe(dd.nom):'—')+'</span>'
+        +'<span><button type="button" class="mini" data-fimp="'+k+'" data-fid="'+f.id+'">'+(dd?'Remplacer':'Importer')+'</button>'
+        +(dd?' <button type="button" class="mini" data-fvoir="'+k+'" data-fid="'+f.id+'">Voir</button> <button type="button" class="mini" data-fret="'+k+'" data-fid="'+f.id+'">Retirer</button>':'')+'</span></div>';
+    }).join('')+'</div>';
+    h+='<p style="margin:10px 0 0"><button type="button" class="mini" data-frelit="'+f.id+'"'+(f.docs.carac||f.docs.dop?'':' disabled')+' title="Relit la fiche Caractéristiques et la DOP et remplace les valeurs">Relire les documents</button> '
+      +'<button type="button" class="mini" data-fsuppr="'+f.id+'">Supprimer le produit</button></p></div></details>';
+    delete f._neuf;
+    return h;
+  }).join('');
+}
+/* ---- lecture du texte d'un document : PDF (pdf.js) ou Word .docx (zip lu par SheetJS) ---- */
+function dataUrlVersOctets(u){ var b=atob(String(u).split(',')[1]||''), a=new Uint8Array(b.length); for(var i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return a; }
+async function texteDocument(doc){
+  var oct=dataUrlVersOctets(doc.data), t='';
+  if(/pdf/i.test(doc.mime)||/\.pdf$/i.test(doc.nom)){
+    var pdf=await pdfjsLib.getDocument({data:oct, isEvalSupported:false}).promise;
+    for(var p=1;p<=Math.min(pdf.numPages,6);p++){
+      var tc=await (await pdf.getPage(p)).getTextContent(), lignes={};
+      tc.items.forEach(function(it){ if(!(it.str||'').trim()) return; var y=Math.round(it.transform[5]/2.5); (lignes[y]=lignes[y]||[]).push(it); });
+      Object.keys(lignes).map(Number).sort(function(a,b){ return b-a; }).forEach(function(y){
+        t+=lignes[y].sort(function(a,b){ return a.transform[4]-b.transform[4]; }).map(function(it){ return it.str.trim(); }).join('   ')+'\n';
+      });
+    }
+    return t;
+  }
+  if(/\.docx$/i.test(doc.nom)||/wordprocessingml/i.test(doc.mime)){
+    var z=XLSX.CFB.read(oct,{type:'array'}), e=null;
+    (z.FullPaths||[]).forEach(function(p,i){ if(!e && /word\/document\.xml$/i.test(p)) e=z.FileIndex[i]; });
+    if(!e) throw new Error('document Word illisible');
+    var xml=typeof e.content==='string'?e.content:new TextDecoder().decode(e.content);
+    return xml.replace(/<w:tab\/>/g,'   ').replace(/<\/w:tc>/g,'   ').replace(/<\/w:p>|<\/w:tr>/g,'\n').replace(/<[^>]+>/g,'')
+      .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+  }
+  throw new Error('format non pris en charge : importez un PDF ou un Word .docx');
+}
+/* ---- lecture locale (sans clé IA) : λ, ACERMI, tableau épaisseur → R ---- */
+function lisFicheLocal(t){
+  var o={versions:[], epaisseurs:[]}, m;
+  m=/(?:conductivit[ée]\s+thermique|λ|lambda)[^\n]{0,60}?(0[.,]0\d{2})/i.exec(t); if(m) o.lambda=nb55(m[1]);
+  m=/\b(laine\s+de\s+(?:roche|verre|bois|chanvre)|ouate\s+de\s+cellulose|fibre\s+de\s+bois|polystyr[èe]ne\s+(?:expans[ée]|extrud[ée])|polyur[ée]thane|li[èe]ge)\b/i.exec(t); if(m) o.isolant=m[1].replace(/\s+/g,' ').toLowerCase();
+  m=/\b(rockwool|isover|knauf|ursa|steico|pavatex|actis|soprema|recticel|efisol|kingspan|gutex|isonat|biofib|placo|siniat|unilin|xella|celotex)\b/i.exec(t); if(m) o.marque=m[1].charAt(0).toUpperCase()+m[1].slice(1).toLowerCase();
+  var groupe='';
+  t.split('\n').forEach(function(l){
+    var s=l.trim(); if(!s) return;
+    var r=/(\d{3,4})\s*[x×]\s*(\d{3,4})\s*[x×]\s*(\d{2,3})\b[^\d]+?(\d{1,2}[.,]\d{1,2})\b/.exec(s);
+    if(r){
+      var e=+r[3], R=nb55(r[4]), ref=/^(\d{5,8})\b/.exec(s);
+      if(R && (!o.lambda || Math.abs(R-e/1000/o.lambda)<0.35*R)) o.epaisseurs.push({version:groupe, e:e, r:R, ref:ref?ref[1]:''});
+      return;
+    }
+    if(s.length<40 && !/\d/.test(s) && /[a-z]/i.test(s) && !/^(r[ée]f[ée]rence|dimensions|r[ée]sistance|pi[èe]ces|colis|code)/i.test(s)) groupe=s.replace(/\s{2,}.*/,'');
+  });
+  var noms=[]; o.epaisseurs.forEach(function(x){ if(noms.indexOf(x.version)<0) noms.push(x.version); });
+  var acermi=[]; (t.match(/\b\d{2}\/\d{3}\/\d{3,4}\b/g)||[]).forEach(function(n){ if(acermi.indexOf(n)<0) acermi.push(n); });
+  /* nom du produit : début commun des versions (« Rockmur nu », « Rockmur kraft » → « Rockmur ») */
+  if(noms.length && noms[0]){ var mots=noms[0].split(/\s+/), k=mots.length; noms.forEach(function(n){ var w=n.split(/\s+/), j=0; while(j<k && w[j]===mots[j]) j++; k=j; }); if(noms.length===1) k=mots.length; if(k) o.nom=mots.slice(0,k).join(' '); }
+  if(noms.length>1 || acermi.length>1) o.versions=noms.map(function(n,i){ return {nom:n, acermi:acermi[i]||''}; });
+  else { o.versions=acermi.length?[{nom:noms[0]||'', acermi:acermi[0]}]:[]; o.epaisseurs.forEach(function(x){ x.version=o.versions.length?o.versions[0].nom:''; }); }
+  /* propriété : ligne « Propriété : Thermique, Acoustique » de la fiche, sinon déduite */
+  m=/propri[ée]t[ée]s?\s*(?::|\s{2,})\s*([^\n]+)/i.exec(t); var lp=m?sansAccent(m[1]):'';
+  o.proprietes=lp ? Object.keys(PROP_FICHE).filter(function(k){ return lp.indexOf(k)>-1 || (k==='feu' && /incendie/.test(lp)); })
+                  : Object.keys(PROP_FICHE).filter(function(k){ return k==='thermique' ? !!o.lambda : k==='acoustique' ? /acoustique/i.test(t) : /protection (?:contre l')?incendie|r[ée]sistance au feu|coupe-feu/i.test(t); });
+  m=/\bUw\s*(?:=|:)?\s*(\d[.,]\d+)/i.exec(t); if(m) o.uw=nb55(m[1]);
+  m=/\bSw\s*(?:=|:)?\s*(0[.,]\d+)/i.exec(t); if(m) o.sw=nb55(m[1]);
+  m=/\bUd\s*(?:=|:)?\s*(\d[.,]\d+)/i.exec(t); if(m) o.ud=nb55(m[1]);
+  return o;
+}
+/* document scanné (pas de texte) : pages en images JPEG pour l'IA */
+async function imagesDocument(doc){
+  var pdf=await pdfjsLib.getDocument({data:dataUrlVersOctets(doc.data), isEvalSupported:false}).promise, out=[];
+  for(var p=1;p<=Math.min(pdf.numPages,3);p++){
+    var page=await pdf.getPage(p), vp=page.getViewport({scale:1.6}), can=document.createElement('canvas');
+    can.width=vp.width; can.height=vp.height; await page.render({canvasContext:can.getContext('2d'), viewport:vp}).promise;
+    out.push(can.toDataURL('image/jpeg',0.8).split(',')[1]);
+  }
+  return out;
+}
+async function lisFiche(texte,f,images){
+  if(cleRemplie(params.cle||CFG.apiKey)){
+    try{
+      var j=await appelClaude('Tu lis la fiche technique d\'un produit du bâtiment (isolant, fenêtre ou porte). Réponds uniquement par un objet JSON :'
+        +' {"nom":"nom commercial du produit","famille":"isolation|fenetre|porte","marque":"fabricant","isolant":"nature de l\'isolant en minuscules (ex. laine de roche)",'
+        +'"lambda":0.035,"usages":"une phrase courte : où le produit peut être utilisé","proprietes":["thermique","acoustique","feu"] (seulement celles que la fiche annonce, par exemple sur la ligne Propriété),"versions":[{"nom":"variante (ex. nu, kraft)","acermi":"n° de certificat ACERMI"}],'
+        +'"epaisseurs":[{"version":"nom de la variante","e":épaisseur en mm,"r":résistance thermique R en m².K/W,"ref":"référence fabricant"}],'
+        +'"modele":"type de menuiserie ou de porte","uw":null,"sw":null,"ud":null}. Nombres en notation décimale avec un point. Valeur inconnue : null ou chaîne vide. Une ligne par épaisseur et par variante.',
+        images&&images.length ? images.map(function(b){ return {type:'image', source:{type:'base64', media_type:'image/jpeg', data:b}}; }).concat([{type:'text', text:'Voici le document (pages scannées).'}])
+                              : 'Texte de la fiche :\n'+texte.slice(0,60000), true);
+      if(j && typeof j==='object'){
+        var o={nom:String(j.nom||'').trim(), famille:FAM55[j.famille]?j.famille:'', marque:String(j.marque||'').trim(), isolant:String(j.isolant||'').trim(), lambda:nb55(j.lambda), usages:String(j.usages||'').trim(),
+               proprietes:Object.keys(PROP_FICHE).filter(function(k){ return (Array.isArray(j.proprietes)?j.proprietes:[]).some(function(x){ return sansAccent(String(x)).indexOf(k)>-1; }); }),
+               modele:String(j.modele||'').trim(), uw:nb55(j.uw), sw:nb55(j.sw), ud:nb55(j.ud),
+               versions:(Array.isArray(j.versions)?j.versions:[]).map(function(x){ return {nom:String(x&&x.nom||'').trim(), acermi:String(x&&x.acermi||'').trim()}; }),
+               epaisseurs:(Array.isArray(j.epaisseurs)?j.epaisseurs:[]).map(function(x){ return {version:String(x&&x.version||'').trim(), e:nb55(x&&x.e), r:nb55(x&&x.r), ref:String(x&&x.ref||'').trim()}; }).filter(function(x){ return x.e && x.r; })};
+        o.ia=true; return o;
+      }
+    }catch(e){ /* repli sur la lecture locale */ }
+  }
+  return lisFicheLocal(texte);
+}
+/* complète la fiche : champs vides remplis, tableaux remplacés s'ils sont vides (ou si force) */
+function fusionneFiche(f,o,force){
+  if(f.nomAuto && o.nom){ f.nom=o.nom; delete f.nomAuto; }
+  ['nom','famille','marque','isolant','lambda','usages','modele','uw','sw','ud'].forEach(function(k){ if(o[k]!=null && o[k]!=='' && (force || f[k]==null || f[k]==='' || (k==='famille' && !f.versions.length && !f.epaisseurs.length && !f.marque))) f[k]=o[k]; });
+  if(o.proprietes && o.proprietes.length && (force || !(f.proprietes||[]).length)) f.proprietes=o.proprietes;
+  if(o.versions && o.versions.length && (force || !f.versions.length)) f.versions=o.versions;
+  if(o.epaisseurs && o.epaisseurs.length && (force || !f.epaisseurs.length)) f.epaisseurs=o.epaisseurs.map(function(x){ var y=f.epaisseurs.find(function(y){ return y.e===x.e && y.version===x.version; }); if(y){ ['fav','prix','up','code'].forEach(function(k){ if(y[k]) x[k]=y[k]; }); } return x; }).sort(function(a,b){ return a.version===b.version ? a.e-b.e : f.versions.findIndex(function(v){ return v.nom===a.version; })-f.versions.findIndex(function(v){ return v.nom===b.version; }); });
+}
+async function relitFiche(f,force){
+  var etat=$('ficheEtat'), n=0, scans=[], avecCle=cleRemplie(params.cle||CFG.apiKey);
+  for(var k of ['carac','dop']){
+    if(!f.docs[k]) continue;
+    etat.className='note'; etat.textContent='Lecture de « '+f.docs[k].nom+' »'+(avecCle?' avec l\'IA':'')+'…';
+    var t=await texteDocument(f.docs[k]), im=null;
+    if(t.replace(/\s/g,'').length<80){   /* document scanné : rien à lire sans l'IA */
+      if(!avecCle || !/pdf/i.test(f.docs[k].mime)){ scans.push(DOCS_FICHE[k]); continue; }
+      im=await imagesDocument(f.docs[k]);
+    }
+    var o=await lisFiche(t,f,im); fusionneFiche(f,o,force && n===0); n++;
+  }
+  await sauveFiche(f); renduFiches();
+  if(!n){ etat.className='note'; etat.textContent='Document ajouté. '+scans.join(' et ')+' scanné'+(scans.length>1?'s':'')+' : aucune valeur lue sans la clé IA (onglet Lecture IA). Les valeurs viennent de la fiche Caractéristiques ou se saisissent à la main.'; return; }
+  var resume=f.famille==='isolation'
+    ? 'λ '+(f.lambda?fmt55(f.lambda,3):'non trouvé')+', '+f.versions.length+' version(s), '+f.epaisseurs.length+' épaisseur(s)'
+    : f.famille==='fenetre' ? 'Uw '+(f.uw?fmt55(f.uw):'non trouvé')+', Sw '+(f.sw?fmt55(f.sw):'non trouvé') : 'Ud '+(f.ud?fmt55(f.ud):'non trouvé');
+  etat.className='note ok'; etat.textContent='Valeurs lues pour « '+nomFiche(f)+' » : '+resume+'. Vérifiez-les et corrigez si besoin.'+(scans.length?' '+scans.join(' et ')+' scanné'+(scans.length>1?'s':'')+' : non lu sans la clé IA.':'');
+}
+var ficheCible=null;
+$('ficheCherche').addEventListener('input',renduFiches);
+$('ficheAjout').onclick=function(){
+  var f=nouvelleFiche(); f._neuf=true; FICHES.unshift(f); sauveFiche(f); renduFiches();
+  var n=document.querySelector('#ficheListe input[data-fk="nom"]'); if(n) n.focus();
+};
+$('ficheListe').addEventListener('change',function(e){
+  var x=e.target, f=ficheParId(x.getAttribute('data-fid')); if(!f) return;
+  if(x.hasAttribute('data-fprop')){ var pk=x.getAttribute('data-fprop'); f.proprietes=(f.proprietes||[]).filter(function(y){ return y!==pk; }); if(x.checked) f.proprietes=Object.keys(PROP_FICHE).filter(function(y){ return y===pk || f.proprietes.indexOf(y)>-1; }); sauveFiche(f); renduFiches(); return; }
+  var k=x.getAttribute('data-fk'), t=x.getAttribute('data-ft'), val=x.value;
+  var num=/^(lambda|uw|sw|ud|e|r|prix)$/.test(k);
+  if(t){ var row=f[t][+x.getAttribute('data-fi')]; if(!row) return; var ancien=row[k]; row[k]=num?nb55(val):val.trim();
+         if(t==='versions' && k==='nom') f.epaisseurs.forEach(function(y){ if(y.version===ancien) y.version=row.nom; }); }
+  else { f[k]=num?nb55(val):val.trim(); if(k==='nom') delete f.nomAuto; }
+  sauveFiche(f);
+  if(k==='famille' || k==='nom' || k==='prix' || k==='up' || k==='r' || k==='uw' || k==='sw' || k==='ud' || (t==='versions' && k==='nom')) renduFiches();
+});
+$('ficheListe').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b) return;
+  var f=ficheParId(b.getAttribute('data-fid')); if(!f) return;
+  if(b.hasAttribute('data-ffav')){ e.preventDefault(); f.fav=!f.fav; sauveFiche(f); renduFiches(); return; }   /* l'étoile ne plie pas la carte */
+  if(b.hasAttribute('data-fepfav')){ var ep=f.epaisseurs[+b.getAttribute('data-fepfav')]; if(ep){ ep.fav=!ep.fav; sauveFiche(f); renduFiches(); } return; }
+  if(b.hasAttribute('data-fplus')){ var t=b.getAttribute('data-fplus');
+    f[t].push(t==='versions'?{nom:'',acermi:''}:{version:(f.versions[0]||{}).nom||'', e:null, r:null, ref:''}); sauveFiche(f); renduFiches(); }
+  else if(b.hasAttribute('data-fsup')){ f[b.getAttribute('data-fsup')].splice(+b.getAttribute('data-fi'),1); sauveFiche(f); renduFiches(); }
+  else if(b.hasAttribute('data-fimp')){ ficheCible={f:f, k:b.getAttribute('data-fimp')}; $('ficheFichier').value=''; $('ficheFichier').click(); }
+  else if(b.hasAttribute('data-fvoir')){ var d=f.docs[b.getAttribute('data-fvoir')]; if(!d) return;
+    var u=URL.createObjectURL(new Blob([dataUrlVersOctets(d.data)],{type:d.mime||'application/octet-stream'}));
+    if(/pdf/i.test(d.mime)) window.open(u,'_blank'); else { var a=document.createElement('a'); a.href=u; a.download=d.nom; document.body.appendChild(a); a.click(); a.remove(); }
+    setTimeout(function(){ URL.revokeObjectURL(u); },60000); }
+  else if(b.hasAttribute('data-fret')){ var k=b.getAttribute('data-fret'); if(!confirm('Retirer le document « '+f.docs[k].nom+' » ?')) return; delete f.docs[k]; sauveFiche(f); renduFiches(); }
+  else if(b.hasAttribute('data-frelit')){ relitFiche(f,true).catch(function(err){ var et=$('ficheEtat'); et.className='note err'; et.textContent='Lecture impossible : '+(err&&err.message||err); }); }
+  else if(b.hasAttribute('data-fsuppr')){ if(!confirm('Supprimer le produit « '+nomFiche(f)+' » et ses documents de ce poste ?')) return;
+    FICHES=FICHES.filter(function(x){ return x!==f; }); effaceModele(f.id).then(renduFiches); }
+});
+$('ficheFichier').onchange=async function(){
+  var fi=this.files[0], c=ficheCible, etat=$('ficheEtat'); if(!fi||!c) return;
+  if(/\.doc$/i.test(fi.name)){ etat.className='note err'; etat.textContent='Ancien format Word (.doc) : enregistrez-le en .docx ou en PDF, puis importez-le.'; return; }
+  if(fi.size>15*1024*1024){ etat.className='note err'; etat.textContent='Fichier trop lourd (plus de 15 Mo).'; return; }
+  try{
+    var data=await new Promise(function(ok,ko){ var r=new FileReader(); r.onload=function(){ ok(r.result); }; r.onerror=ko; r.readAsDataURL(fi); });
+    c.f.docs[c.k]={nom:fi.name, mime:fi.type||(/\.pdf$/i.test(fi.name)?'application/pdf':''), data:data, taille:fi.size};
+    if(!c.f.nom){ c.f.nom=fi.name.replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ').trim(); c.f.nomAuto=true; }
+    await sauveFiche(c.f); renduFiches();
+    if(c.k==='carac'||c.k==='dop') await relitFiche(c.f,false);
+    else { etat.className='note ok'; etat.textContent='Document « '+fi.name+' » ajouté.'; }
+  }catch(err){ etat.className='note err'; etat.textContent='Import impossible : '+(err&&err.message||err); }
+};
 /* page de garde proposée : celle dont les mots-clés couvrent le plus gros montant de chapitres */
 function sansAccent(t){ return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 function gardeAuto(d){
@@ -7989,7 +8330,7 @@ routeur();
   try{
     if(!window.indexedDB) throw new Error('indisponible');
     BASE=await ouvreBase(); stockageOk=true;
-    chargeGardes();
+    chargeGardes(); chargeFiches();
     setTimeout(function(){ if(peutPublier()) synchronise(); },3000);
     setTimeout(recoitModeles,5000);
     var recs=await lisTous();
