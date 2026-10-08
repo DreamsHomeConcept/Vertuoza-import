@@ -101,6 +101,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .grille-param .p-cle{flex:1 1 320px;max-width:520px}
 .grille-param .p-court{flex:0 1 220px}
 .grille-param .p-moyen{flex:0 1 270px}
+.grille-param .p-croix{flex:0 0 auto;align-self:flex-end;margin-bottom:2px}
 .sous-ong{display:flex;gap:2px;margin:6px 0 14px;border-bottom:1px solid var(--trait)}
 .sous-ong button{padding:6px 12px;border:1px solid var(--trait);border-bottom:none;border-radius:3px 3px 0 0;background:var(--taupe-voile);font:inherit;font-size:12.5px;cursor:pointer;color:inherit}
 .sous-ong button.actif{background:var(--papier);font-weight:600;color:var(--nuit);margin-bottom:-1px;border-bottom:1px solid var(--papier)}
@@ -1220,9 +1221,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.78';
-var DATE_VERSION = '08/10/2026 19h55';   /* date et heure de livraison */
-var NOTES = 'Société : bouton ✕ pour effacer l\'adresse secondaire ; le départ des km revient alors au siège.';
+var VERSION = '3.79';
+var DATE_VERSION = '08/10/2026 19h59';   /* date et heure de livraison */
+var NOTES = 'Société : la croix ✕ d\'effacement de l\'adresse secondaire est au bout de sa ligne, à droite du champ Pays.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -8294,7 +8295,8 @@ function renduSociete(){
     return '<h3 class="st" style="margin-top:6px">'+g[0]+'</h3><div class="grille-param">'
       +g[1].map(function(c){ return '<div class="'+c[2]+'"><label class="champ" for="soc_'+c[0]+'">'+c[1]+'</label>'
         +'<input type="text" id="soc_'+c[0]+'" data-soc="'+c[0]+'" spellcheck="false" value="'+echappe(x[c[0]])+'"></div>'; }).join('')
-      +'</div>'+(sec?'<p style="margin:4px 0 0"><button type="button" class="mini" id="socEffacerSec" title="Vider l\'adresse secondaire : le départ des km revient au siège">✕ Effacer l\'adresse secondaire</button></p>':'');
+      +(sec?'<div class="p-croix"><button type="button" class="mini" id="socEffacerSec" aria-label="Effacer l\'adresse secondaire" title="Vider l\'adresse secondaire : le départ des km revient au siège">✕</button></div>':'')
+      +'</div>';
   }).join('');
 }
 renduSociete();
