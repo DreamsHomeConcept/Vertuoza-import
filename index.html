@@ -629,7 +629,8 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
 <section class="panneau">
   <div class="onglets" id="onglets"></div>
   <div class="corps">
-    <button type="button" id="fPlier" aria-expanded="true" aria-controls="fGrille" title="Plier ou déplier les informations du devis" style="display:flex;gap:8px;align-items:baseline;width:100%;text-align:left;border:0;background:none;padding:0 0 10px;cursor:pointer;font:inherit;color:var(--encre)"><span id="fPlierIco" aria-hidden="true">▾</span><strong>Informations du devis</strong><span id="fResume" style="color:var(--encre-faible);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" hidden></span></button>
+    <button type="button" id="fPlier" aria-expanded="true" aria-controls="fPliable" title="Plier ou déplier les informations du devis" style="display:flex;gap:8px;align-items:baseline;width:100%;text-align:left;border:0;background:none;padding:0 0 10px;cursor:pointer;font:inherit;color:var(--encre)"><span id="fPlierIco" aria-hidden="true">▾</span><strong>Informations du devis</strong><span id="fResume" style="color:var(--encre-faible);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" hidden></span></button>
+    <div id="fPliable">
     <div class="grille" id="fGrille">
       <div>
         <label class="champ" for="fMode">Type de dossier</label>
@@ -695,12 +696,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
       </div>
     </div>
 
-    <div id="variantes" hidden></div>
-    <div id="controle" hidden></div>
-
-    <hr class="separateur">
-
-    <div class="bandeau-marge">
+    <div class="bandeau-marge" style="margin-top:14px">
       <label class="interrupteur">
         <input type="checkbox" id="margeActive">
         <span>Appliquer une marge</span>
@@ -717,6 +713,10 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
         <span class="coef" id="margeCoef"></span>
       </div>
     </div>
+    </div>
+
+    <div id="variantes" hidden></div>
+    <div id="controle" hidden></div>
 
     <div id="recapSt" hidden>
       <hr class="separateur">
@@ -1201,9 +1201,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.66';
-var DATE_VERSION = '08/10/2026 18h26';   /* date et heure de livraison */
-var NOTES = 'Frais : dans le devis, liste Afficher / Non visible sur chaque ligne de frais, avec répartition au choix sur ce chapitre, tout le devis ou un autre chapitre.';
+var VERSION = '3.67';
+var DATE_VERSION = '08/10/2026 18h27';   /* date et heure de livraison */
+var NOTES = 'Informations du devis toujours pliées à l\'ouverture ; la marge fait partie du bloc plié et apparaît dans le résumé.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4671,17 +4671,20 @@ $('addTexte').onclick=function(){ ajouteEnBas('texte'); };
     if(id==='fRef' && feuilleSurRef(D())) renduOnglets();
   });
 });
-/* Plier / déplier les informations du devis (v3.59) : d.entetePlie, retenu par chantier ;
-   un devis neuf est déplié. Plié : une ligne de résumé client · chantier · référence · TVA. */
+/* Plier / déplier les informations du devis (v3.59, revu v3.67) : toujours plié à l'ouverture
+   (nouveau devis, réouverture depuis Mes chantiers, rechargement) ; un clic déplie pour la séance.
+   La partie pliée comprend la marge. Plié : résumé client · chantier · référence · TVA · marge. */
+var DEPLIES=new WeakSet();
 function renduPliage(){
-  var d=D(), plie=!!d.entetePlie;
-  $('fGrille').hidden=plie; $('fPlier').setAttribute('aria-expanded',plie?'false':'true');
+  var d=D(), plie=!DEPLIES.has(d);
+  $('fPliable').hidden=plie; $('fPlier').setAttribute('aria-expanded',plie?'false':'true');
   $('fPlierIco').textContent=plie?'▸':'▾';
   var e=d.entete, r=[e.client,e.chantier,e.reference?'Réf. '+e.reference:''].filter(function(x){ return x&&String(x).trim(); });
   r.push(String(d.tva).replace('.',',')+' %');
+  if(d.margeActive) r.push('marge '+String(d.marge).replace('.',',')+' %');
   $('fResume').textContent='· '+r.join(' · '); $('fResume').hidden=!plie;
 }
-$('fPlier').onclick=function(){ var d=D(); d.entetePlie=!d.entetePlie; diffuse(); renduPliage(); };
+$('fPlier').onclick=function(){ var d=D(); if(DEPLIES.has(d)) DEPLIES.delete(d); else DEPLIES.add(d); renduPliage(); };
 /* Contacts du chantier (v3.58) : nom, e-mail, téléphone. Gardés dans d.entete.contacts
    pour l'envoi du devis (étape signature en ligne) ; jamais affichés sur le PDF. */
 function contactsDe(d){ if(!Array.isArray(d.entete.contacts)) d.entete.contacts=[]; return d.entete.contacts; }
