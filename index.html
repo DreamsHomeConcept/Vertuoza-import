@@ -1048,7 +1048,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
     <div class="vue-param" data-vue="fiches">
     <h3 class="st">Fiches techniques</h3>
     <p class="note" style="margin-top:0">Un produit par fiche. Importez sa fiche (PDF ou Word) : les valeurs sont lues automatiquement. Vérifiez-les, puis choisissez le produit dans la fenêtre « Performances pour la TVA à 5,5 % » d'une ligne.</p>
-    <p style="margin:0 0 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="search" id="ficheCherche" placeholder="Rechercher : nom, marque, isolant, propriété, ACERMI, référence, usage…" style="flex:0 1 260px;max-width:260px"> <button type="button" class="mini" id="ficheAjoutFiche">+ Fiche technique</button> <button type="button" class="mini" id="ficheAjout">+ Ajouter un produit</button></p>
+    <p style="margin:0 0 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="search" id="ficheCherche" placeholder="Rechercher : nom, marque, isolant, propriété, ACERMI, référence, usage…" style="flex:0 1 260px;max-width:260px;height:30px;box-sizing:border-box"> <button type="button" class="mini" id="ficheAjoutFiche" style="height:30px">+ Fiche technique</button> <button type="button" class="mini" id="ficheAjout" style="height:30px">+ Ajouter un produit</button></p>
     <p class="note" id="ficheEtat"></p>
     <div id="ficheListe"></div>
     <input type="file" id="ficheFichier" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
@@ -1222,9 +1222,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.94';
-var DATE_VERSION = '09/10/2026 09h15';   /* date et heure de livraison */
-var NOTES = 'Annexes du devis : la liste des fiches est repliée à l\'ouverture (cliquer sur son titre pour la déplier).';
+var VERSION = '3.95';
+var DATE_VERSION = '09/10/2026 09h35';   /* date et heure de livraison */
+var NOTES = 'Fiches techniques : la barre de recherche a la même hauteur que les boutons à côté.';
 /* =================================================================== */
 (function(){
 'use strict';
