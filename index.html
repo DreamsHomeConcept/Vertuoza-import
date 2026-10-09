@@ -1222,9 +1222,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.91';
-var DATE_VERSION = '09/10/2026 08h35';   /* date et heure de livraison */
-var NOTES = 'Fiches techniques : bouton « + Fiche technique » (import direct, le produit prend le nom du fichier) ; barre de recherche plus courte.';
+var VERSION = '3.92';
+var DATE_VERSION = '09/10/2026 08h45';   /* date et heure de livraison */
+var NOTES = 'Annexes du devis : une ligne par produit, documents à côté, liste repliable (plier / déplier).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -7280,17 +7280,17 @@ function annexeHtml(d){
   var liste=FICHES.filter(function(f){ return !f._neuf; }).sort(function(a,b){ return (coches.indexOf(b.id)>-1)-(coches.indexOf(a.id)>-1); });
   if(!liste.length) return '<div class="cp-cases" id="pdAnnexe"><span class="champ">Annexes : fiches techniques</span><p class="note">Aucune fiche technique sur ce poste : importez-les dans Paramètres › Fiches techniques.</p></div>';
   var mots=[];
-  var h='<div class="cp-cases" id="pdAnnexe"><span class="champ">Annexes : fiches techniques (cochez ce que vous joignez)</span>'+liste.map(function(f){
+  var h='<div class="cp-cases" id="pdAnnexe"><details open><summary class="champ" style="cursor:pointer">Annexes : fiches techniques (cochez ce que vous joignez)</summary>'+liste.map(function(f){
     var on=coches.indexOf(f.id)>-1;
-    var docs=Object.keys(DOCS_FICHE).filter(function(k){ return f.docs[k]; });
-    var dl=docs.map(function(k){
+    var dl=Object.keys(DOCS_FICHE).filter(function(k){ return f.docs[k]; }).map(function(k){
       var dd=f.docs[k], pdf=/pdf/i.test(dd.mime||'')||/\.pdf$/i.test(dd.nom||'');
-      if(!pdf){ mots.push(dd.nom); return '<span class="note">'+DOCS_FICHE[k]+' (Word, non joint)</span>'; }
-      return '<label class="note"><input type="checkbox" data-pd-doc="'+echappe(f.id)+'|'+k+'"'+(k==='pose'?'':' checked')+'> '+DOCS_FICHE[k]+'</label>';
-    }).join(' ');
-    return '<div class="pd-fiche"><label><input type="checkbox" data-pd-annexe="'+f.id+'"'+(on?' checked':'')+'> '+echappe(nomFiche(f))+(on?' <span class="note">(ligne à 5,5 %)</span>':'')+'</label>'
-      +(dl?'<div class="pd-docs">'+dl+'</div>':'<div class="pd-docs note">aucun document</div>')+'</div>';
-  }).join('');
+      if(!pdf){ mots.push(dd.nom); return ''; }
+      return '<label class="note" style="margin:0"><input type="checkbox" data-pd-doc="'+echappe(f.id)+'|'+k+'"'+(k==='pose'?'':' checked')+'> '+DOCS_FICHE[k]+'</label>';
+    }).join('');
+    return '<div class="pd-fiche" style="display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;margin:2px 0">'
+      +'<label style="margin:0"><input type="checkbox" data-pd-annexe="'+f.id+'"'+(on?' checked':'')+'> '+echappe(nomFiche(f))+(on?' <span class="note">(5,5 %)</span>':'')+'</label>'
+      +(dl||'<span class="note">aucun document PDF</span>')+'</div>';
+  }).join('')+'</details>';
   if(mots.length) h+='<p class="note" style="color:#8a5a00">Documents Word non joints (ils ne se fusionnent pas) : '+echappe(mots.join(', '))+'. Enregistrez-les en PDF pour les inclure.</p>';
   return h+'</div>';
 }
@@ -8789,6 +8789,7 @@ $('ficheFichier').onchange=async function(){
     var data=await new Promise(function(ok,ko){ var r=new FileReader(); r.onload=function(){ ok(r.result); }; r.onerror=ko; r.readAsDataURL(fi); });
     c.f.docs[c.k]={nom:fi.name, mime:fi.type||(/\.pdf$/i.test(fi.name)?'application/pdf':''), data:data, taille:fi.size};
     if(!c.f.nom){ c.f.nom=fi.name.replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ').trim(); c.f.nomAuto=true; }
+    if(c.f._neuf && c.f.nom) delete c.f._neuf;
     await sauveFiche(c.f); renduFiches();
     if(c.k==='carac'||c.k==='dop') await relitFiche(c.f,false);
     else { etat.className='note ok'; etat.textContent='Document « '+fi.name+' » ajouté.'; }
