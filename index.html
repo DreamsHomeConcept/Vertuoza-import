@@ -1222,9 +1222,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.93';
-var DATE_VERSION = '09/10/2026 09h10';   /* date et heure de livraison */
-var NOTES = 'Champs date corrigés : la date de démarrage du chantier se tape ou se choisit avec 📅, et un clic sur les champs « Date des prix » ouvre le calendrier.';
+var VERSION = '3.94';
+var DATE_VERSION = '09/10/2026 09h15';   /* date et heure de livraison */
+var NOTES = 'Annexes du devis : la liste des fiches est repliée à l\'ouverture (cliquer sur son titre pour la déplier).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -7286,7 +7286,7 @@ function annexeHtml(d){
   var liste=FICHES.filter(function(f){ return !f._neuf; }).sort(function(a,b){ return (coches.indexOf(b.id)>-1)-(coches.indexOf(a.id)>-1); });
   if(!liste.length) return '<div class="cp-cases" id="pdAnnexe"><span class="champ">Annexes : fiches techniques</span><p class="note">Aucune fiche technique sur ce poste : importez-les dans Paramètres › Fiches techniques.</p></div>';
   var mots=[];
-  var h='<div class="cp-cases" id="pdAnnexe"><details open><summary class="champ" style="cursor:pointer">Annexes : fiches techniques (cochez ce que vous joignez)</summary>'+liste.map(function(f){
+  var h='<div class="cp-cases" id="pdAnnexe"><details><summary class="champ" style="cursor:pointer">Annexes : fiches techniques (cochez ce que vous joignez)</summary>'+liste.map(function(f){
     var on=coches.indexOf(f.id)>-1;
     var dl=Object.keys(DOCS_FICHE).filter(function(k){ return f.docs[k]; }).map(function(k){
       var dd=f.docs[k], pdf=/pdf/i.test(dd.mime||'')||/\.pdf$/i.test(dd.nom||'');
