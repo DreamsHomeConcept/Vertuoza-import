@@ -36,6 +36,8 @@ header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-con
 .logo{display:block;height:46px;width:auto;margin:0 0 10px}
 .client-liste{position:absolute;left:0;right:0;top:100%;z-index:40;background:#fff;border:1px solid var(--trait);border-radius:3px;box-shadow:0 4px 14px rgba(0,0,0,.15);max-height:300px;overflow:auto;margin-top:2px}
 .client-liste[hidden]{display:none}
+/* adresses de l'en-tête : une ligne quand vides, s'agrandissent avec l'adresse (v3.101) */
+.adr-auto{resize:none;overflow:hidden;line-height:1.4;min-height:0}
 /* croix ✕ dans le champ Client (v3.100) */
 .champ-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;cursor:pointer;color:var(--encre-faible);font-size:13px;padding:4px 6px;line-height:1}
 .champ-x:hover{color:var(--nuit)}
@@ -682,8 +684,8 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
       </div>
       <div style="position:relative"><label class="champ" for="fClient">Client</label><div style="position:relative"><input type="text" id="fClient" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="fClientListe" style="padding-right:30px"><button type="button" id="fClientX" class="champ-x" title="Effacer le client, son adresse et le contact de la base" aria-label="Effacer le client" hidden>✕</button></div><div id="fClientListe" class="client-liste" role="listbox" hidden></div></div>
       <div><label class="champ" for="fChantier">Chantier</label><input type="text" id="fChantier"></div>
-      <div><label class="champ" for="fAdrClient">Adresse du client</label><textarea id="fAdrClient" rows="2" placeholder="Numéro et rue&#10;Code postal VILLE" style="resize:vertical"></textarea></div>
-      <div><label class="champ" for="fAdrChantier">Adresse du chantier</label><textarea id="fAdrChantier" rows="2" placeholder="Vide : même adresse que le client" style="resize:vertical"></textarea></div>
+      <div><label class="champ" for="fAdrClient">Adresse du client</label><textarea id="fAdrClient" class="adr-auto" rows="1" placeholder="Numéro et rue, code postal VILLE"></textarea></div>
+      <div><label class="champ" for="fAdrChantier">Adresse du chantier</label><textarea id="fAdrChantier" class="adr-auto" rows="1" placeholder="Vide : même adresse que le client"></textarea></div>
       <div><label class="champ" for="fDepart">Départ des frais kilométriques</label><select id="fDepart" title="Adresse de départ pour le calcul des km (bouton 📍 sur une ligne de frais en km). Les adresses se règlent dans Paramètres › Société"></select></div>
       <div style="grid-column:1/-1"><span class="champ">Contacts</span><div id="fContacts"></div><button type="button" class="mini" id="fContactPlus" title="Ajouter un contact" style="margin-top:6px">+ Ajouter un contact</button></div>
       <div><label class="champ" for="fRef">Référence du devis</label><input type="text" id="fRef"></div>
@@ -1245,9 +1247,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.100';
-var DATE_VERSION = '10/10/2026 01h07';   /* date et heure de livraison */
-var NOTES = 'Champ Client : croix ✕ ; effacer le client efface aussi son adresse et le contact rempli par la base clients (↶ Annuler pour le remettre).';
+var VERSION = '3.101';
+var DATE_VERSION = '10/10/2026 01h23';   /* date et heure de livraison */
+var NOTES = 'Adresse du client et adresse du chantier : hauteur d’un champ normal quand elles sont vides, elles s’agrandissent pour montrer toute l’adresse.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1902,6 +1904,7 @@ function renduEntete(){
   $('fRef').value=d.entete.reference; $('fDate').value=d.entete.date;
   $('fAdrClient').value=d.entete.adresseClient||''; $('fAdrChantier').value=d.entete.adresseChantier||'';
   renduPliage();
+  ajusteAdresses();
   renduContacts();
   $('fFeuille').value=d.feuille; $('fTva').value=String(d.tva); $('fMode').value=d.mode||'client';
   $('fOrigine').value=d.origine||'concurrent';
@@ -4754,7 +4757,17 @@ $('stPlier').onclick=function(){
   var plie=!$('stPliable').hidden; $('stPliable').hidden=plie;
   this.setAttribute('aria-expanded',plie?'false':'true'); $('stPlierIco').textContent=plie?'▸':'▾';
 };
-$('fPlier').onclick=function(){ var d=D(); if(DEPLIES.has(d)) DEPLIES.delete(d); else DEPLIES.add(d); renduPliage(); };
+$('fPlier').onclick=function(){ var d=D(); if(DEPLIES.has(d)) DEPLIES.delete(d); else DEPLIES.add(d); renduPliage(); ajusteAdresses(); };
+/* hauteur des adresses : celle d'un champ normal si vide, sinon toute l'adresse sans défilement (v3.101) */
+function ajusteAdresse(t){
+  if(!t || t.offsetParent===null) return;
+  var base=($('fClient').offsetHeight||0);
+  t.style.height=base?base+'px':'';
+  if(t.value) t.style.height=Math.max(base,t.scrollHeight+(t.offsetHeight-t.clientHeight))+'px';
+}
+function ajusteAdresses(){ ajusteAdresse($('fAdrClient')); ajusteAdresse($('fAdrChantier')); }
+['fAdrClient','fAdrChantier'].forEach(function(id){ $(id).addEventListener('input',function(){ ajusteAdresse(this); }); });
+window.addEventListener('resize',function(){ ajusteAdresses(); });
 /* Base clients (v3.73) : import Excel (export des contacts Vertuoza ou fichier équivalent),
    gardée sur le poste (IndexedDB modeles, id clients:base), jamais en ligne ; incluse dans
    « Exporter mes réglages ». Saisie du client : liste dès 2 lettres, remplit nom, adresse,
