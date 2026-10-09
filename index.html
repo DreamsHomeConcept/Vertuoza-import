@@ -1048,7 +1048,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
     <div class="vue-param" data-vue="fiches">
     <h3 class="st">Fiches techniques</h3>
     <p class="note" style="margin-top:0">Un produit par fiche. Importez sa fiche (PDF ou Word) : les valeurs sont lues automatiquement. Vérifiez-les, puis choisissez le produit dans la fenêtre « Performances pour la TVA à 5,5 % » d'une ligne.</p>
-    <p style="margin:0 0 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="search" id="ficheCherche" placeholder="Rechercher : nom, marque, isolant, propriété, ACERMI, référence, usage…" style="flex:1 1 320px;max-width:520px"> <button type="button" class="mini" id="ficheAjout">+ Ajouter un produit</button></p>
+    <p style="margin:0 0 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="search" id="ficheCherche" placeholder="Rechercher : nom, marque, isolant, propriété, ACERMI, référence, usage…" style="flex:0 1 260px;max-width:260px"> <button type="button" class="mini" id="ficheAjoutFiche">+ Fiche technique</button> <button type="button" class="mini" id="ficheAjout">+ Ajouter un produit</button></p>
     <p class="note" id="ficheEtat"></p>
     <div id="ficheListe"></div>
     <input type="file" id="ficheFichier" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
@@ -1222,9 +1222,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.90';
-var DATE_VERSION = '09/10/2026 08h30';   /* date et heure de livraison */
-var NOTES = 'Fiches techniques : ajout d\'un produit simplifié (import de la fiche en tête de carte) ; une fiche vide sans nom n\'est plus gardée.';
+var VERSION = '3.91';
+var DATE_VERSION = '09/10/2026 08h35';   /* date et heure de livraison */
+var NOTES = 'Fiches techniques : bouton « + Fiche technique » (import direct, le produit prend le nom du fichier) ; barre de recherche plus courte.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -8737,6 +8737,10 @@ async function relitFiche(f,force){
 }
 var ficheCible=null, ficheEnCours=null;
 $('ficheCherche').addEventListener('input',renduFiches);
+/* « + Fiche technique » : choix du fichier tout de suite ; le produit est créé à l'import, son nom vient du fichier */
+$('ficheAjoutFiche').onclick=function(){
+  var f=nouvelleFiche(); ficheCible={f:f, k:'carac', nouvelle:true}; $('ficheFichier').value=''; $('ficheFichier').click();
+};
 $('ficheAjout').onclick=function(){
   var f=nouvelleFiche(); f._neuf=true; FICHES.unshift(f); ficheEnCours=f; renduFiches();
   var n=document.querySelector('#ficheListe input[data-fk="nom"]'); if(n) n.focus();
@@ -8779,6 +8783,7 @@ $('ficheListe').addEventListener('click',function(e){
 $('ficheFichier').onchange=async function(){
   var fi=this.files[0], c=ficheCible, etat=$('ficheEtat'); if(!fi||!c) return;
   if(/\.doc$/i.test(fi.name)){ etat.className='note err'; etat.textContent='Ancien format Word (.doc) : enregistrez-le en .docx ou en PDF, puis importez-le.'; return; }
+  if(c.nouvelle){ FICHES.unshift(c.f); c.nouvelle=false; }
   if(fi.size>15*1024*1024){ etat.className='note err'; etat.textContent='Fichier trop lourd (plus de 15 Mo).'; return; }
   try{
     var data=await new Promise(function(ok,ko){ var r=new FileReader(); r.onload=function(){ ok(r.result); }; r.onerror=ko; r.readAsDataURL(fi); });
