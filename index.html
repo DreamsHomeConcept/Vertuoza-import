@@ -1222,9 +1222,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.88';
-var DATE_VERSION = '09/10/2026 08h20';   /* date et heure de livraison */
-var NOTES = 'Annexes du devis : toutes les fiches du poste sont proposées, avec une case par produit et par document.';
+var VERSION = '3.89';
+var DATE_VERSION = '09/10/2026 08h25';   /* date et heure de livraison */
+var NOTES = 'Fiches techniques : une croix ✕ sur chaque ligne de produit pour le supprimer.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -8578,7 +8578,7 @@ function renduFiches(){
     var el=elig55Fiche(f), pr=propsFiche(f);
     var h='<details class="fiche-carte" data-fid="'+f.id+'"'+(ouverts[f.id]||f._neuf?' open':'')+'><summary><button type="button" class="etoile-f'+(f.fav?' on':'')+'" data-ffav="'+f.id+'" data-fid="'+f.id+'" title="'+(f.fav?'Retirer des favoris':'Mettre en favori')+'">'+(f.fav?'★':'☆')+'</button><b>'+echappe(nomFiche(f))+'</b> · '+FAM_FICHE[f.famille]+(pr?' · '+pr:'')
       +(f.famille==='isolation' && f.epaisseurs.length?' · '+f.epaisseurs.length+' épaisseur'+(f.epaisseurs.length>1?'s':''):'')
-      +' · '+Object.keys(DOCS_FICHE).filter(function(k){ return f.docs[k]; }).length+' document(s)'+(el?' <span class="badge-55f">'+el+'</span>':'')+'</summary><div class="fc-corps">';
+      +' · '+Object.keys(DOCS_FICHE).filter(function(k){ return f.docs[k]; }).length+' document(s)'+(el?' <span class="badge-55f">'+el+'</span>':'')+'<button type="button" class="mini" data-fsuppr="1" data-fid="'+f.id+'" style="margin-left:auto" title="Supprimer ce produit et ses documents de ce poste" aria-label="Supprimer ce produit">✕</button></summary><div class="fc-corps">';
     h+='<div class="grille-param">'+c('nom','Nom du produit','p-moyen','Rockmur kraft')
       +'<div class="p-court"><label class="champ">Type</label><select data-fid="'+f.id+'" data-fk="famille">'+Object.keys(FAM_FICHE).map(function(k){ return '<option value="'+k+'"'+(k===f.famille?' selected':'')+'>'+FAM_FICHE[k]+'</option>'; }).join('')+'</select></div>'
       +c('marque','Marque','p-court','Rockwool');
@@ -8755,6 +8755,7 @@ $('ficheListe').addEventListener('click',function(e){
   var b=e.target.closest('button'); if(!b) return;
   var f=ficheParId(b.getAttribute('data-fid')); if(!f) return;
   if(b.hasAttribute('data-ffav')){ e.preventDefault(); f.fav=!f.fav; sauveFiche(f); renduFiches(); return; }   /* l'étoile ne plie pas la carte */
+  if(b.hasAttribute('data-fsuppr') && b.closest('summary')) e.preventDefault();   /* la croix de la ligne ne plie pas la carte */
   if(b.hasAttribute('data-fepg')){ var cg=b.getAttribute('data-fepg'), ov=!EP_OUVERT[cg]; if(ov) EP_OUVERT[cg]=1; else delete EP_OUVERT[cg];
     Array.prototype.forEach.call(b.closest('table').querySelectorAll('tr[data-epg]'),function(r){ if(r.getAttribute('data-epg')===cg) r.hidden=!ov; });
     b.textContent=(ov?'▾':'▸')+b.textContent.slice(1); return; }
