@@ -455,6 +455,20 @@ body.lecture #pageDevis tr.r-chapitre td.des textarea:disabled,body.lecture #pag
 .conso .ttc b{color:var(--taupe)}
 .ch{display:grid;grid-template-columns:minmax(180px,2fr) repeat(4,minmax(90px,1fr)) auto;gap:10px;align-items:center;
   padding:10px 12px;border:1px solid var(--trait);border-left:4px solid var(--taupe);border-radius:2px;margin-bottom:6px;background:#fff;font-size:13px}
+/* recherche dans Mes chantiers (v3.97) : barre fine, loupe à gauche, croix pour effacer */
+.ch-entete{display:flex;align-items:center;gap:16px;margin-top:18px;margin-bottom:10px}
+.ch-entete h3.st{margin:0;flex:none}
+.ch-cherche{position:relative;flex:1;max-width:none;margin-left:12px;top:-7px}
+.ch-cherche input{width:100%;font:inherit;font-size:13px;height:28px;padding:0 28px 0 24px;border:0;border-bottom:1px solid var(--trait);border-radius:0;background:transparent no-repeat 4px center;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a7b66' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E")}
+.ch-cherche input:focus{outline:none;border-bottom-color:var(--taupe)}
+.ch-cherche button{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:none;cursor:pointer;color:var(--encre-faible);font-size:12px;padding:2px 6px;line-height:1}
+.ch-cherche button[hidden]{display:none}
+.ch.cache-filtre{display:none}
+.ch-plier{border:0;background:none;padding:0;cursor:pointer;font:inherit;color:inherit}
+#listeEnCours[hidden],#listeClos[hidden]{display:none}
+
+@media (max-width:640px){.ch-entete{flex-wrap:wrap}.ch-cherche{margin-left:0;flex-basis:100%}}
 .ch.clos{border-left-color:var(--trait);background:var(--taupe-voile);color:var(--encre-faible)}
 .ch.ouvert{border-left-color:var(--nuit)}
 .ch .t b{display:block;font-weight:600;color:var(--nuit)}
@@ -795,9 +809,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
   <div class="corps">
     <div id="chRecup"></div>
     <div class="conso" id="consoEnCours"></div>
-    <h3 class="st" style="margin-top:18px">En cours</h3>
+    <div class="ch-entete"><h3 class="st"><button type="button" class="ch-plier" data-plie="listeEnCours" aria-expanded="true" aria-controls="listeEnCours"><span aria-hidden="true">▾</span> En cours</button></h3>
+      <div class="ch-cherche"><input type="text" id="chCherche" placeholder="Rechercher un chantier, un client, un intervenant…" aria-label="Rechercher un chantier" autocomplete="off"><button type="button" id="chChercheX" title="Effacer la recherche" aria-label="Effacer la recherche" hidden>✕</button></div>
+    </div>
     <div id="listeEnCours"></div>
-    <h3 class="st" style="margin-top:22px">Clos</h3>
+    <h3 class="st" style="margin-top:22px"><button type="button" class="ch-plier" data-plie="listeClos" aria-expanded="true" aria-controls="listeClos"><span aria-hidden="true">▾</span> Clos</button></h3>
     <div id="listeClos"></div>
     <div class="rangee-boutons" id="chActualiser" hidden><button class="fant" id="btnActualiser">Actualiser</button></div>
     <p class="note" id="chAide" style="margin-top:16px">Chaque chantier est enregistré automatiquement sur ce poste à chaque modification. Fermer un onglet ne supprime rien : le chantier reste ici. « Clore » retire un chantier terminé de la consolidation sans l'effacer — à ne pas confondre avec l'archivage dans la base de prix.</p>
@@ -1224,9 +1240,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.97';
-var DATE_VERSION = '10/10/2026 00h01';   /* date et heure de livraison */
-var NOTES = 'Boutons + Chapitre, + Sous-chapitre, + Ligne et + Texte libre retirés sous le tableau (doublon du menu + de chaque ligne) ; devis vide : bouton + Chapitre dans le tableau.';
+var VERSION = '3.98';
+var DATE_VERSION = '10/10/2026 00h26';   /* date et heure de livraison */
+var NOTES = 'Mes chantiers : barre de recherche fine avec loupe (nom, client, intervenants, adresse), croix pour effacer ; listes En cours et Clos pliables (clic sur le titre).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -5239,7 +5255,9 @@ async function renduChantiers(){
   var ligne=function(r){
     var d=r.devis, c=chiffresChantier(d), ouvert=dossier.some(function(x){return x.id===r.id || x._source===r.id;});
     var type = d.mode==='st' ? c.nb+' intervenant'+(c.nb>1?'s':'') : 'devis unique';
-    return '<div class="ch'+(r.statut==='clos'?' clos':'')+(ouvert?' ouvert':'')+'">'
+    var noms={}; (d.lignes||[]).forEach(function(l){ if(l.intervenant) noms[l.intervenant]=1; });
+    var cle=sansAccentsCh([nomChantier(d),d.entete.client,d.entete.chantier,d.entete.numero,d.entete.adresseChantier,d.entete.adresseClient,d.feuille].concat(Object.keys(noms)).join(' '));
+    return '<div class="ch'+(r.statut==='clos'?' clos':'')+(ouvert?' ouvert':'')+'" data-cherche="'+echappe(cle)+'">'
       +'<div class="t"><b>'+echappe(nomChantier(d))+'</b><small>'+echappe(type)
         +(d.entete.client?' · '+echappe(d.entete.client):'')+' · modifié '+quand(r.maj)+(ouvert?' · ouvert':'')+'</small></div>'
       +'<div class="v"><small>Déboursé</small>'+eur(c.deb)+'</div>'
@@ -5256,7 +5274,37 @@ async function renduChantiers(){
   };
   $('listeEnCours').innerHTML = enCours.length ? enCours.map(ligne).join('') : '<p class="note">Aucun chantier en cours.</p>';
   $('listeClos').innerHTML = clos.length ? clos.map(ligne).join('') : '<p class="note">Aucun chantier clos.</p>';
+  filtreChantiers();
 }
+function sansAccentsCh(t){ return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' '); }
+/* filtre en direct : tous les mots tapés doivent se trouver dans le chantier (nom, client, intervenants, adresses, n°) */
+function filtreChantiers(){
+  var mots=sansAccentsCh($('chCherche').value).trim().split(' ').filter(Boolean);
+  $('chChercheX').hidden=!$('chCherche').value;
+  /* une recherche déplie les listes pliées, sinon on ne verrait pas le résultat */
+  if(mots.length) document.querySelectorAll('.ch-plier').forEach(function(bt){ var l=$(bt.getAttribute('data-plie')); if(l.hidden){ l.hidden=false; bt.setAttribute('aria-expanded','true'); bt.firstChild.textContent='▾'; } });
+  ['listeEnCours','listeClos'].forEach(function(id){
+    var boite=$(id), lignes=boite.querySelectorAll('.ch'), vus=0;
+    lignes.forEach(function(el){
+      var cle=el.getAttribute('data-cherche')||'';
+      var ok=mots.every(function(m){ return cle.indexOf(m)>=0; });
+      el.classList.toggle('cache-filtre',!ok); if(ok) vus++;
+    });
+    var rien=boite.querySelector('.rien-filtre');
+    if(lignes.length && !vus && mots.length){ if(!rien) boite.insertAdjacentHTML('beforeend','<p class="note rien-filtre">Aucun chantier ne correspond à la recherche.</p>'); }
+    else if(rien) rien.remove();
+  });
+}
+$('chCherche').addEventListener('input',filtreChantiers);
+$('chCherche').addEventListener('keydown',function(e){ if(e.key==='Escape'){ this.value=''; filtreChantiers(); } });
+/* plier / déplier les listes En cours et Clos (v3.97), dépliées à l'ouverture */
+document.querySelectorAll('.ch-plier').forEach(function(b){
+  b.onclick=function(){
+    var l=$(b.getAttribute('data-plie')), plie=!l.hidden; l.hidden=plie;
+    b.setAttribute('aria-expanded',plie?'false':'true'); b.firstChild.textContent=plie?'▸':'▾';
+  };
+});
+$('chChercheX').onclick=function(){ $('chCherche').value=''; filtreChantiers(); $('chCherche').focus(); };
 /* --------------- récupération des chantiers depuis la copie en ligne --------------- */
 /* Poste neuf, navigateur vidé : les chantiers présents en ligne mais absents du poste
    peuvent être rapatriés. Ils reviennent rangés, sans onglet ouvert, statut conservé. */
