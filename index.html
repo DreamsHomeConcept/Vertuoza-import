@@ -36,6 +36,10 @@ header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-con
 .logo{display:block;height:46px;width:auto;margin:0 0 10px}
 .client-liste{position:absolute;left:0;right:0;top:100%;z-index:40;background:#fff;border:1px solid var(--trait);border-radius:3px;box-shadow:0 4px 14px rgba(0,0,0,.15);max-height:300px;overflow:auto;margin-top:2px}
 .client-liste[hidden]{display:none}
+/* croix ✕ dans le champ Client (v3.100) */
+.champ-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;cursor:pointer;color:var(--encre-faible);font-size:13px;padding:4px 6px;line-height:1}
+.champ-x:hover{color:var(--nuit)}
+.champ-x[hidden]{display:none}
 .client-liste .cl-op{padding:6px 10px;cursor:pointer;font-size:13px;line-height:1.35;border-bottom:1px solid #F0ECE5}
 .client-liste .cl-op.actif,.client-liste .cl-op:hover{background:var(--taupe-voile)}
 .client-liste .cl-op small{display:block;color:var(--encre-faible);font-size:11.5px}
@@ -676,7 +680,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
           <option value="client">Notre devis client</option>
         </select>
       </div>
-      <div style="position:relative"><label class="champ" for="fClient">Client</label><input type="text" id="fClient" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="fClientListe"><div id="fClientListe" class="client-liste" role="listbox" hidden></div></div>
+      <div style="position:relative"><label class="champ" for="fClient">Client</label><div style="position:relative"><input type="text" id="fClient" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="fClientListe" style="padding-right:30px"><button type="button" id="fClientX" class="champ-x" title="Effacer le client, son adresse et le contact de la base" aria-label="Effacer le client" hidden>✕</button></div><div id="fClientListe" class="client-liste" role="listbox" hidden></div></div>
       <div><label class="champ" for="fChantier">Chantier</label><input type="text" id="fChantier"></div>
       <div><label class="champ" for="fAdrClient">Adresse du client</label><textarea id="fAdrClient" rows="2" placeholder="Numéro et rue&#10;Code postal VILLE" style="resize:vertical"></textarea></div>
       <div><label class="champ" for="fAdrChantier">Adresse du chantier</label><textarea id="fAdrChantier" rows="2" placeholder="Vide : même adresse que le client" style="resize:vertical"></textarea></div>
@@ -1241,9 +1245,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.99';
-var DATE_VERSION = '10/10/2026 00h28';   /* date et heure de livraison */
-var NOTES = 'Devis neuf : une ligne chapitre prête à remplir (retirée si un devis est importé) ; bouton Cohérent masqué sur un devis vide et sans contour beige.';
+var VERSION = '3.100';
+var DATE_VERSION = '10/10/2026 01h07';   /* date et heure de livraison */
+var NOTES = 'Champ Client : croix ✕ ; effacer le client efface aussi son adresse et le contact rempli par la base clients (↶ Annuler pour le remettre).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1894,6 +1898,7 @@ function renduOnglets(){
 function renduEntete(){
   var d=D();
   $('fClient').value=d.entete.client; $('fChantier').value=d.entete.chantier;
+  $('fClientX').hidden=!d.entete.client;
   $('fRef').value=d.entete.reference; $('fDate').value=d.entete.date;
   $('fAdrClient').value=d.entete.adresseClient||''; $('fAdrChantier').value=d.entete.adresseChantier||'';
   renduPliage();
@@ -4382,10 +4387,11 @@ function majBoutonAnnuler(){
 function annuler(){
   var d=D(); if(!d) return;
   var h=HIST[d.id]||[], cur=etatLignes(d);
-  while(h.length && h[h.length-1].etat===cur) h.pop();
+  while(h.length && h[h.length-1].etat===cur && !h[h.length-1].ent) h.pop();
   if(!h.length){ info('Rien à annuler.',100,'avertit'); majBoutonAnnuler(); return; }
   var e=h.pop(), o=JSON.parse(e.etat);
   d.lignes=o.l; d.replis=o.r;
+  if(e.ent) Object.assign(d.entete,JSON.parse(e.ent));   /* client effacé (v3.100) */
   if(typeof SEL!=='undefined'){ SEL.dossier=d.id; SEL.ids=e.sel||{}; }
   rendu(); majBoutonAnnuler();
   info('Annulé : '+e.quoi+'.',100,'ok');
@@ -4918,6 +4924,28 @@ function choisitClient(c){
   clientChoix=[]; montreClients();
   diffuse(); rendu();
 }
+/* Effacer le client (v3.100) : nom, adresse du client et contact rempli par la base clients ;
+   les contacts tapés à la main, le chantier et son adresse restent. ↶ Annuler remet tout. */
+var avantClient='';
+$('fClient').addEventListener('beforeinput',function(){ avantClient=D().entete.client||''; });
+function effaceClient(ancien){
+  var d=D(), e=d.entete;
+  if(!d._lecture){
+    var h=HIST[d.id]||(HIST[d.id]=[]);
+    h.push({etat:etatLignes(d), quoi:'effacement du client', ent:JSON.stringify({client:ancien, adresseClient:e.adresseClient||'', contacts:contactsDe(d)})});
+    if(h.length>20) h.shift(); majBoutonAnnuler();
+  }
+  e.client=''; e.adresseClient='';
+  e.contacts=contactsDe(d).filter(function(x){ return !x.base; });
+  clientChoix=[]; montreClients();
+  diffuse(); rendu();
+  info('Client effacé : nom, adresse et contact de la base. ↶ Annuler pour le remettre.',100,'ok');
+}
+$('fClientX').onclick=function(){ effaceClient(D().entete.client||''); $('fClient').focus(); };
+$('fClient').addEventListener('input',function(){
+  $('fClientX').hidden=!this.value;
+  if(!this.value.trim() && avantClient.trim()){ effaceClient(avantClient); return; }
+});
 $('fClient').addEventListener('input',function(){ clientChoix=chercheClients(this.value); clientActif=-1; montreClients(); });
 $('fClient').addEventListener('keydown',function(ev){
   if($('fClientListe').hidden) return;
