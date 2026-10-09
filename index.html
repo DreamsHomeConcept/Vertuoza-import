@@ -103,6 +103,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .garde-carte .gc-champs .grille-param{margin-bottom:8px}
 .grille-param{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-start;margin-bottom:12px}
 .grille-param[hidden]{display:none}
+.grille-55 label.champ{line-height:1.5;min-height:3em}   /* intitulés sur deux lignes : les champs restent alignés */
 .grille-param>div{min-width:0}
 .grille-param .p-methode{flex:0 1 230px}
 .grille-param .p-cle{flex:1 1 320px;max-width:520px}
@@ -947,7 +948,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
 
     <h3 class="st">TVA à 5,5 % : performances minimales</h3>
     <p class="note" style="margin-top:0">Une ligne à 5,5 % (isolation, fenêtre, porte d'entrée) est contrôlée avec ces seuils : pastille sur la ligne et alerte à la création du PDF. Les murs intérieurs et cloisons ne sont jamais éligibles (article 18 bis de l'annexe IV du CGI).</p>
-    <div class="grille-param">
+    <div class="grille-param grille-55">
       <div class="p-court"><label class="champ" for="s55_perdus">Isolation combles perdus</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_perdus" data-s55="perdus" inputmode="decimal"><span>m².K/W</span></div></div>
       <div class="p-court"><label class="champ" for="s55_combles">Isolation rampants et plafonds de combles</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_combles" data-s55="combles" inputmode="decimal"><span>m².K/W</span></div></div>
       <div class="p-court"><label class="champ" for="s55_terrasses">Isolation toitures-terrasses</label><div class="unite-champ"><span>R ≥</span><input type="text" id="s55_terrasses" data-s55="terrasses" inputmode="decimal"><span>m².K/W</span></div></div>
@@ -1246,9 +1247,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.104';
-var DATE_VERSION = '10/10/2026 01h36';   /* date et heure de livraison */
-var NOTES = 'Paramètres › Société : phrase d\'aide du haut de l\'onglet retirée.';
+var VERSION = '3.105';
+var DATE_VERSION = '10/10/2026 01h44';   /* date et heure de livraison */
+var NOTES = 'Paramètres › TVA à 5,5 % : les champs de seuils sont alignés même quand un intitulé passe sur deux lignes.';
 /* =================================================================== */
 (function(){
 'use strict';
