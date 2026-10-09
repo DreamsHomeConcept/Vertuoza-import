@@ -1047,7 +1047,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
 
     <div class="vue-param" data-vue="fiches">
     <h3 class="st">Fiches techniques</h3>
-    <p class="note" style="margin-top:0">Un produit par fiche : isolant, fenêtre ou porte. Importez sa fiche Caractéristiques ou sa DOP (PDF ou Word) : λ, versions, ACERMI, épaisseurs et R (ou Uw, Sw, Ud) sont lus automatiquement, avec l'IA quand la clé est renseignée. Vérifiez les valeurs lues. Le produit se choisit ensuite dans la fenêtre « Performances pour la TVA à 5,5 % » d'une ligne. L'étoile ☆ met un produit ou une épaisseur en favori : seuls les favoris y sont proposés (« Afficher tout » montre le reste) ; un produit en favori sans épaisseur étoilée garde toutes ses épaisseurs. La pastille verte indique les épaisseurs éligibles au taux réduit. Le prix indicatif s'affiche dans cette fenêtre, sans remplir le prix de la ligne. Les fiches restent sur ce poste ; « Exporter mes réglages » les copie avec leurs documents.</p>
+    <p class="note" style="margin-top:0">Un produit par fiche. Importez sa fiche (PDF ou Word) : les valeurs sont lues automatiquement. Vérifiez-les, puis choisissez le produit dans la fenêtre « Performances pour la TVA à 5,5 % » d'une ligne.</p>
     <p style="margin:0 0 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="search" id="ficheCherche" placeholder="Rechercher : nom, marque, isolant, propriété, ACERMI, référence, usage…" style="flex:1 1 320px;max-width:520px"> <button type="button" class="mini" id="ficheAjout">+ Ajouter un produit</button></p>
     <p class="note" id="ficheEtat"></p>
     <div id="ficheListe"></div>
@@ -1222,9 +1222,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.89';
-var DATE_VERSION = '09/10/2026 08h25';   /* date et heure de livraison */
-var NOTES = 'Fiches techniques : une croix ✕ sur chaque ligne de produit pour le supprimer.';
+var VERSION = '3.90';
+var DATE_VERSION = '09/10/2026 08h30';   /* date et heure de livraison */
+var NOTES = 'Fiches techniques : ajout d\'un produit simplifié (import de la fiche en tête de carte) ; une fiche vide sans nom n\'est plus gardée.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -8562,6 +8562,8 @@ function groupesEp(f){
 }
 function renduFiches(){
   var zone=$('ficheListe'); if(!zone) return;
+  /* une fiche ajoutée puis laissée vide disparaît (ni nom ni document) */
+  FICHES=FICHES.filter(function(f){ return !(f._neuf && f!==ficheEnCours && !f.nom && !Object.keys(f.docs||{}).length); });
   if(!FICHES.length){ zone.innerHTML='<p class="note">Aucun produit pour l\'instant : « + Ajouter un produit », puis importez sa fiche.</p>'; return; }
   /* recherche : tous les mots tapés doivent se trouver dans la fiche (sans tenir compte des accents) */
   var q=sansAccent(($('ficheCherche')||{}).value||'').split(/\s+/).filter(Boolean);
@@ -8579,6 +8581,7 @@ function renduFiches(){
     var h='<details class="fiche-carte" data-fid="'+f.id+'"'+(ouverts[f.id]||f._neuf?' open':'')+'><summary><button type="button" class="etoile-f'+(f.fav?' on':'')+'" data-ffav="'+f.id+'" data-fid="'+f.id+'" title="'+(f.fav?'Retirer des favoris':'Mettre en favori')+'">'+(f.fav?'★':'☆')+'</button><b>'+echappe(nomFiche(f))+'</b> · '+FAM_FICHE[f.famille]+(pr?' · '+pr:'')
       +(f.famille==='isolation' && f.epaisseurs.length?' · '+f.epaisseurs.length+' épaisseur'+(f.epaisseurs.length>1?'s':''):'')
       +' · '+Object.keys(DOCS_FICHE).filter(function(k){ return f.docs[k]; }).length+' document(s)'+(el?' <span class="badge-55f">'+el+'</span>':'')+'<button type="button" class="mini" data-fsuppr="1" data-fid="'+f.id+'" style="margin-left:auto" title="Supprimer ce produit et ses documents de ce poste" aria-label="Supprimer ce produit">✕</button></summary><div class="fc-corps">';
+    h+='<p style="margin:0 0 8px"><button type="button" class="mini" data-fimp="carac" data-fid="'+f.id+'">Importer la fiche (PDF ou Word)</button> <span class="note">'+(f.docs.carac?'Fiche : '+echappe(f.docs.carac.nom):'Aucune fiche importée')+'</span></p>';
     h+='<div class="grille-param">'+c('nom','Nom du produit','p-moyen','Rockmur kraft')
       +'<div class="p-court"><label class="champ">Type</label><select data-fid="'+f.id+'" data-fk="famille">'+Object.keys(FAM_FICHE).map(function(k){ return '<option value="'+k+'"'+(k===f.famille?' selected':'')+'>'+FAM_FICHE[k]+'</option>'; }).join('')+'</select></div>'
       +c('marque','Marque','p-court','Rockwool');
@@ -8613,7 +8616,6 @@ function renduFiches(){
     }).join('')+'</div>';
     h+='<p style="margin:10px 0 0"><button type="button" class="mini" data-frelit="'+f.id+'"'+(f.docs.carac||f.docs.dop?'':' disabled')+' title="Relit la fiche Caractéristiques et la DOP et remplace les valeurs">Relire les documents</button> '
       +'<button type="button" class="mini" data-fsuppr="'+f.id+'">Supprimer le produit</button></p></div></details>';
-    delete f._neuf;
     return h;
   }).join('');
 }
@@ -8733,10 +8735,10 @@ async function relitFiche(f,force){
     : f.famille==='fenetre' ? 'Uw '+(f.uw?fmt55(f.uw):'non trouvé')+', Sw '+(f.sw?fmt55(f.sw):'non trouvé') : 'Ud '+(f.ud?fmt55(f.ud):'non trouvé');
   etat.className='note ok'; etat.textContent='Valeurs lues pour « '+nomFiche(f)+' » : '+resume+'. Vérifiez-les et corrigez si besoin.'+(scans.length?' '+scans.join(' et ')+' scanné'+(scans.length>1?'s':'')+' : non lu sans la clé IA.':'');
 }
-var ficheCible=null;
+var ficheCible=null, ficheEnCours=null;
 $('ficheCherche').addEventListener('input',renduFiches);
 $('ficheAjout').onclick=function(){
-  var f=nouvelleFiche(); f._neuf=true; FICHES.unshift(f); sauveFiche(f); renduFiches();
+  var f=nouvelleFiche(); f._neuf=true; FICHES.unshift(f); ficheEnCours=f; renduFiches();
   var n=document.querySelector('#ficheListe input[data-fk="nom"]'); if(n) n.focus();
 };
 $('ficheListe').addEventListener('change',function(e){
@@ -8747,7 +8749,7 @@ $('ficheListe').addEventListener('change',function(e){
   if(t){ var row=f[t][+x.getAttribute('data-fi')]; if(!row) return; var ancien=row[k]; row[k]=num?nb55(val):val.trim();
          if(t==='versions' && k==='nom'){ f.epaisseurs.forEach(function(y){ if(y.version===ancien) y.version=row.nom; }); if(EP_OUVERT[cleEp(f,ancien)]) EP_OUVERT[cleEp(f,row.nom)]=1; } }
   else { f[k]=num?nb55(val):val.trim(); if(k==='nom') delete f.nomAuto; }
-  sauveFiche(f);
+  sauveFiche(f); if(f._neuf && f.nom){ delete f._neuf; ficheEnCours=null; }
   if(t==='epaisseurs' && k==='version'){ EP_OUVERT[cleEp(f,row.version)]=1; renduFiches(); return; }
   if(k==='famille' || k==='nom' || k==='prix' || k==='up' || k==='r' || k==='uw' || k==='sw' || k==='ud' || (t==='versions' && k==='nom')) renduFiches();
 });
