@@ -176,7 +176,11 @@ button.mini.plein:hover{background:var(--nuit-clair)}
 .depot strong{font-weight:600;color:var(--nuit)}
 /* zone de dépôt des devis d'origine plus étroite et centrée, bouton bibliothèque centré dessous (v3.82) */
 #depot{max-width:520px;margin-left:auto;margin-right:auto}
-#depot+.rangee-boutons{justify-content:center}
+#depot+.rangee-boutons{justify-content:center;margin-top:6px}
+/* bloc « Les devis d'origine » moins haut (v3.96) */
+#depot{padding:10px 20px}
+#depot p{margin-top:2px}
+#stPliable[hidden]{display:none}
 
 .etat{margin-top:12px;font-size:13px;display:none}
 .etat.on{display:block}
@@ -729,9 +733,11 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
 
     <div id="recapSt" hidden>
       <hr class="separateur">
-      <h3 class="st">Intervenants du chantier <span id="recapNb" class="droite"></span></h3>
+      <h3 class="st"><button type="button" id="stPlier" aria-expanded="true" aria-controls="stPliable" title="Plier ou déplier les intervenants" style="border:0;background:none;padding:0;cursor:pointer;font:inherit;color:inherit"><span id="stPlierIco" aria-hidden="true">▾</span> Intervenants du chantier</button> <span id="recapNb" class="droite"></span></h3>
+      <div id="stPliable">
       <div id="comparatif"></div>
       <div class="intervenants" id="listeSt"></div>
+      </div>
       <datalist id="listeLots"></datalist>
     </div>
 
@@ -1222,9 +1228,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.95';
-var DATE_VERSION = '09/10/2026 09h35';   /* date et heure de livraison */
-var NOTES = 'Fiches techniques : la barre de recherche a la même hauteur que les boutons à côté.';
+var VERSION = '3.96';
+var DATE_VERSION = '09/10/2026 19h58';   /* date et heure de livraison */
+var NOTES = 'Bloc « Les devis d’origine » moins haut ; Intervenants du chantier pliable (clic sur le titre).';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4733,6 +4739,11 @@ function renduPliage(){
   if(d.margeActive) r.push('marge '+String(d.marge).replace('.',',')+' %');
   $('fResume').textContent='· '+r.join(' · '); $('fResume').hidden=!plie;
 }
+/* Intervenants du chantier : plier / déplier (v3.96), déplié à l'ouverture */
+$('stPlier').onclick=function(){
+  var plie=!$('stPliable').hidden; $('stPliable').hidden=plie;
+  this.setAttribute('aria-expanded',plie?'false':'true'); $('stPlierIco').textContent=plie?'▸':'▾';
+};
 $('fPlier').onclick=function(){ var d=D(); if(DEPLIES.has(d)) DEPLIES.delete(d); else DEPLIES.add(d); renduPliage(); };
 /* Base clients (v3.73) : import Excel (export des contacts Vertuoza ou fichier équivalent),
    gardée sur le poste (IndexedDB modeles, id clients:base), jamais en ligne ; incluse dans
