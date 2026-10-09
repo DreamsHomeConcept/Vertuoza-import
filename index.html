@@ -769,10 +769,6 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
       </table>
     </div>
     <div class="rangee-boutons" style="justify-content:center">
-      <button id="addChap">+ Chapitre</button>
-      <button id="addSous">+ Sous-chapitre</button>
-      <button id="addLigne">+ Ligne</button>
-      <button class="fant" id="addTexte">+ Texte libre</button>
       <button class="fant" id="btnExportDevis">Export Excel</button>
       <button class="fant" id="btnDevisPdf" title="Devis au format DHC, prêt à envoyer au client">Devis client PDF</button>
       <button class="fant" id="btnExportDpgf" hidden>Exporter le DPGF complété</button>
@@ -1228,9 +1224,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.96';
-var DATE_VERSION = '09/10/2026 19h58';   /* date et heure de livraison */
-var NOTES = 'Bloc « Les devis d’origine » moins haut ; Intervenants du chantier pliable (clic sur le titre).';
+var VERSION = '3.97';
+var DATE_VERSION = '10/10/2026 00h01';   /* date et heure de livraison */
+var NOTES = 'Boutons + Chapitre, + Sous-chapitre, + Ligne et + Texte libre retirés sous le tableau (doublon du menu + de chaque ligne) ; devis vide : bouton + Chapitre dans le tableau.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -2339,7 +2335,7 @@ function rendu(){
   numerote(d);
   var tb=$('corpsTable');
   if(!d.lignes.length){
-    tb.innerHTML='<tr class="ligne-vide"><td colspan="'+nbColonnes()+'">Aucune ligne. Importez un devis PDF ou ajoutez un chapitre.</td></tr>';
+    tb.innerHTML='<tr class="ligne-vide"><td colspan="'+nbColonnes()+'">Aucune ligne. Importez un devis PDF ou <button type="button" class="mini" id="ajoutPremier">+ Chapitre</button></td></tr>';
     majTotaux(); appliqueLecture(); majPastilleCoherence(); return;
   }
   var M=lignesMasquees(d);
@@ -4699,27 +4695,12 @@ function annuleSuppression(){
   annuler();
 }
 
-$('addChap').onclick=function(){ memorise(D(),'ajout d\'un chapitre'); D().lignes.push(nouvelleLigne('chapitre')); rendu(); };
-$('addSous').onclick=function(){ memorise(D(),'ajout d\'un sous-chapitre'); D().lignes.push(nouvelleLigne('sous')); rendu(); };
-/* « + Ligne » et « + Texte libre » en bas : à la fin du dernier bloc VISIBLE, jamais
-   dans une option repliée ou un bloc fermé où la ligne disparaîtrait. */
-function ajouteEnBas(type){
-  var d=D(), M=lignesMasquees(d), pos=d.lignes.length;
-  for(var k=d.lignes.length-1;k>=0;k--){
-    var r=d.lignes[k];
-    if(M.caches[k]) continue;
-    if((r.type==='chapitre'||r.type==='sous') && (estReplie(d,r) || r.option)) continue;
-    pos=bloc(d,k).fin;
-    if(r.type!=='chapitre' && r.type!=='sous'){ pos=k+1; }
-    break;
-  }
-  if(k<0) pos=d.lignes.length;
-  memorise(d,'ajout d\'un élément');
-  var neuve=insereLigne(d,type,pos,null);
-  rendu(); montreLigne(neuve.id);
-}
-$('addLigne').onclick=function(){ ajouteEnBas('ligne'); };
-$('addTexte').onclick=function(){ ajouteEnBas('texte'); };
+/* + Chapitre / + Sous-chapitre / + Ligne / + Texte libre sous le tableau retirés (v3.97, doublon du menu « + » de chaque ligne) ;
+   devis vide : bouton « + Chapitre » dans le tableau */
+$('corpsTable').addEventListener('click',function(e){
+  if(!e.target.closest('#ajoutPremier')) return;
+  memorise(D(),'ajout d\'un chapitre'); var c=nouvelleLigne('chapitre'); D().lignes.push(c); rendu(); montreLigne(c.id);
+});
 ['fClient','fChantier','fRef','fDate','fAdrClient','fAdrChantier'].forEach(function(id){
   $(id).addEventListener('input',function(){
     D().entete[{fClient:'client',fChantier:'chantier',fRef:'reference',fDate:'date',fAdrClient:'adresseClient',fAdrChantier:'adresseChantier'}[id]]=this.value; diffuse();
