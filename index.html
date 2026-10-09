@@ -102,6 +102,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--taupe);outline-o
 .garde-carte .gc-champs{flex:1 1 auto;min-width:0}
 .garde-carte .gc-champs .grille-param{margin-bottom:8px}
 .grille-param{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-start;margin-bottom:12px}
+.grille-param[hidden]{display:none}
 .grille-param>div{min-width:0}
 .grille-param .p-methode{flex:0 1 230px}
 .grille-param .p-cle{flex:1 1 320px;max-width:520px}
@@ -1247,9 +1248,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.101';
-var DATE_VERSION = '10/10/2026 01h23';   /* date et heure de livraison */
-var NOTES = 'Adresse du client et adresse du chantier : hauteur d’un champ normal quand elles sont vides, elles s’agrandissent pour montrer toute l’adresse.';
+var VERSION = '3.102';
+var DATE_VERSION = '10/10/2026 01h26';   /* date et heure de livraison */
+var NOTES = 'Paramètres › Société : chaque bloc (identité, adresses, contacts, légaux, assurance, médiateur) se plie et se déplie par son titre.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -8388,11 +8389,12 @@ var SOC_CHAMPS=[
                 ['assRue','Rue de l\'assureur','p-moyen'],['assCp','Code postal','p-court'],['assVille','Ville','p-court'],['assPays','Pays','p-court']]],
   ['Médiateur de la consommation (article 17 des CGV)',[['medNom','Nom','p-cle'],['medAdresse','Adresse','p-moyen'],['medTel','Téléphone','p-court'],['medWeb','Site','p-moyen']]]
 ];
+var SOC_PLIES={};   /* sections pliées pendant la session (toutes dépliées à l'ouverture) */
 function renduSociete(){
   var x=societe();
-  $('socForm').innerHTML=SOC_CHAMPS.map(function(g){
-    var sec=g[1][0][0]==='secRue';
-    return '<h3 class="st" style="margin-top:6px">'+g[0]+'</h3><div class="grille-param">'
+  $('socForm').innerHTML=SOC_CHAMPS.map(function(g,i){
+    var sec=g[1][0][0]==='secRue', ferme=!!SOC_PLIES[i];
+    return '<h3 class="st" style="margin-top:6px"><button type="button" data-soc-plie="'+i+'" aria-expanded="'+(!ferme)+'" aria-controls="socSec'+i+'" style="border:0;background:none;padding:0;cursor:pointer;font:inherit;color:inherit"><span aria-hidden="true">'+(ferme?'▸':'▾')+'</span> '+g[0]+'</button></h3><div class="grille-param" id="socSec'+i+'"'+(ferme?' hidden':'')+'>'
       +g[1].map(function(c){ return '<div class="'+c[2]+'"><label class="champ" for="soc_'+c[0]+'">'+c[1]+'</label>'
         +'<input type="text" id="soc_'+c[0]+'" data-soc="'+c[0]+'" spellcheck="false" value="'+echappe(x[c[0]])+'"></div>'; }).join('')
       +(sec?'<div class="p-croix"><button type="button" class="mini" id="socEffacerSec" aria-label="Effacer l\'adresse secondaire" title="Vider l\'adresse secondaire : le départ des km revient au siège">✕</button></div>':'')
@@ -8400,6 +8402,12 @@ function renduSociete(){
   }).join('');
 }
 renduSociete();
+$('socForm').addEventListener('click',function(e){
+  var b=e.target.closest('[data-soc-plie]'); if(!b) return;
+  var i=b.getAttribute('data-soc-plie'), corps=$('socSec'+i), ferme=!corps.hidden;
+  SOC_PLIES[i]=ferme; corps.hidden=ferme;
+  b.setAttribute('aria-expanded',String(!ferme)); b.firstChild.textContent=ferme?'▸':'▾';
+});
 $('socForm').addEventListener('change',function(e){
   var k=e.target.getAttribute('data-soc'); if(!k) return;
   params.societe=params.societe||{}; params.societe[k]=e.target.value.trim(); sauveParams();
