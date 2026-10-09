@@ -363,6 +363,7 @@ tr.r-ligne.r-masque textarea{color:#6d6d6d}
 .pastille-coh.ok{background:#e3f2e6;color:#23633a}
 .pastille-coh.moyen{background:#fff3d6;color:#7a5a00}
 .pastille-coh.ko{background:#f8e1df;color:#9b2c24;border-color:#9b2c24}
+.pied .pastille-coh:not(.ko){border-color:transparent}   /* sans le contour beige des boutons de la barre (v3.99) */
 ul.coh{margin:4px 0 10px;padding-left:18px;font-size:13px;line-height:1.7}
 ul.coh li.ko{color:#9b2c24} ul.coh li.moyen{color:#6a5200}
 tr.eclair td{background:#fff3c4 !important;transition:background .4s}
@@ -1240,9 +1241,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.98';
-var DATE_VERSION = '10/10/2026 00h26';   /* date et heure de livraison */
-var NOTES = 'Mes chantiers : barre de recherche fine avec loupe (nom, client, intervenants, adresse), croix pour effacer ; listes En cours et Clos pliables (clic sur le titre).';
+var VERSION = '3.99';
+var DATE_VERSION = '10/10/2026 00h28';   /* date et heure de livraison */
+var NOTES = 'Devis neuf : une ligne chapitre prête à remplir (retirée si un devis est importé) ; bouton Cohérent masqué sur un devis vide et sans contour beige.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1348,6 +1349,11 @@ function normaliseUnite(u){
 function nouvelleLigne(type,d){
   return Object.assign({id:'l'+(++seq)+'_'+SESSION,type:type||'ligne',designation:'',marche:'',unite:'',qte:0,pu:0,tva:null,intervenant:'',option:false,variante:null},d||{});
 }
+/* devis neuf ouvert à la main (premier onglet, « + devis ») : une ligne chapitre prête à remplir (v3.99).
+   Elle est « vierge » tant qu'elle n'a pas d'intitulé : un import PDF/Excel ou un modèle la retire. */
+function devisNeuf(nom){ var d=nouveauDevis(nom); d.lignes.push(nouvelleLigne('chapitre',{vierge:true})); return d; }
+function estVierge(r){ return r && r.vierge && r.type==='chapitre' && !String(r.designation||'').trim(); }
+function retireVierge(d){ if(d && d.lignes.length===1 && estVierge(d.lignes[0])) d.lignes=[]; }
 function nouveauDevis(nom){
   return {id:'d'+(++seqD)+'_'+SESSION, statut:'en_cours', maj:Date.now(), mode:'client', origine:'concurrent', archive:false,
           typeProjet:'', surface:0,
@@ -2272,7 +2278,8 @@ function controleCoherence(d){
 function majPastilleCoherence(){
   var b=$('btnCoherence'); if(!b) return;
   var d=D();
-  if(!d || !d.lignes.length){ b.hidden=true; return; }
+  /* devis vide (aucune ligne chiffrée, même s'il a déjà un chapitre) : rien à contrôler, pastille masquée */
+  if(!d || !d.lignes.some(function(x){ return x.type==='ligne'; })){ b.hidden=true; return; }
   var r=controleCoherence(d);
   b.hidden=false;
   b.className='pastille-coh '+(r.ecarts.length?'ko':(r.alertes.length?'moyen':'ok'));
@@ -2603,7 +2610,7 @@ function effaceChantier(id){
   });
 }
 function estVide(d){
-  return !d.lignes.length && !d.entete.chantier && !d.entete.client && !d.texteBrut;
+  return !d.lignes.some(function(r){ return !estVierge(r); }) && !d.entete.chantier && !d.entete.client && !d.texteBrut;
 }
 /* ================= INFORMATIONS CHANTIER =================
    Surface réalisée et hauteur sous plafond, tirées des champs du devis, dans un premier
@@ -2833,7 +2840,7 @@ async function fermeOnglet(i){
     await ecrisChantier({id:d.id, ouvert:false, ordre:999, statut:d.statut||'en_cours', maj:d.maj||Date.now(), devis:d});
   } else if(!stockageOk && d.lignes.length && !confirm('La sauvegarde n\'est pas disponible sur ce poste : fermer « '+d.feuille+' » effacera son contenu. Continuer ?')) return;
   dossier.splice(i,1);
-  if(!dossier.length) dossier.push(nouveauDevis('Devis'));
+  if(!dossier.length) dossier.push(devisNeuf('Devis'));
   if(actif>=dossier.length) actif=dossier.length-1;
   rendu();
 }
@@ -3281,7 +3288,7 @@ async function dialogueInsertion(){
      }}]);
 }
 function integreModeles(modeles,surface,ajuste){
-  var d=D();
+  var d=D(); retireVierge(d);
   /* Modèle seul dans un dossier vide : ses sections deviennent les chapitres du devis,
      numérotés 01, 02, 03. Dès qu'un autre intervenant est présent, le chapitre au nom
      du modèle est conservé pour garder le repère « qui fait quoi ». */
@@ -3936,7 +3943,7 @@ $('onglets').addEventListener('click',function(e){
     fermeOnglet(parseInt(sup,10)); return;
   }
   var o=e.target.closest('.onglet'); if(!o) return;
-  if(o.getAttribute('data-nouveau')){ dossier.push(nouveauDevis('Devis '+(dossier.length+1))); actif=dossier.length-1; rendu(); return; }
+  if(o.getAttribute('data-nouveau')){ dossier.push(devisNeuf('Devis '+(dossier.length+1))); actif=dossier.length-1; rendu(); return; }
   actif=parseInt(o.getAttribute('data-i'),10); rendu();
 });
 
@@ -5374,7 +5381,7 @@ $('pageChantiers').addEventListener('click',async function(e){
     await effaceChantier(id);
     if(cleRemplie(params.cleEdition)){ var att=suppressionsEnAttente(); if(att.indexOf(id)<0) att.push(id); ecritSuppressions(att); planifieSync(); }
     var k=dossier.findIndex(function(x){return x.id===id;});
-    if(k>-1){ dossier.splice(k,1); if(!dossier.length) dossier.push(nouveauDevis('Devis')); if(actif>=dossier.length) actif=dossier.length-1; }
+    if(k>-1){ dossier.splice(k,1); if(!dossier.length) dossier.push(devisNeuf('Devis')); if(actif>=dossier.length) actif=dossier.length-1; }
     rendu(); renduChantiers();
   }
 });
@@ -5562,6 +5569,7 @@ async function traiteLot(liste){
 }
 
 async function traiteUn(f,prefixe,idx,total){
+  retireVierge(D());   /* chapitre vierge du démarrage : laisse la place aux lignes importées */
   var base=function(p){ return Math.round(((idx+p/100)/total)*100); };
   /* Un DPGF reçu d'un maître d'œuvre : cadre de réponse, pas un devis. */
   if(estExcel(f)){
@@ -8064,7 +8072,7 @@ $('btnInstaller').onclick=function(){
 window.addEventListener('appinstalled',function(){ $('btnInstaller').style.display='none'; });
 
 /* -------------------------------- démarrage ------------------------------ */
-dossier.push(nouveauDevis('Devis'));
+dossier.push(devisNeuf('Devis'));
 chargeParams();
 $('mode').value=params.mode;
 $('tvaDef').value=String(params.tvaDefaut);
