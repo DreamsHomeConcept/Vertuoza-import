@@ -1222,9 +1222,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.87';
-var DATE_VERSION = '09/10/2026 01h05';   /* date et heure de livraison */
-var NOTES = 'Fiches techniques : familles « Autre » (produit libre) et tableau Caractéristiques (libellé, valeur, unité) pour tout produit.';
+var VERSION = '3.88';
+var DATE_VERSION = '09/10/2026 08h20';   /* date et heure de livraison */
+var NOTES = 'Annexes du devis : toutes les fiches du poste sont proposées, avec une case par produit et par document.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -6789,6 +6789,8 @@ function dialogueDevisPdf(force){
   };
   var lisConds=function(){ var l=condParts(); return Array.prototype.filter.call(document.querySelectorAll('[data-pd-cond]'),function(x){ return x.checked; }).map(function(x){ return l[+x.getAttribute('data-pd-cond')]; }); };
   var lisAnnexe=function(){ return Array.prototype.filter.call(document.querySelectorAll('[data-pd-annexe]'),function(x){ return x.checked; }).map(function(x){ return x.getAttribute('data-pd-annexe'); }); };
+  /* documents cochés par produit (les produits décochés sont ignorés) */
+  var lisAnnexeDocs=function(){ var r={}; Array.prototype.forEach.call(document.querySelectorAll('[data-pd-doc]'),function(x){ if(!x.checked) return; var m=x.getAttribute('data-pd-doc').split('|'); (r[m[0]]=r[m[0]]||[]).push(m[1]); }); return r; };
   var lisForm=function(){
     var r=resps.find(function(x){ return x.nom===v('pdResp'); })||{nom:'',email:'',tel:''};
     var c=comptes[+v('pdCompte')]||comptes[0]||{banque:'',iban:'',bic:''};
@@ -6797,7 +6799,7 @@ function dialogueDevisPdf(force){
             adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'), demarrage:frDate(v('pdDemarrage')),
             acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
             resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:pm,
-            typeClient:v('pdType')||'part', conds:lisConds(), garde:v('pdGarde'), annexe:lisAnnexe()};
+            typeClient:v('pdType')||'part', conds:lisConds(), garde:v('pdGarde'), annexe:lisAnnexe(), annexeDocs:lisAnnexeDocs()};
   };
   setTimeout(function(){ ajouteCalendrier($('pdDate')); cases(condsDevis(e,d)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value},d)); if(!d._lecture){ d.entete.typeClient=this.value; var nt=regleTva(d); if(nt.length) info('⚠ '+nt.join(' ; ⚠ ')+'.',100,'avertit'); rendu(); } }; },0);
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
@@ -7264,7 +7266,6 @@ async function genereDevisPdf(d,o,apercu){
 }
 
 /* ---- annexe « fiches techniques » : produits des lignes à 5,5 % ayant une fiche, cases à décocher dans la fenêtre ---- */
-var DOCS_ANNEXE=['carac','dop','certif'];
 function annexeDevis(d){
   var l=[];
   (d.lignes||[]).forEach(function(r){
@@ -7274,13 +7275,21 @@ function annexeDevis(d){
   return l;
 }
 function annexeHtml(d){
-  var l=annexeDevis(d);
-  if(!l.length) return '<div class="cp-cases" id="pdAnnexe"><span class="champ">Annexe : fiches techniques</span><p class="note">Aucune ligne à 5,5 % n\'a de fiche technique : pas d\'annexe.</p></div>';
+  var coches=annexeDevis(d).map(function(f){ return f.id; });
+  /* toutes les fiches du poste ; celles des lignes à 5,5 % d'abord, cochées */
+  var liste=FICHES.filter(function(f){ return !f._neuf; }).sort(function(a,b){ return (coches.indexOf(b.id)>-1)-(coches.indexOf(a.id)>-1); });
+  if(!liste.length) return '<div class="cp-cases" id="pdAnnexe"><span class="champ">Annexes : fiches techniques</span><p class="note">Aucune fiche technique sur ce poste : importez-les dans Paramètres › Fiches techniques.</p></div>';
   var mots=[];
-  var h='<div class="cp-cases" id="pdAnnexe"><span class="champ">Annexe : fiches techniques</span>'+l.map(function(f){
-    var docs=DOCS_ANNEXE.filter(function(k){ return f.docs[k]; });
-    docs.forEach(function(k){ var dd=f.docs[k]; if(!/pdf/i.test(dd.mime||'') && !/\.pdf$/i.test(dd.nom||'')) mots.push(dd.nom); });
-    return '<label><input type="checkbox" data-pd-annexe="'+f.id+'" checked> '+echappe(nomFiche(f))+' <span class="note">('+(docs.map(function(k){ return DOCS_FICHE[k]; }).join(', ')||'aucun document')+')</span></label>';
+  var h='<div class="cp-cases" id="pdAnnexe"><span class="champ">Annexes : fiches techniques (cochez ce que vous joignez)</span>'+liste.map(function(f){
+    var on=coches.indexOf(f.id)>-1;
+    var docs=Object.keys(DOCS_FICHE).filter(function(k){ return f.docs[k]; });
+    var dl=docs.map(function(k){
+      var dd=f.docs[k], pdf=/pdf/i.test(dd.mime||'')||/\.pdf$/i.test(dd.nom||'');
+      if(!pdf){ mots.push(dd.nom); return '<span class="note">'+DOCS_FICHE[k]+' (Word, non joint)</span>'; }
+      return '<label class="note"><input type="checkbox" data-pd-doc="'+echappe(f.id)+'|'+k+'"'+(k==='pose'?'':' checked')+'> '+DOCS_FICHE[k]+'</label>';
+    }).join(' ');
+    return '<div class="pd-fiche"><label><input type="checkbox" data-pd-annexe="'+f.id+'"'+(on?' checked':'')+'> '+echappe(nomFiche(f))+(on?' <span class="note">(ligne à 5,5 %)</span>':'')+'</label>'
+      +(dl?'<div class="pd-docs">'+dl+'</div>':'<div class="pd-docs note">aucun document</div>')+'</div>';
   }).join('');
   if(mots.length) h+='<p class="note" style="color:#8a5a00">Documents Word non joints (ils ne se fusionnent pas) : '+echappe(mots.join(', '))+'. Enregistrez-les en PDF pour les inclure.</p>';
   return h+'</div>';
@@ -7291,7 +7300,8 @@ function paquetAnnexe(d,o){
     var f=ficheParId(id); if(!f) return null;
     var ep=[];
     (d.lignes||[]).forEach(function(r){ if(r.perf && r.perf.fiche===id && r.perf.epaisseur && ep.indexOf(r.perf.epaisseur)<0) ep.push(r.perf.epaisseur); });
-    return {f:f, ep:ep.map(function(e){ return fmt55(e,0)+' mm'; })};
+    var docs=(o.annexeDocs && o.annexeDocs[id]) || Object.keys(DOCS_FICHE).filter(function(k){ return f.docs[k]; });
+    return {f:f, ep:ep.map(function(e){ return fmt55(e,0)+' mm'; }), docs:docs};
   }).filter(Boolean);
 }
 /* page de garde simple de l'annexe : logo, titre, liste des produits */
@@ -7317,7 +7327,7 @@ function gardeAnnexe(paquet,o){
     if(x.ep.length) det.push('Épaisseur : '+x.ep.join(', '));
     if(x.f.famille==='isolation' && x.f.lambda) det.push('λ = '+fmt55(x.f.lambda,3)+' W/m.K');
     if(propsFiche(x.f)) det.push('Propriété : '+propsFiche(x.f));
-    var docs=DOCS_ANNEXE.filter(function(k){ return x.f.docs[k] && (/pdf/i.test(x.f.docs[k].mime||'')||/\.pdf$/i.test(x.f.docs[k].nom||'')); }).map(function(k){ return DOCS_FICHE[k]; });
+    var docs=x.docs.filter(function(k){ return x.f.docs[k] && (/pdf/i.test(x.f.docs[k].mime||'')||/\.pdf$/i.test(x.f.docs[k].nom||'')); }).map(function(k){ return DOCS_FICHE[k]; });
     if(docs.length) det.push('Documents joints : '+docs.join(', '));
     det.forEach(function(l){ var dl=doc.splitTextToSize(l,W-2*M); doc.text(dl,M,y); y+=dl.length*4.6; });
     y+=5;
@@ -7328,7 +7338,7 @@ function gardeAnnexe(paquet,o){
 async function fusionneAnnexe(devis,paquet,o){
   var P=window.PDFLib, out=await P.PDFDocument.create();
   var parts=[devis, new Uint8Array(gardeAnnexe(paquet,o).output('arraybuffer'))];
-  paquet.forEach(function(x){ DOCS_ANNEXE.forEach(function(k){ var dd=x.f.docs[k]; if(dd && (/pdf/i.test(dd.mime||'')||/\.pdf$/i.test(dd.nom||''))) parts.push(dataUrlVersOctets(dd.data)); }); });
+  paquet.forEach(function(x){ x.docs.forEach(function(k){ var dd=x.f.docs[k]; if(dd && (/pdf/i.test(dd.mime||'')||/\.pdf$/i.test(dd.nom||''))) parts.push(dataUrlVersOctets(dd.data)); }); });
   for(var i=0;i<parts.length;i++){
     var src=await P.PDFDocument.load(parts[i],{ignoreEncryption:true});
     var pages=await out.copyPages(src,src.getPageIndices());
