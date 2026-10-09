@@ -1222,9 +1222,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.92';
-var DATE_VERSION = '09/10/2026 08h45';   /* date et heure de livraison */
-var NOTES = 'Annexes du devis : une ligne par produit, documents à côté, liste repliable (plier / déplier).';
+var VERSION = '3.93';
+var DATE_VERSION = '09/10/2026 09h10';   /* date et heure de livraison */
+var NOTES = 'Champs date corrigés : la date de démarrage du chantier se tape ou se choisit avec 📅, et un clic sur les champs « Date des prix » ouvre le calendrier.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -4970,6 +4970,12 @@ function ajouteCalendrier(champ){
   calendrierTexte(champ,w.querySelector('.btn-cal'),w.querySelector('.cal-cache'));
 }
 calendrierTexte($('fDate'),$('fDateCal'),$('fDatePick'));
+/* champs date du navigateur (Date des prix…) : le 📅 dessiné ne réagissait pas au clic ;
+   un clic sur le champ ouvre maintenant le calendrier (v3.93) */
+document.addEventListener('click',function(e){
+  var c=e.target; if(!c || c.tagName!=='INPUT' || c.type!=='date' || c.classList.contains('cal-cache') || c.disabled || c.readOnly) return;
+  try{ if(c.showPicker) c.showPicker(); }catch(er){}
+});
 $('fFeuille').addEventListener('input',function(){ D().feuille=this.value; renduOnglets(); });
 $('fTva').addEventListener('change',function(){ D().tva=parseFloat(this.value); rendu(); });
 function borneMarge(v){
@@ -6763,7 +6769,7 @@ function dialogueDevisPdf(force){
     +'</select></div>'
     +zone('pdAdrClient','Adresse du client',e.adresseClient,'Numéro et rue\nCode postal VILLE')
     +zone('pdAdrChantier','Adresse du chantier',e.adresseChantier,'Vide : même adresse que le client')
-    +'<div><label class="champ" for="pdDemarrage">Date de démarrage du chantier</label><input type="date" id="pdDemarrage" value="'+echappe(isoDate(e.demarrage))+'" title="Vide : rien sur le devis"></div>'
+    +'<div><label class="champ" for="pdDemarrage">Date de démarrage du chantier</label><input type="text" id="pdDemarrage" value="'+echappe(isoDate(e.demarrage)?frDate(isoDate(e.demarrage)):(e.demarrage||''))+'" placeholder="jj/mm/aaaa" title="Vide : rien sur le devis"></div>'
     +'<div><label class="champ" for="pdPaie">Méthode de paiement</label><select id="pdPaie">'
     +paies.map(function(m,i){ return '<option value="'+i+'"'+(m===paieChoisie?' selected':'')+'>'+echappe(m)+'</option>'; }).join('')
     +'</select></div>'
@@ -6796,12 +6802,12 @@ function dialogueDevisPdf(force){
     var c=comptes[+v('pdCompte')]||comptes[0]||{banque:'',iban:'',bic:''};
     var pm=paies[+v('pdPaie')]||paies[0];
     return {numero:v('pdNum'), date:v('pdDate'), client:v('pdClient'), reference:v('pdRef'),
-            adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'), demarrage:frDate(v('pdDemarrage')),
+            adresseClient:v('pdAdrClient'), adresseChantier:v('pdAdrChantier')||v('pdAdrClient'), demarrage:(dateIso(v('pdDemarrage'))?frDate(dateIso(v('pdDemarrage'))):v('pdDemarrage').trim()),
             acomptes:lisAcomptes(params.devisAcomptes||ACOMPTES_DEF),
             resp:r.nom, email:r.email, tel:r.tel, banque:c.banque, iban:c.iban, bic:c.bic, paiement:pm,
             typeClient:v('pdType')||'part', conds:lisConds(), garde:v('pdGarde'), annexe:lisAnnexe(), annexeDocs:lisAnnexeDocs()};
   };
-  setTimeout(function(){ ajouteCalendrier($('pdDate')); cases(condsDevis(e,d)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value},d)); if(!d._lecture){ d.entete.typeClient=this.value; var nt=regleTva(d); if(nt.length) info('⚠ '+nt.join(' ; ⚠ ')+'.',100,'avertit'); rendu(); } }; },0);
+  setTimeout(function(){ ajouteCalendrier($('pdDate')); ajouteCalendrier($('pdDemarrage')); cases(condsDevis(e,d)); $('pdType').onchange=function(){ cases(condsDevis({typeClient:this.value},d)); if(!d._lecture){ d.entete.typeClient=this.value; var nt=regleTva(d); if(nt.length) info('⚠ '+nt.join(' ; ⚠ ')+'.',100,'avertit'); rendu(); } }; },0);
   ouvreModale('Devis client PDF — '+(d.feuille||'devis'),corps,[
     {lib:'Annuler', action:function(){}},
     /* Aperçu : le PDF tel qu'il partira, dans un nouvel onglet ; rien n'est enregistré, aucun numéro consommé */
