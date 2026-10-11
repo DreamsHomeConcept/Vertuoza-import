@@ -860,6 +860,7 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
     <button type="button" role="tab" data-ong="prix">Prix et marges</button>
     <button type="button" role="tab" data-ong="pdf">Devis</button>
     <button type="button" role="tab" data-ong="garde">Page de garde</button>
+    <button type="button" role="tab" data-ong="fin">Page de fin</button>
     <button type="button" role="tab" data-ong="fiches">Fiches techniques</button>
     <button type="button" role="tab" data-ong="export">Export Vertuoza</button>
     <button type="button" role="tab" data-ong="classement">Classement</button>
@@ -1070,6 +1071,15 @@ input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer;wid
     <p class="note" id="gardeEtat"></p>
     </div>
 
+    <div class="vue-param" data-vue="fin">
+    <h3 class="st">Pages de fin du devis</h3>
+    <p class="note" style="margin-top:0">Dernière page du devis, imprimée après les CGV et avant les annexes. Importez une page complète, format A4 (PDF ou image). Une seule page peut être jointe au devis à la fois.</p>
+    <p style="margin:0 0 10px"><button type="button" class="mini" id="finAjout">+ Ajouter une page de fin</button></p>
+    <div id="finListe"></div>
+    <input type="file" id="finFichier" accept=".pdf,application/pdf,image/jpeg,image/png" hidden>
+    <p class="note" id="finEtat"></p>
+    </div>
+
     <div class="vue-param" data-vue="fiches">
     <h3 class="st">Fiches techniques</h3>
     <p class="note" style="margin-top:0">Un produit par fiche. Importez sa fiche (PDF ou Word) : les valeurs sont lues automatiquement. Vérifiez-les, puis choisissez le produit dans la fenêtre « Performances pour la TVA à 5,5 % » d'une ligne.</p>
@@ -1247,9 +1257,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.106';
-var DATE_VERSION = '10/10/2026 01h49';   /* date et heure de livraison */
-var NOTES = 'Le logo DHC ramène à la page d\'accueil (les devis).';
+var VERSION = '3.107';
+var DATE_VERSION = '11/10/2026 02h09';   /* date et heure de livraison */
+var NOTES = 'Nouvel onglet Paramètres › Page de fin : plusieurs modèles, un seul joint au devis, placé après les CGV et avant les annexes.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -1309,6 +1319,7 @@ var params = {
   devisResps:[],         /* responsables proposés dans le devis client : {nom, email, tel} */
   seuils55:{perdus:7, combles:6, terrasses:4.5, murs:3.7, ite:3.7, planchers:3, uw1:1.3, sw1:0.3, uw2:1.7, sw2:0.36, ud:1.7},   /* TVA 5,5 % : performances minimales */
   gardes:null,   /* pages de garde : réglages (les images sont dans IndexedDB, id « garde:… ») */
+  pagesFin:null,   /* pages de fin : noms et page jointe (images dans IndexedDB, id « fin:… ») */
   condParts:null,   /* conditions particulières du devis client ; null = bibliothèque d'origine (COND_PARTS_DEF) */
   devisPaiements:['Virement bancaire'],
   frais:[{nom:'Frais kilométriques', unite:'km', cout:null, marge:0, client:'afficher'}],   /* types de frais proposés en tapant « frais » dans une ligne */   /* méthodes de paiement du devis client ; la première est la méthode par défaut */
@@ -1387,7 +1398,7 @@ function sauveParams(){
     sbUrl:params.sbUrl, sbCle:params.sbCle, sbAuto:params.sbAuto,
     cleEdition:params.cleEdition||'', cleConsult:params.cleConsult||'', biblioSeule:!!params.biblioSeule,
     devisProchain:params.devisProchain, devisResp:params.devisResp, devisEmail:params.devisEmail, devisTel:params.devisTel,
-    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, frais:params.frais, societe:params.societe, cgv:params.cgv, condParts:params.condParts, seuils55:params.seuils55, gardes:params.gardes
+    devisIban:params.devisIban, devisBic:params.devisBic, devisAcomptes:params.devisAcomptes, devisResps:params.devisResps, devisComptes:params.devisComptes, devisPaiements:params.devisPaiements, frais:params.frais, societe:params.societe, cgv:params.cgv, condParts:params.condParts, seuils55:params.seuils55, gardes:params.gardes, pagesFin:params.pagesFin
   }));
 }
 /* copie des réglages d'un poste à l'autre : jamais les clés ni le compteur de devis */
@@ -1396,7 +1407,7 @@ function exporteReglages(){
   sauveParams();
   var o={}; try{ o=JSON.parse(lisStockage(CLE_PARAMS)||'{}'); }catch(e){}
   REGLAGES_LOCAUX.forEach(function(k){ delete o[k]; });
-  var f={type:'dhc-reglages', version:VERSION, date:new Date().toISOString(), params:o, gardes:Object.assign({},GARDE_IMG), fiches:FICHES, clients:CLIENTS_BASE};   /* + fiches techniques avec leurs documents */   /* images des pages de garde */
+  var f={type:'dhc-reglages', version:VERSION, date:new Date().toISOString(), params:o, gardes:Object.assign({},GARDE_IMG), fins:Object.assign({},PAGE_FIN_IMG), fiches:FICHES, clients:CLIENTS_BASE};   /* + fiches techniques avec leurs documents */   /* images des pages de garde */
   var blob=new Blob([JSON.stringify(f,null,1)],{type:'application/json'}), a=document.createElement('a');
   var j=new Date(), nom='Reglages DHC '+j.getFullYear()+'-'+pad2(j.getMonth()+1)+'-'+pad2(j.getDate())+'.json';
   a.href=URL.createObjectURL(blob); a.download=nom; document.body.appendChild(a); a.click();
@@ -1417,7 +1428,8 @@ function importeReglages(fichier){
     e.className='etat-sync ok'; e.textContent='Réglages importés. La page se recharge…';
     var fiches=Array.isArray(f.fiches)?f.fiches.filter(function(x){ return x && x.type==='fiche' && /^fiche:/.test(String(x.id)); }):[];
     var cl=(f.clients && Array.isArray(f.clients.liste)) ? [ecrisModele({id:'clients:base', type:'clients', liste:f.clients.liste, fichier:f.clients.fichier||'', date:f.clients.date||Date.now()})] : [];
-    Promise.all(imgs.map(function(k){ return ecrisModele({id:'garde:'+k, type:'garde', image:f.gardes[k]}); }).concat(fiches.map(ecrisModele)).concat(cl))
+    var fins=f.fins && typeof f.fins==='object' ? Object.keys(f.fins).filter(function(k){ return /^data:image\/(jpeg|png);base64,/.test(String(f.fins[k])); }) : [];
+    Promise.all(imgs.map(function(k){ return ecrisModele({id:'garde:'+k, type:'garde', image:f.gardes[k]}); }).concat(fins.map(function(k){ return ecrisModele({id:'fin:'+k, type:'fin', image:f.fins[k]}); })).concat(fiches.map(ecrisModele)).concat(cl))
       .then(function(){ setTimeout(function(){ location.reload(); },600); });
   };
   lu.readAsText(fichier);
@@ -1465,6 +1477,7 @@ function chargeParams(){
       .map(function(c){ var x={nom:String(c.nom||''), texte:String(c.texte||''), types:Array.isArray(c.types)?c.types.filter(function(t){ return TYPES_CLIENT[t]; }):[]};
         if(typeof c.auto==='string') x.auto=c.auto; return x; });
     if(Array.isArray(o.gardes)) params.gardes=o.gardes.filter(function(g){ return g && typeof g==='object' && typeof g.id==='string'; });
+    if(Array.isArray(o.pagesFin)) params.pagesFin=o.pagesFin.filter(function(x){ return x && typeof x.id==='string'; });
     if(Array.isArray(o.devisPaiements)) params.devisPaiements=o.devisPaiements.filter(function(x){ return typeof x==='string'; });
     if(Array.isArray(o.frais)) params.frais=o.frais.filter(function(x){ return x && typeof x==='object'; }).map(function(x){
       var n=function(v){ v=parseFloat(v); return isFinite(v)?v:null; };
@@ -3030,7 +3043,7 @@ var CATEGORIES={neuf:'Devis type — neuf', renovation:'Devis type — rénovati
 function lisModeles(){
   return new Promise(function(ok){
     if(!BASE) return ok([]);
-    try{ var q=magasin('readonly','modeles').getAll(); q.onsuccess=function(){ ok((q.result||[]).filter(function(m){ return m.type!=='garde' && m.type!=='fiche' && m.type!=='clients'; })); }; q.onerror=function(){ ok([]); }; }
+    try{ var q=magasin('readonly','modeles').getAll(); q.onsuccess=function(){ ok((q.result||[]).filter(function(m){ return m.type!=='garde' && m.type!=='fin' && m.type!=='fiche' && m.type!=='clients'; })); }; q.onerror=function(){ ok([]); }; }
     catch(e){ ok([]); }
   });
 }
@@ -7335,6 +7348,9 @@ async function genereDevisPdf(d,o,apercu){
   var debutCgv=doc.getNumberOfPages();
   pageCgv(doc,gras,normal,NUIT,TAUPE,ENCRE,o.acomptes.length?o.acomptes[0].pc:30);
   var nbPages=doc.getNumberOfPages();
+  /* page de fin : après les CGV, sans pied ni numéro, non comptée (comme la page de garde) */
+  var finImg=pageFinJointe();
+  if(finImg){ doc.addPage(); doc.addImage(finImg,'JPEG',0,0,210,297); }
 
   /* pied et numéros de page */
   for(var p=1;p<=nbPages;p++){
@@ -8623,6 +8639,78 @@ $('gardeFichier').onchange=async function(){
     etat.className='note'; etat.textContent='Page importée ('+Math.round(url.length*0.75/1024)+' Ko)'+(lu.champs.length?', '+lu.champs.length+' mot'+(lu.champs.length>1?'s':'')+'-clé'+(lu.champs.length>1?'s':'')+' reconnu'+(lu.champs.length>1?'s':'')+' : '+lu.champs.map(function(c){ return '{'+c.cle+'}'; }).join(' '):'')+'. Pour la copier sur un autre poste : À propos › Exporter mes réglages.';
   }catch(err){ etat.style.color='#a33'; etat.textContent='Import impossible : '+(err&&err.message||err); }
 };
+/* ========================== PAGE DE FIN ==========================
+   Dernière page du devis (après les CGV, avant les annexes), importée comme la page de garde.
+   Plusieurs modèles par poste ; un seul est joint au devis (case « Joindre au devis »).
+   Images dans IndexedDB (modeles, type 'fin') ; noms et choix dans params.pagesFin. */
+var PAGE_FIN_IMG={}, finCible='';
+function pagesFin(){
+  var s=Array.isArray(params.pagesFin)?params.pagesFin:[];
+  return s.filter(function(p){ return p && p.id; }).map(function(p){
+    return {id:String(p.id), nom:String(p.nom||'Page de fin'), joint:!!p.joint};
+  });
+}
+function sauvePagesFin(l){ params.pagesFin=l; sauveParams(); }
+function pageFinJointe(){
+  var p=pagesFin().find(function(x){ return x.joint && PAGE_FIN_IMG[x.id]; });
+  return p?PAGE_FIN_IMG[p.id]:'';
+}
+function chargePagesFin(){
+  if(!BASE) return;
+  try{
+    var q=magasin('readonly','modeles').getAll();
+    q.onsuccess=function(){ (q.result||[]).forEach(function(m){ if(m.type==='fin' && m.image) PAGE_FIN_IMG[m.id.slice(4)]=m.image; }); renduPagesFin(); };
+  }catch(e){}
+}
+function renduPagesFin(){
+  var zone=$('finListe'); if(!zone) return;
+  zone.innerHTML=pagesFin().map(function(p){
+    return '<div class="garde-carte">'
+      +(PAGE_FIN_IMG[p.id]?'<img src="'+PAGE_FIN_IMG[p.id]+'" alt="" style="width:150px;height:auto;border:1px solid var(--trait)">':'<div class="note" style="width:150px">Pas encore de page importée</div>')
+      +'<div class="gc-champs"><div class="grille-param"><div class="p-moyen"><label class="champ" for="fin_'+p.id+'">Nom</label><input type="text" id="fin_'+p.id+'" data-f-nom="'+p.id+'" value="'+echappe(p.nom)+'"></div></div>'
+      +'<p style="margin:6px 0"><label class="note" style="margin:0"><input type="checkbox" data-f-joint="'+p.id+'"'+(p.joint?' checked':'')+'> Joindre au devis (une seule page à la fois)</label></p>'
+      +'<p style="margin:4px 0"><button type="button" class="mini" data-f-imp="'+p.id+'">'+(PAGE_FIN_IMG[p.id]?'Remplacer la page':'Importer la page')+'</button> <button type="button" class="mini" data-f-suppr="'+p.id+'">Supprimer</button></p>'
+      +'</div></div>';
+  }).join('');
+}
+renduPagesFin();
+$('finAjout').onclick=function(){
+  var l=pagesFin(); l.push({id:'f'+Date.now().toString(36), nom:'Page de fin '+(l.length+1), joint:false});
+  sauvePagesFin(l); renduPagesFin();
+};
+$('finListe').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b) return;
+  if(b.hasAttribute('data-f-imp')){ finCible=b.getAttribute('data-f-imp'); $('finFichier').value=''; $('finFichier').click(); return; }
+  if(b.hasAttribute('data-f-suppr')){
+    var id=b.getAttribute('data-f-suppr'), p=pagesFin().find(function(x){ return x.id===id; });
+    if(!p || !confirm('Supprimer la page de fin « '+p.nom+' » ?')) return;
+    sauvePagesFin(pagesFin().filter(function(x){ return x.id!==id; }));
+    delete PAGE_FIN_IMG[id]; effaceModele('fin:'+id).then(renduPagesFin).catch(renduPagesFin);
+  }
+});
+$('finListe').addEventListener('change',function(e){
+  var j=e.target.getAttribute('data-f-joint'), n=e.target.getAttribute('data-f-nom');
+  if(j){
+    var l=pagesFin(); l.forEach(function(x){ x.joint = x.id===j && e.target.checked; });
+    sauvePagesFin(l); renduPagesFin(); return;
+  }
+  if(n){
+    var l2=pagesFin(); l2.forEach(function(x){ if(x.id===n) x.nom=e.target.value.trim()||'Page de fin'; });
+    sauvePagesFin(l2);
+  }
+});
+$('finFichier').onchange=async function(){
+  var f=this.files[0], etat=$('finEtat'); if(!f||!finCible) return;
+  etat.className='note'; etat.textContent='Préparation de la page…';
+  try{
+    var url=(await imageGarde(f)).url;
+    if(!BASE) throw new Error('sauvegarde locale indisponible sur ce navigateur');
+    await ecrisModele({id:'fin:'+finCible, type:'fin', image:url, maj:Date.now()});
+    PAGE_FIN_IMG[finCible]=url; renduPagesFin();
+    etat.textContent='Page importée ('+Math.round(url.length*0.75/1024)+' Ko).';
+  }catch(err){ etat.style.color='#a33'; etat.textContent='Import impossible : '+(err&&err.message||err); }
+};
+
 /* ========================== FICHES TECHNIQUES ============================
    Bibliothèque des produits (isolants, fenêtres, portes) : documents du fabricant
    (caractéristiques, DOP, certifications, mise en œuvre) et valeurs lues dedans.
@@ -9303,7 +9391,7 @@ routeur();
   try{
     if(!window.indexedDB) throw new Error('indisponible');
     BASE=await ouvreBase(); stockageOk=true;
-    chargeGardes(); chargeFiches(); chargeClients();
+    chargeGardes(); chargePagesFin(); chargeFiches(); chargeClients();
     setTimeout(function(){ if(peutPublier()) synchronise(); },3000);
     setTimeout(recoitModeles,5000);
     var recs=await lisTous();
