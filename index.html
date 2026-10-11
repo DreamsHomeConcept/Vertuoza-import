@@ -1257,9 +1257,9 @@ var RES_PDF={
    Fichier unique, sans build. v2 : dossier multi-devis, TVA, paramètres.
    ========================================================================= */
 /* ===== VERSION — le seul endroit à modifier à chaque livraison ===== */
-var VERSION = '3.107';
-var DATE_VERSION = '11/10/2026 02h09';   /* date et heure de livraison */
-var NOTES = 'Nouvel onglet Paramètres › Page de fin : plusieurs modèles, un seul joint au devis, placé après les CGV et avant les annexes.';
+var VERSION = '3.108';
+var DATE_VERSION = '11/10/2026 02h30';   /* date et heure de livraison */
+var NOTES = 'Devis PDF : « Référence à indiquer sur le virement » suit les conditions de paiement, avec le numéro du devis.';
 /* =================================================================== */
 (function(){
 'use strict';
@@ -7301,8 +7301,9 @@ async function genereDevisPdf(d,o,apercu){
     });
   }
   if(o.acomptes.length) y+=4.6;   /* une ligne d'espace après les acomptes */
-  if(y+8.8>H-basPage-2){ doc.addPage(); y=20; }
+  if(y+17.6>H-basPage-2){ doc.addPage(); y=20; }   /* les deux lignes ci-dessous restent ensemble */
   ecritDessous('Conditions de paiements :','Paiement comptant à la réception de la facture');   /* après les acomptes, avant les méthodes (Moussa) */
+  ecritDessous('Référence à indiquer sur le virement :',String(o.numero||''));   /* numéro du devis (toujours présent) */
   var paie=o.paiement||'Virement bancaire';
   y+=4.6;   /* une ligne d'espace avant les méthodes de paiement */
   /* le bloc (titre, méthode, coordonnées bancaires) reste entier : sinon il passe à la page suivante */
